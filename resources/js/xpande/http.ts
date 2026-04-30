@@ -1,4 +1,4 @@
-import axios from "axios";
+import { httpClient as axios } from "../http/client";
 
 axios.defaults.headers.common['X-Requested-With'] = 'XMLHttpRequest';
 axios.defaults.withCredentials = true;

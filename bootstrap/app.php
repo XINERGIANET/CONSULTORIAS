@@ -11,6 +11,8 @@ return Application::configure(basePath: dirname(__DIR__))
         health: '/up',
     )
     ->withMiddleware(function (Middleware $middleware): void {
+        // Tras Nginx/Ingress HTTPS, sin esto Laravel puede ver HTTP y las cookies/session no encajan bien.
+        $middleware->trustProxies(at: '*');
         $middleware->alias([
             'superadmin' => \App\Http\Middleware\EnsureSuperadmin::class,
         ]);
