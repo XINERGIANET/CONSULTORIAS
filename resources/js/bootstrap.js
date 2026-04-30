@@ -1,6 +1,7 @@
 import { httpClient } from './http/client';
 
-<<<<<<< HEAD
+window.axios = httpClient;
+
 window.axios.defaults.headers.common['X-Requested-With'] = 'XMLHttpRequest';
 window.axios.defaults.withCredentials = true;
 
@@ -11,6 +12,3 @@ window.axios.interceptors.request.use((config) => {
   }
   return config;
 });
-=======
-window.axios = httpClient;
->>>>>>> 35c26abf4f22aac8d5f323b93cbfe0c48b9e7db7
