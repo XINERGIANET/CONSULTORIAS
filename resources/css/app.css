@@ -6,9 +6,12 @@
 @source "../js/pages/DashboardHome.tsx";
 @source "../js/pages/LoginPage.tsx";
 @source "../js/pages/UsersPage.tsx";
+@source "../js/pages/ProjectsPage.tsx";
 @source "../js/pages/OperationalPages.tsx";
 @source "../js/xpande/XpandeUi.tsx";
 @source "../js/xpande/FormModal.tsx";
+@source "../js/xpande/LabTableKit.tsx";
+@source "../js/xpande/apiError.ts";
 @source "../js/xpande/http.ts";
 @source "../js/users/api.ts";
 @source "../js/auth/api.ts";

@@ -14,8 +14,14 @@ class UserManagementController extends Controller
     public function index(Request $request): JsonResponse
     {
         $q = User::query()
-            ->with(['role:id,name,slug', 'cargo:id,name', 'areas:id,name'])
-            ->orderByDesc('id');
+            ->with(['role:id,name,slug', 'cargo:id,name', 'areas:id,name']);
+
+        $scope = $request->string('scope')->toString();
+        if ($scope === 'admins') {
+            $q->where('is_superadmin', true);
+        } elseif ($scope === 'users') {
+            $q->where('is_superadmin', false);
+        }
 
         if ($request->filled('q')) {
             $s = '%'.$request->string('q').'%';
@@ -24,7 +30,17 @@ class UserManagementController extends Controller
             });
         }
 
-        return response()->json($q->paginate(50));
+        $sort = $request->string('sort', 'id')->toString();
+        $allowed = ['id', 'name', 'email', 'created_at'];
+        if (! in_array($sort, $allowed, true)) {
+            $sort = 'id';
+        }
+        $dir = strtolower($request->string('dir', 'desc')->toString()) === 'asc' ? 'asc' : 'desc';
+        $q->orderBy($sort, $dir);
+
+        $perPage = max(5, min(100, (int) $request->input('per_page', 50)));
+
+        return response()->json($q->paginate($perPage));
     }
 
     public function show(User $user): JsonResponse

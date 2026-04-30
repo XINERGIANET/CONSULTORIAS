@@ -1,9 +1,28 @@
-import { FolderKanban } from "lucide-react";
-import { useEffect, useState } from "react";
+import { ExternalLink, FolderKanban } from "lucide-react";
+import { useCallback, useEffect, useState } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
+import { ConfirmModal } from "../components/ConfirmModal";
 import { FormModal } from "../xpande/FormModal";
-import { deleteJson, getJson, postJson, putJson, type LaravelPaginated } from "../xpande/http";
-import { LabBreadcrumbs, LabField, LabPageHeader, labCrudMainClass, labGhostBtn, labInputClass, labPanelClass, labPrimaryBtn } from "../xpande/XpandeUi";
+import { apiErrorMessage } from "../xpande/apiError";
+import type { LaravelPaginated } from "../xpande/http";
+import { deleteJson, getJson, postJson, putJson } from "../xpande/http";
+import {
+  LabCircleIconAction,
+  LabDataPager,
+  LabNoticeModal,
+  LabSortableTh,
+  circleRowActionClass,
+} from "../xpande/LabTableKit";
+import {
+  LabBreadcrumbs,
+  LabField,
+  LabPageHeader,
+  labCrudMainClass,
+  labGhostBtn,
+  labInputClass,
+  labPanelClass,
+  labPrimaryBtn,
+} from "../xpande/XpandeUi";
 import { useApexTheme } from "../context/ThemeContext";
 
 type AreaOpt = { id: number; name: string };
@@ -13,6 +32,7 @@ type ProjRow = {
   id: number;
   name: string;
   status: string;
+  created_at?: string;
   client_id?: number;
   budget?: string | null;
   lead_user_id?: number | null;
@@ -26,6 +46,7 @@ type ProjRow = {
   areas?: { id: number; name: string }[];
   users?: { id: number }[];
 };
+type ProjSortCol = "id" | "name" | "client" | "status" | "start_date" | "created_at";
 
 export function ProjectsPage() {
   const { isLight } = useApexTheme();
@@ -39,7 +60,14 @@ export function ProjectsPage() {
   const [users, setUsers] = useState<UserOpt[]>([]);
   const [open, setOpen] = useState(false);
   const [editId, setEditId] = useState<number | null>(null);
-  const [err, setErr] = useState<string | null>(null);
+  const [modalErr, setModalErr] = useState<string | null>(null);
+  const [q, setQ] = useState("");
+  const [sortCol, setSortCol] = useState<ProjSortCol>("id");
+  const [sortDir, setSortDir] = useState<"asc" | "desc">("desc");
+  const [perPage, setPerPage] = useState(30);
+  const [notice, setNotice] = useState<{ variant: "success" | "error"; title: string; message: string } | null>(null);
+  const [pendingCancel, setPendingCancel] = useState<ProjRow | null>(null);
+
   const [form, setForm] = useState({
     client_id: "" as "" | number,
     name: "",
@@ -56,18 +84,37 @@ export function ProjectsPage() {
     user_ids: [] as number[],
   });
 
-  const load = (p = page) =>
-    void getJson<LaravelPaginated<ProjRow>>("/api/projects", { page: p }).then((r) => {
-      setData(r);
-      setPage(r.current_page);
-    });
+  const fetchProjects = useCallback(
+    async (targetPage: number, nextPer?: number) => {
+      const pp = nextPer ?? perPage;
+      const res = await getJson<LaravelPaginated<ProjRow>>("/api/projects", {
+        page: targetPage,
+        q: q.trim() || undefined,
+        sort: sortCol,
+        dir: sortDir,
+        per_page: pp,
+      });
+      setData(res);
+      setPage(res.current_page);
+    },
+    [q, sortCol, sortDir, perPage],
+  );
 
   useEffect(() => {
-    load(1);
     void getJson<LaravelPaginated<ClientOpt>>("/api/clients", { per_page: 150 }).then((r) => setClients(r.data));
     void getJson<AreaOpt[]>("/api/areas", { active_only: false }).then(setAreas);
     void getJson<UserOpt[]>("/api/collaborators").then(setUsers);
   }, []);
+
+  useEffect(() => {
+    const delay = q.trim() === "" ? 0 : 260;
+    const id = window.setTimeout(() => {
+      void fetchProjects(1).catch((e: unknown) => {
+        setNotice({ variant: "error", title: "Proyectos", message: apiErrorMessage(e, "No se pudo cargar el listado.") });
+      });
+    }, delay);
+    return () => window.clearTimeout(id);
+  }, [fetchProjects, q, sortCol, sortDir, perPage]);
 
   useEffect(() => {
     const st = loc.state as { openProjectCreate?: boolean } | undefined;
@@ -93,8 +140,24 @@ export function ProjectsPage() {
     }
   }, [loc.pathname, loc.state, navigate]);
 
+  const toggleArea = (id: number) =>
+    void setForm((f) => ({ ...f, area_ids: f.area_ids.includes(id) ? f.area_ids.filter((x) => x !== id) : [...f.area_ids, id] }));
+  const toggleUser = (id: number) =>
+    void setForm((f) => ({ ...f, user_ids: f.user_ids.includes(id) ? f.user_ids.filter((x) => x !== id) : [...f.user_ids, id] }));
+
+  const onSortHeader = (col: ProjSortCol) => {
+    if (sortCol === col) {
+      setSortDir((d) => (d === "asc" ? "desc" : "asc"));
+    } else {
+      setSortCol(col);
+      setSortDir(col === "name" || col === "client" || col === "start_date" ? "asc" : "desc");
+    }
+  };
+
+  const sortState = (col: ProjSortCol): "asc" | "desc" | null => (sortCol === col ? sortDir : null);
+
   const openEdit = async (id: number) => {
-    setErr(null);
+    setModalErr(null);
     try {
       const p = await getJson<ProjRow>(`/api/projects/${id}`);
       setEditId(id);
@@ -115,20 +178,15 @@ export function ProjectsPage() {
         user_ids: (p.users ?? []).map((u) => u.id),
       });
       setOpen(true);
-    } catch {
-      setErr("No se pudo cargar el proyecto.");
+    } catch (e: unknown) {
+      setNotice({ variant: "error", title: "Proyecto", message: apiErrorMessage(e, "No se pudo cargar el proyecto.") });
     }
   };
 
-  const toggleArea = (id: number) =>
-    void setForm((f) => ({ ...f, area_ids: f.area_ids.includes(id) ? f.area_ids.filter((x) => x !== id) : [...f.area_ids, id] }));
-  const toggleUser = (id: number) =>
-    void setForm((f) => ({ ...f, user_ids: f.user_ids.includes(id) ? f.user_ids.filter((x) => x !== id) : [...f.user_ids, id] }));
-
   const save = async () => {
-    setErr(null);
+    setModalErr(null);
     if (!form.name.trim() || form.client_id === "" || form.area_ids.length === 0) {
-      setErr("Nombre, cliente y al menos un área son obligatorios.");
+      setModalErr("Nombre, cliente y al menos un área son obligatorios.");
       return;
     }
     try {
@@ -150,72 +208,128 @@ export function ProjectsPage() {
       if (editId) await putJson(`/api/projects/${editId}`, body);
       else await postJson("/api/projects", body);
       setOpen(false);
-      load(page);
+      await fetchProjects(page);
+      setNotice({
+        variant: "success",
+        title: editId ? "Proyecto actualizado" : "Proyecto creado",
+        message: editId ? "Los cambios se guardaron." : "El proyecto quedó registrado en el portafolio.",
+      });
       setEditId(null);
-    } catch {
-      setErr("No se pudo guardar (verifique permisos por área).");
+    } catch (e: unknown) {
+      setNotice({
+        variant: "error",
+        title: "No se guardó",
+        message: apiErrorMessage(e, "No se pudo guardar (verifique permisos por área)."),
+      });
     }
   };
 
-  const cancelProj = async (id: number) => {
-    if (!confirm("¿Marcar proyecto como cancelado?")) return;
+  const execCancelProj = async () => {
+    if (!pendingCancel) return;
+    const row = pendingCancel;
+    const title = row.name;
+    setPendingCancel(null);
     try {
-      await deleteJson(`/api/projects/${id}`);
-      load(page);
-    } catch {
-      setErr("No se pudo actualizar estado.");
+      await deleteJson(`/api/projects/${row.id}`);
+      await fetchProjects(page);
+      setNotice({ variant: "success", title: "Proyecto cancelado / eliminado", message: `«${title}» fue dado de baja.` });
+    } catch (e: unknown) {
+      setNotice({ variant: "error", title: "Error", message: apiErrorMessage(e, "No se pudo completar la acción.") });
     }
   };
+
+  const total = data?.total ?? 0;
+  const lastPg = Math.max(1, data?.last_page ?? 1);
 
   return (
     <main className={labCrudMainClass(isLight)}>
       <LabBreadcrumbs items={[{ label: "Dashboard", to: "/" }, { label: "Proyectos" }]} isLight={isLight} />
       <LabPageHeader
         title="Portafolio de proyectos"
-        subtitle="Creación por cliente, vínculos con áreas y equipo asignado."
+        subtitle="Búsqueda, ordenamiento y paginación en servidor."
         isLight={isLight}
         action={
-          <button type="button" className={labPrimaryBtn(isLight)} onClick={() => {setEditId(null); setErr(null); setOpen(true);}}>
+          <button type="button" className={labPrimaryBtn(isLight)} onClick={() => {setEditId(null); setModalErr(null); setOpen(true);}}>
             <FolderKanban className="h-4 w-4" /> Nuevo proyecto
           </button>
         }
       />
-      {err ? <p className="mb-4 text-sm text-red-600">{err}</p> : null}
+
+      <div className="mb-4 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+        <input
+          type="search"
+          value={q}
+          onChange={(e) => setQ(e.target.value)}
+          placeholder="Buscar por proyecto, cliente o tipo de servicio…"
+          className={["w-full sm:max-w-md", labInputClass(isLight)].join(" ")}
+        />
+      </div>
 
       <div className={labPanelClass(isLight)}>
         {!data ? (
           <p className="py-8 text-center text-sm text-zinc-500">Cargando…</p>
         ) : (
           <div className={["overflow-x-auto", isLight ? "apex-table-scroll--light" : "apex-table-scroll--dark"].join(" ")}>
-            <table className="w-full min-w-[720px] text-left text-sm">
+            <table
+              className={[
+                "w-full min-w-[760px] text-left text-sm",
+                isLight ? "[&_tbody_tr:nth-child(even)]:bg-[#F9FAFB]/90" : "[&_tbody_tr:nth-child(even)]:bg-white/[0.02]",
+              ].join(" ")}
+            >
               <thead>
                 <tr className={isLight ? "text-[#6B7280]" : "text-zinc-500"}>
-                  <th className="pb-3 uppercase text-[10px] font-semibold">Proyecto</th>
-                  <th className="pb-3 uppercase text-[10px] font-semibold">Cliente</th>
-                  <th className="pb-3 uppercase text-[10px] font-semibold">Áreas</th>
-                  <th className="pb-3 uppercase text-[10px] font-semibold">Estado</th>
-                  <th className="pb-3 text-right uppercase text-[10px] font-semibold"></th>
+                  <LabSortableTh label="Proyecto" sorted={sortState("name")} isLight={isLight} onToggle={() => onSortHeader("name")} />
+                  <LabSortableTh label="Cliente" sorted={sortState("client")} isLight={isLight} onToggle={() => onSortHeader("client")} />
+                  <th className="pb-3 pr-3 text-left text-xs font-semibold uppercase tracking-wide">Áreas</th>
+                  <LabSortableTh label="Estado" sorted={sortState("status")} isLight={isLight} onToggle={() => onSortHeader("status")} />
+                  <LabSortableTh
+                    label="Inicio"
+                    sorted={sortState("start_date")}
+                    isLight={isLight}
+                    onToggle={() => onSortHeader("start_date")}
+                    className="w-28 whitespace-nowrap"
+                  />
+                  <LabSortableTh
+                    label="Alta"
+                    sorted={sortState("created_at")}
+                    isLight={isLight}
+                    onToggle={() => onSortHeader("created_at")}
+                    className="w-28 whitespace-nowrap"
+                  />
+                  <LabSortableTh label="ID" sorted={sortState("id")} isLight={isLight} onToggle={() => onSortHeader("id")} className="w-16" align="right" />
+                  <th className="w-[6.5rem] pb-3 text-right text-xs font-semibold uppercase tracking-wide">Acciones</th>
                 </tr>
               </thead>
               <tbody>
                 {data.data.map((p) => (
                   <tr key={p.id} className={"border-t " + (isLight ? "border-[#F3F4F6]" : "border-white/[0.06]")}>
-                    <td className={"py-2 pr-4 font-semibold " + (isLight ? "text-[#111827]" : "text-white")}>{p.name}</td>
-                    <td className="py-2 pr-4 text-xs">{p.client?.legal_name ?? "—"}</td>
-                    <td className="py-2 pr-4 text-xs">{(p.areas ?? []).map((x) => x.name).join(", ")}</td>
-                    <td className={"py-2 pr-4 text-xs uppercase"}>{p.status}</td>
-                    <td className="py-2 text-right whitespace-nowrap">
-                      <button type="button" className={labGhostBtn(isLight)} onClick={() => void openEdit(p.id)}>
-                        Editar
-                      </button>{" "}
-                      {typeof p.client_id === "number" ? (
-                        <Link to={`/clientes/${p.client_id}`} className={"inline-flex " + labGhostBtn(isLight)}>
-                          CRM
-                        </Link>
-                      ) : null}{" "}
-                      <button type="button" className={labGhostBtn(isLight)} onClick={() => void cancelProj(p.id)}>
-                        Cancelar
-                      </button>
+                    <td className={"py-2.5 pr-4 font-semibold " + (isLight ? "text-[#111827]" : "text-white")}>{p.name}</td>
+                    <td className="py-2.5 pr-4 text-xs">{p.client?.legal_name ?? "—"}</td>
+                    <td className="py-2.5 pr-4 text-xs">{(p.areas ?? []).map((x) => x.name).join(", ")}</td>
+                    <td className="py-2.5 pr-4 text-xs uppercase">{p.status}</td>
+                    <td className="py-2.5 pr-4 text-xs whitespace-nowrap">{p.start_date ? String(p.start_date).slice(0, 10) : "—"}</td>
+                    <td className="py-2.5 pr-4 text-xs whitespace-nowrap">{p.created_at ? String(p.created_at).slice(0, 10) : "—"}</td>
+                    <td className="py-2.5 text-right text-xs tabular-nums">{p.id}</td>
+                    <td className="py-2.5 text-right align-middle">
+                      <div className="flex justify-end gap-2">
+                        <LabCircleIconAction variant="edit" tooltip="Editar" ariaLabel={`Editar ${p.name}`} onClick={() => void openEdit(p.id)} />
+                        {typeof p.client_id === "number" ? (
+                          <span className="group relative inline-flex">
+                            <Link
+                              title="Cliente CRM"
+                              to={`/clientes/${p.client_id}`}
+                              className={[circleRowActionClass("link"), "inline-flex items-center justify-center"].join(" ")}
+                            >
+                              <ExternalLink className="h-3.5 w-3.5 text-white" strokeWidth={2.25} aria-hidden />
+                              <span className="sr-only">Cliente CRM</span>
+                            </Link>
+                            <span className="pointer-events-none absolute bottom-[calc(100%+6px)] left-1/2 z-40 hidden -translate-x-1/2 whitespace-nowrap rounded-md bg-neutral-900 px-2 py-1 text-[11px] font-medium leading-tight text-white shadow-lg ring-1 ring-black/40 group-hover:block">
+                              Cliente CRM
+                            </span>
+                          </span>
+                        ) : null}
+                        <LabCircleIconAction variant="cancel" tooltip="Eliminar proyecto" ariaLabel={`Eliminar ${p.name}`} onClick={() => setPendingCancel(p)} />
+                      </div>
                     </td>
                   </tr>
                 ))}
@@ -223,25 +337,51 @@ export function ProjectsPage() {
             </table>
           </div>
         )}
-        {data && data.last_page > 1 ? (
-          <div className="mt-3 flex gap-2 text-xs">
-            <button type="button" className={labGhostBtn(isLight)} disabled={page <= 1} onClick={() => load(page - 1)}>
-              Anterior
-            </button>
-            <span className={isLight ? "text-[#6B7280]" : "text-zinc-500"}>{page}</span>
-            <button type="button" className={labGhostBtn(isLight)} disabled={page >= data.last_page} onClick={() => load(page + 1)}>
-              Siguiente
-            </button>
-          </div>
+        {data ? (
+          <LabDataPager
+            page={data.current_page}
+            lastPage={lastPg}
+            total={total}
+            perPage={data.per_page}
+            isLight={isLight}
+            onPerPageChange={(pp) => {
+              setPerPage(pp);
+            }}
+            onPageChange={(pn) =>
+              void fetchProjects(pn).catch((e: unknown) => {
+                setNotice({ variant: "error", title: "Paginación", message: apiErrorMessage(e, "No se pudieron cargar más filas.") });
+              })
+            }
+          />
         ) : null}
       </div>
+
+      <LabNoticeModal
+        open={notice !== null}
+        variant={notice?.variant ?? "success"}
+        title={notice?.title ?? ""}
+        message={notice?.message ?? ""}
+        isLight={isLight}
+        onClose={() => setNotice(null)}
+      />
+
+      <ConfirmModal
+        open={pendingCancel !== null}
+        title="Eliminar proyecto"
+        message={pendingCancel ? `¿Confirma eliminar «${pendingCancel.name}»? Esta acción no puede deshacerse.` : ""}
+        confirmText="Eliminar"
+        danger
+        isLight={isLight}
+        onConfirm={() => void execCancelProj()}
+        onCancel={() => setPendingCancel(null)}
+      />
 
       <FormModal
         open={open}
         title={editId ? "Editar proyecto" : "Nuevo proyecto"}
         isLight={isLight}
         wide
-        onClose={() => {setOpen(false); setErr(null);}}
+        onClose={() => {setOpen(false); setModalErr(null);}}
         footer={
           <div className="flex justify-end gap-2">
             <button type="button" className={labGhostBtn(isLight)} onClick={() => setOpen(false)}>
@@ -329,7 +469,7 @@ export function ProjectsPage() {
               ))}
             </div>
           </LabField>
-          {err ? <p className="sm:col-span-2 text-sm text-red-600">{err}</p> : null}
+          {modalErr ? <p className="sm:col-span-2 text-sm text-red-600">{modalErr}</p> : null}
         </div>
       </FormModal>
     </main>

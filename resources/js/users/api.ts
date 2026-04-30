@@ -18,12 +18,34 @@ export type ManagedUser = {
   role?: { id: number; name: string; slug: string };
   cargo?: { id: number; name: string };
   areas?: { id: number; name: string }[];
+  created_at?: string;
 };
 
 const p = "/api/users";
 
-export async function fetchUsersPage(page = 1, q = ""): Promise<LaravelPaginated<ManagedUser>> {
-  const { data } = await axios.get<LaravelPaginated<ManagedUser>>(p, { params: { page, q: q || undefined } });
+export type UsersListParams = {
+  page?: number;
+  q?: string;
+  scope?: "all" | "admins" | "users";
+  sort?: "id" | "name" | "email" | "created_at";
+  dir?: "asc" | "desc";
+  per_page?: number;
+};
+
+export async function fetchUsersPage(params: UsersListParams | number = {}, maybeQ = ""): Promise<LaravelPaginated<ManagedUser>> {
+  const opts: UsersListParams = typeof params === "number"
+    ? { page: params, q: typeof maybeQ === "string" ? maybeQ : "" }
+    : params;
+  const { data } = await axios.get<LaravelPaginated<ManagedUser>>(p, {
+    params: {
+      page: opts.page ?? 1,
+      q: opts.q?.trim() || undefined,
+      scope: opts.scope && opts.scope !== "all" ? opts.scope : undefined,
+      sort: opts.sort ?? "id",
+      dir: opts.dir ?? "desc",
+      per_page: opts.per_page ?? 50,
+    },
+  });
   return data;
 }
 

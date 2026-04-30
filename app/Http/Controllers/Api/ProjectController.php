@@ -24,7 +24,33 @@ class ProjectController extends Controller
             $q->where('status', $request->input('status'));
         }
 
-        return response()->json($q->orderByDesc('id')->paginate(30));
+        if ($request->filled('q')) {
+            $s = '%'.$request->string('q').'%';
+            $q->where(function ($w) use ($s) {
+                $w->where('name', 'like', $s)
+                    ->orWhere('service_type', 'like', $s)
+                    ->orWhereHas('client', fn ($c) => $c->where('legal_name', 'like', $s));
+            });
+        }
+
+        $sort = $request->string('sort', 'id')->toString();
+        $allowed = ['id', 'name', 'status', 'start_date', 'created_at', 'client'];
+        if (! in_array($sort, $allowed, true)) {
+            $sort = 'id';
+        }
+        $dir = strtolower($request->string('dir', 'desc')->toString()) === 'asc' ? 'asc' : 'desc';
+        if ($sort === 'client') {
+            $q->select('projects.*')
+                ->leftJoin('clients', 'clients.id', '=', 'projects.client_id')
+                ->orderBy('clients.legal_name', $dir)
+                ->orderByDesc('projects.id');
+        } else {
+            $q->orderBy($sort, $dir);
+        }
+
+        $perPage = max(5, min(100, (int) $request->input('per_page', 30)));
+
+        return response()->json($q->paginate($perPage));
     }
 
     public function show(Request $request, Project $project): JsonResponse

@@ -1,7 +1,16 @@
-import { MoreHorizontal, Shield, UserPlus } from "lucide-react";
-import { useEffect, useMemo, useState } from "react";
+import { Shield, UserPlus } from "lucide-react";
+import { useCallback, useEffect, useState } from "react";
 import { createUser, deleteUser, fetchUser, fetchUsersPage, updateUser, type ManagedUser } from "../users/api";
+import { ConfirmModal } from "../components/ConfirmModal";
 import { FormModal } from "../xpande/FormModal";
+import { apiErrorMessage } from "../xpande/apiError";
+import { getJson } from "../xpande/http";
+import {
+  LabCircleIconAction,
+  LabDataPager,
+  LabNoticeModal,
+  LabSortableTh,
+} from "../xpande/LabTableKit";
 import {
   LabBreadcrumbs,
   LabField,
@@ -15,7 +24,6 @@ import {
   labStatusPill,
   initialsFrom,
 } from "../xpande/XpandeUi";
-import { getJson } from "../xpande/http";
 import { useApexTheme } from "../context/ThemeContext";
 import { useAuth } from "../context/AuthContext";
 
@@ -31,7 +39,7 @@ function downloadUsersCsv(rows: ManagedUser[]) {
         u.email,
         u.role?.slug ?? "",
         (u.areas ?? []).map((a) => a.name).join(";"),
-        (u as { created_at?: string }).created_at ?? "",
+        u.created_at ?? "",
       ]
         .map(esc)
         .join(","),
@@ -48,24 +56,35 @@ function downloadUsersCsv(rows: ManagedUser[]) {
 
 type RoleOpt = { id: number; name: string; slug: string };
 type AreaOpt = { id: number; name: string };
+type SortCol = "id" | "name" | "email" | "created_at";
+type TabKey = "all" | "admins" | "users";
 
 export function UsersPage() {
   const { isLight } = useApexTheme();
   const { user } = useAuth();
   const [rows, setRows] = useState<ManagedUser[]>([]);
-  const [page, setPage] = useState(1);
-  const [totalPages, setTotalPages] = useState(1);
+  const [meta, setMeta] = useState<{ page: number; lastPage: number; total: number; perPage: number }>({
+    page: 1,
+    lastPage: 1,
+    total: 0,
+    perPage: 50,
+  });
   const [loading, setLoading] = useState(true);
-  const [err, setErr] = useState<string | null>(null);
+  const [modalFormErr, setModalFormErr] = useState<string | null>(null);
   const [q, setQ] = useState("");
-  const [tab, setTab] = useState<"all" | "admins" | "users">("all");
-  const [menuId, setMenuId] = useState<number | null>(null);
+  const [tab, setTab] = useState<TabKey>("all");
+  const [sortCol, setSortCol] = useState<SortCol>("id");
+  const [sortDir, setSortDir] = useState<"asc" | "desc">("desc");
+  const [perPage, setPerPage] = useState(50);
 
   const [roles, setRoles] = useState<RoleOpt[]>([]);
   const [areasList, setAreasList] = useState<AreaOpt[]>([]);
 
   const [modalOpen, setModalOpen] = useState(false);
   const [editingId, setEditingId] = useState<number | null>(null);
+  const [pendingDelete, setPendingDelete] = useState<ManagedUser | null>(null);
+  const [notice, setNotice] = useState<{ variant: "success" | "error"; title: string; message: string } | null>(null);
+
   const [form, setForm] = useState({
     name: "",
     email: "",
@@ -82,38 +101,68 @@ export function UsersPage() {
     area_ids: [] as number[],
   });
 
-  const load = async (p = 1) => {
-    setLoading(true);
-    try {
-      const res = await fetchUsersPage(p, q);
-      setRows(res.data);
-      setPage(res.current_page);
-      setTotalPages(res.last_page);
-    } catch {
-      setErr("No se pudo cargar la lista de usuarios.");
-    } finally {
-      setLoading(false);
-    }
+  const scopeFromTab = (t: TabKey): "all" | "admins" | "users" => {
+    if (t === "admins") return "admins";
+    if (t === "users") return "users";
+    return "all";
   };
 
+  const fetchList = useCallback(
+    async (targetPage: number, nextPerPage?: number) => {
+      const pp = nextPerPage ?? perPage;
+      setLoading(true);
+      try {
+        const res = await fetchUsersPage({
+          page: targetPage,
+          q,
+          scope: scopeFromTab(tab),
+          sort: sortCol,
+          dir: sortDir,
+          per_page: pp,
+        });
+        setRows(res.data);
+        setMeta({
+          page: res.current_page,
+          lastPage: Math.max(1, res.last_page),
+          total: res.total,
+          perPage: res.per_page ?? pp,
+        });
+      } catch (e: unknown) {
+        setNotice({
+          variant: "error",
+          title: "Lista de usuarios",
+          message: apiErrorMessage(e, "No se pudo cargar la lista."),
+        });
+      } finally {
+        setLoading(false);
+      }
+    },
+    [q, tab, sortCol, sortDir, perPage],
+  );
+
   useEffect(() => {
-    load(1).catch(() => undefined);
-    getJson<RoleOpt[]>("/api/roles").then(setRoles).catch(() => setRoles([]));
-    getJson<AreaOpt[]>("/api/areas", { active_only: false }).then(setAreasList).catch(() => setAreasList([]));
+    void getJson<RoleOpt[]>("/api/roles").then(setRoles).catch(() => setRoles([]));
+    void getJson<AreaOpt[]>("/api/areas", { active_only: false }).then(setAreasList).catch(() => setAreasList([]));
   }, []);
 
   useEffect(() => {
-    const t = setTimeout(() => void load(1), 280);
-    return () => clearTimeout(t);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [q]);
+    const delay = q.trim() === "" ? 0 : 280;
+    const id = window.setTimeout(() => {
+      void fetchList(1);
+    }, delay);
+    return () => window.clearTimeout(id);
+  }, [fetchList, q, tab, sortCol, sortDir, perPage]);
 
-  const filtered = useMemo(() => {
-    let list = rows;
-    if (tab === "admins") list = list.filter((u) => u.is_superadmin);
-    else if (tab === "users") list = list.filter((u) => !u.is_superadmin);
-    return list;
-  }, [rows, tab]);
+  const onSortHeader = (col: SortCol) => {
+    if (sortCol === col) {
+      setSortDir((d) => (d === "asc" ? "desc" : "asc"));
+    } else {
+      setSortCol(col);
+      setSortDir(col === "name" || col === "email" ? "asc" : "desc");
+    }
+  };
+
+  const sortState = (col: SortCol): "asc" | "desc" | null => (sortCol === col ? sortDir : null);
 
   const toggleArea = (id: number) => {
     setForm((f) => ({
@@ -123,6 +172,7 @@ export function UsersPage() {
   };
 
   const openCreate = () => {
+    setModalFormErr(null);
     setEditingId(null);
     setForm({
       name: "",
@@ -143,7 +193,7 @@ export function UsersPage() {
   };
 
   const openEdit = async (id: number) => {
-    setErr(null);
+    setModalFormErr(null);
     try {
       const u = await fetchUser(id);
       setEditingId(u.id);
@@ -163,14 +213,17 @@ export function UsersPage() {
         area_ids: (u.areas ?? []).map((a) => a.id),
       });
       setModalOpen(true);
-      setMenuId(null);
-    } catch {
-      setErr("No se pudo cargar el usuario.");
+    } catch (e: unknown) {
+      setNotice({
+        variant: "error",
+        title: "Usuario",
+        message: apiErrorMessage(e, "No se pudo cargar el usuario."),
+      });
     }
   };
 
   const submit = async () => {
-    setErr(null);
+    setModalFormErr(null);
     try {
       const payload: Record<string, unknown> = {
         name: form.name,
@@ -192,37 +245,53 @@ export function UsersPage() {
         await updateUser(editingId, payload);
       } else {
         if (!form.password.trim()) {
-          setErr("La contraseña es obligatoria para nuevos usuarios.");
+          setModalFormErr("La contraseña es obligatoria para nuevos usuarios.");
           return;
         }
         await createUser(payload);
       }
       setModalOpen(false);
-      await load(page);
-    } catch {
-      setErr("No se pudo guardar el usuario.");
+      await fetchList(meta.page);
+      setNotice({
+        variant: "success",
+        title: editingId ? "Usuario actualizado" : "Usuario creado",
+        message: editingId ? "Los datos se guardaron correctamente." : "El nuevo usuario puede iniciar sesión con el correo indicado.",
+      });
+    } catch (e: unknown) {
+      setNotice({
+        variant: "error",
+        title: "No se guardó",
+        message: apiErrorMessage(e, "No se pudo guardar el usuario."),
+      });
     }
   };
 
-  const remove = async (target: ManagedUser) => {
-    if (!confirm(`¿Eliminar al usuario ${target.name}?`)) return;
+  const confirmRemove = async () => {
+    if (!pendingDelete) return;
+    const nm = pendingDelete.name;
+    const idKill = pendingDelete.id;
+    setPendingDelete(null);
     try {
-      await deleteUser(target.id);
-      await load(page);
-    } catch {
-      setErr("No se pudo eliminar. Recuerde: no se puede borrar al superadmin.");
-    } finally {
-      setMenuId(null);
+      await deleteUser(idKill);
+      const nextLast = meta.page > 1 && rows.length <= 1 ? meta.page - 1 : meta.page;
+      await fetchList(Math.min(nextLast, meta.lastPage || 1));
+      setNotice({ variant: "success", title: "Eliminado", message: `${nm} se eliminó del sistema.` });
+    } catch (e: unknown) {
+      setNotice({
+        variant: "error",
+        title: "Eliminación cancelada",
+        message: apiErrorMessage(e, "No se pudo eliminar (el superadmin o su cuenta están protegidos)."),
+      });
     }
   };
 
   return (
-    <main className={labCrudMainClass(isLight)} onClick={() => setMenuId(null)}>
+    <main className={labCrudMainClass(isLight)}>
       <LabBreadcrumbs isLight={isLight} items={[{ label: "Dashboard", to: "/" }, { label: "Usuarios internos" }]} />
       <LabPageHeader
         isLight={isLight}
         title="Consultores / usuarios internos"
-        subtitle="Gestión del personal, cargos y áreas asignadas. Los formularios se abren en modal."
+        subtitle="Tabla profesional con búsqueda, orden, paginación y acciones con tooltip."
         action={
           <button type="button" className={labPrimaryBtn(isLight)} onClick={openCreate}>
             <UserPlus className="h-4 w-4" />
@@ -230,8 +299,6 @@ export function UsersPage() {
           </button>
         }
       />
-
-      {err ? <p className="mb-4 rounded-lg border border-red-500/40 bg-red-500/10 px-3 py-2 text-sm text-red-600">{err}</p> : null}
 
       <LabToolbar
         isLight={isLight}
@@ -241,12 +308,14 @@ export function UsersPage() {
           { id: "users", label: "Equipo" },
         ]}
         activeTab={tab}
-        onTab={(id) => setTab(id as typeof tab)}
+        onTab={(id) => {
+          setTab(id as TabKey);
+        }}
         search={q}
         onSearch={setQ}
         searchPlaceholder="Buscar por nombre o correo…"
         right={
-          <button type="button" className={labGhostBtn(isLight)} onClick={() => downloadUsersCsv(filtered)}>
+          <button type="button" className={labGhostBtn(isLight)} onClick={() => downloadUsersCsv(rows)}>
             Exportar página
           </button>
         }
@@ -257,19 +326,32 @@ export function UsersPage() {
           <p className={isLight ? "py-8 text-center text-[#6B7280]" : "py-8 text-center text-zinc-500"}>Cargando…</p>
         ) : (
           <div className={["overflow-x-auto", isLight ? "apex-table-scroll--light" : "apex-table-scroll--dark"].join(" ")}>
-            <table className="w-full min-w-[820px] text-left text-sm">
+            <table
+              className={[
+                "w-full min-w-[860px] text-left text-sm",
+                isLight ? "[&_tbody_tr:nth-child(even)]:bg-[#F9FAFB]/90" : "[&_tbody_tr:nth-child(even)]:bg-white/[0.02]",
+              ].join(" ")}
+            >
               <thead>
                 <tr className={isLight ? "text-[#6B7280]" : "text-zinc-500"}>
-                  <th className="w-10 pb-3 pr-2" />
-                  <th className="pb-3 pr-3 text-xs font-semibold uppercase tracking-wide">Usuario</th>
-                  <th className="pb-3 pr-3 text-xs font-semibold uppercase tracking-wide">Correo</th>
-                  <th className="pb-3 pr-3 text-xs font-semibold uppercase tracking-wide">Rol</th>
-                  <th className="pb-3 pr-3 text-xs font-semibold uppercase tracking-wide">Áreas</th>
-                  <th className="w-12 pb-3 text-right text-xs font-semibold uppercase tracking-wide" />
+                  <th className="w-10 pb-3 pr-2" aria-hidden />
+                  <LabSortableTh label="Nombre" sorted={sortState("name")} isLight={isLight} onToggle={() => onSortHeader("name")} />
+                  <LabSortableTh label="Correo" sorted={sortState("email")} isLight={isLight} onToggle={() => onSortHeader("email")} />
+                  <th className="pb-3 pr-3 text-left text-xs font-semibold uppercase tracking-wide">Rol</th>
+                  <th className="pb-3 pr-3 text-left text-xs font-semibold uppercase tracking-wide">Áreas</th>
+                  <LabSortableTh
+                    label="Alta"
+                    sorted={sortState("created_at")}
+                    isLight={isLight}
+                    onToggle={() => onSortHeader("created_at")}
+                    className="w-28 whitespace-nowrap"
+                  />
+                  <LabSortableTh label="ID" sorted={sortState("id")} isLight={isLight} onToggle={() => onSortHeader("id")} className="w-20" align="right" />
+                  <th className="w-[5.25rem] pb-3 text-right text-xs font-semibold uppercase tracking-wide">Acciones</th>
                 </tr>
               </thead>
               <tbody>
-                {filtered.map((u) => (
+                {rows.map((u) => (
                   <tr key={u.id} className={isLight ? "border-t border-[#F3F4F6]" : "border-t border-white/[0.06]"}>
                     <td className="py-3 pr-2">
                       <span
@@ -291,47 +373,21 @@ export function UsersPage() {
                     <td className={["py-3 pr-3 text-xs", isLight ? "text-[#6B7280]" : "text-zinc-400"].join(" ")}>
                       {(u.areas ?? []).map((a) => a.name).join(", ") || "—"}
                     </td>
-                    <td className="relative py-3 text-right">
-                      <button
-                        type="button"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          setMenuId(menuId === u.id ? null : u.id);
-                        }}
-                        className={[
-                          "rounded-lg p-2 transition-colors",
-                          isLight ? "text-[#6B7280] hover:bg-[#F3F4F6]" : "text-zinc-400 hover:bg-white/[0.06]",
-                        ].join(" ")}
-                        aria-label="Acciones"
-                      >
-                        <MoreHorizontal className="h-5 w-5" />
-                      </button>
-                      {menuId === u.id ? (
-                        <div
-                          className={[
-                            "absolute right-0 z-20 mt-1 min-w-[170px] rounded-lg py-1 shadow-lg ring-1",
-                            isLight ? "border border-[#E5E7EB] bg-white ring-black/5" : "border border-white/10 bg-[#161616] ring-white/10",
-                          ].join(" ")}
-                        >
-                          <button
-                            type="button"
-                            onClick={() => void openEdit(u.id)}
-                            className={["block w-full px-3 py-2 text-left text-sm", isLight ? "text-[#111827] hover:bg-[#F9FAFB]" : "text-zinc-200 hover:bg-white/[0.05]"].join(
-                              " ",
-                            )}
-                          >
-                            Editar
-                          </button>
-                          <button
-                            type="button"
-                            disabled={u.is_superadmin || user?.id === u.id}
-                            onClick={() => remove(u)}
-                            className="block w-full px-3 py-2 text-left text-sm text-red-500 hover:bg-red-500/10 disabled:cursor-not-allowed disabled:opacity-40"
-                          >
-                            Eliminar
-                          </button>
-                        </div>
-                      ) : null}
+                    <td className={["py-3 pr-3 text-xs whitespace-nowrap", isLight ? "text-[#6B7280]" : "text-zinc-400"].join(" ")}>
+                      {u.created_at ? String(u.created_at).slice(0, 10) : "—"}
+                    </td>
+                    <td className={["py-3 text-right text-xs tabular-nums", isLight ? "text-[#6B7280]" : "text-zinc-500"].join(" ")}>{u.id}</td>
+                    <td className="py-3 text-right align-middle">
+                      <div className="flex justify-end gap-2">
+                        <LabCircleIconAction variant="edit" tooltip="Editar" onClick={() => void openEdit(u.id)} ariaLabel={`Editar ${u.name}`} />
+                        <LabCircleIconAction
+                          variant="delete"
+                          tooltip="Eliminar"
+                          disabled={u.is_superadmin || user?.id === u.id}
+                          onClick={() => setPendingDelete(u)}
+                          ariaLabel={`Eliminar ${u.name}`}
+                        />
+                      </div>
                     </td>
                   </tr>
                 ))}
@@ -339,26 +395,43 @@ export function UsersPage() {
             </table>
           </div>
         )}
+        <LabDataPager
+          page={meta.page}
+          lastPage={meta.lastPage}
+          total={meta.total}
+          perPage={meta.perPage}
+          isLight={isLight}
+          onPerPageChange={(pp) => {
+            setPerPage(pp);
+          }}
+          onPageChange={(p) => void fetchList(p)}
+        />
       </div>
-
-      {totalPages > 1 ? (
-        <div className="mt-3 flex items-center gap-2 text-xs">
-          <button type="button" className={labGhostBtn(isLight)} disabled={page <= 1} onClick={() => void load(page - 1)}>
-            Anterior
-          </button>
-          <span className={isLight ? "text-[#6B7280]" : "text-zinc-500"}>
-            Página {page} / {totalPages}
-          </span>
-          <button type="button" className={labGhostBtn(isLight)} disabled={page >= totalPages} onClick={() => void load(page + 1)}>
-            Siguiente
-          </button>
-        </div>
-      ) : null}
 
       <p className={["mt-3 inline-flex items-center gap-2 text-xs", isLight ? "text-[#6B7280]" : "text-zinc-500"].join(" ")}>
         <Shield className="h-4 w-4" />
-        Solo administradores pueden gestionar usuarios. El primer superadmin queda protegido frente a eliminaciones peligrosas.
+        Solo administradores pueden gestionar usuarios. El superadmin inicial no puede borrarse a sí mismo.
       </p>
+
+      <LabNoticeModal
+        open={notice !== null}
+        variant={notice?.variant ?? "success"}
+        title={notice?.title ?? ""}
+        message={notice?.message ?? ""}
+        isLight={isLight}
+        onClose={() => setNotice(null)}
+      />
+
+      <ConfirmModal
+        open={pendingDelete !== null}
+        title="Eliminar usuario"
+        message={pendingDelete ? `¿Confirma eliminar a «${pendingDelete.name}»? Esta acción no se puede deshacer.` : ""}
+        confirmText="Eliminar"
+        danger
+        isLight={isLight}
+        onConfirm={() => void confirmRemove()}
+        onCancel={() => setPendingDelete(null)}
+      />
 
       <FormModal
         open={modalOpen}
@@ -441,6 +514,7 @@ export function UsersPage() {
               ))}
             </div>
           </LabField>
+          {modalFormErr ? <p className="sm:col-span-2 text-sm font-medium text-red-600">{modalFormErr}</p> : null}
         </div>
       </FormModal>
     </main>
