@@ -1,22 +1,16 @@
 import axios from "axios";
-import type { InternalAxiosRequestConfig } from "axios";
 
-/** Misma instancia que `window.axios`: CSRF + cookies para rutas Laravel (web + mismo origen). */
+/**
+ * Axios + Laravel: debe enviar CSRF usando la cookie cifrada `XSRF-TOKEN`.
+ * Si además mandamos `X-CSRF-TOKEN` desde el meta de la SPA, Laravel lo PRIORIZA primero:
+ * HTML cacheado/viejo o sesión nueva deja ese valor viejo → 419 con cookie válida pero meta vieja.
+ * @see https://github.com/laravel/framework/blob/master/src/Illuminate/Foundation/Http/Middleware/VerifyCsrfToken.php
+ */
 export const httpClient = axios.create({
   withCredentials: true,
+  xsrfCookieName: "XSRF-TOKEN",
+  xsrfHeaderName: "X-XSRF-TOKEN",
   headers: {
     "X-Requested-With": "XMLHttpRequest",
   },
-});
-
-httpClient.interceptors.request.use((config: InternalAxiosRequestConfig) => {
-  if (typeof document === "undefined") {
-    return config;
-  }
-  const meta = document.querySelector("meta[name='csrf-token']");
-  const token = meta?.getAttribute("content")?.trim();
-  if (token) {
-    config.headers.set("X-CSRF-TOKEN", token);
-  }
-  return config;
 });
