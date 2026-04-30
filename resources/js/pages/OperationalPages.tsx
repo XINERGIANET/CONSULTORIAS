@@ -1,4 +1,4 @@
-import { Briefcase, Layers, Radar, TrendingUp } from "lucide-react";
+import { Briefcase, Layers, Radar, TrendingUp, Search } from "lucide-react";
 import { useEffect, useState } from "react";
 import { Link, useParams } from "react-router-dom";
 import { FormModal } from "../xpande/FormModal";
@@ -156,10 +156,12 @@ export function ClientsPage() {
   const [areas, setAreas] = useState<AreaRow[]>([]);
   const [modal, setModal] = useState(false);
   const [editId, setEditId] = useState<number | null>(null);
+  const [searchingRuc, setSearchingRuc] = useState(false);
   const [form, setForm] = useState({
     legal_name: "",
     trade_name: "",
     ruc: "",
+    address: "",
     pipeline_stage: "lead",
     area_ids: [] as number[],
   });
@@ -177,7 +179,7 @@ export function ClientsPage() {
 
   const openCreate = () => {
     setEditId(null);
-    setForm({ legal_name: "", trade_name: "", ruc: "", pipeline_stage: "lead", area_ids: [] });
+    setForm({ legal_name: "", trade_name: "", ruc: "", address: "", pipeline_stage: "lead", area_ids: [] });
     setErr(null);
     setModal(true);
   };
@@ -185,12 +187,13 @@ export function ClientsPage() {
   const openEditClient = async (c: ClientLite) => {
     setErr(null);
     try {
-      const full = await getJson<{ legal_name?: string; trade_name?: string | null; ruc?: string | null; pipeline_stage?: string; areas?: { id: number }[] }>(`/api/clients/${c.id}`);
+      const full = await getJson<{ legal_name?: string; trade_name?: string | null; ruc?: string | null; address?: string | null; pipeline_stage?: string; areas?: { id: number }[] }>(`/api/clients/${c.id}`);
       const aids = (full.areas ?? []).map((a) => a.id);
       setForm({
         legal_name: full.legal_name ?? c.legal_name,
         trade_name: full.trade_name ?? "",
         ruc: full.ruc ?? "",
+        address: full.address ?? "",
         pipeline_stage: full.pipeline_stage ?? c.pipeline_stage,
         area_ids: aids.length ? aids : (c.areas ?? []).map((a) => a.id),
       });
@@ -223,7 +226,7 @@ export function ClientsPage() {
       setModal(false);
       setEditId(null);
       await load(data?.current_page ?? 1);
-      setForm({ legal_name: "", trade_name: "", ruc: "", pipeline_stage: "lead", area_ids: [] });
+      setForm({ legal_name: "", trade_name: "", ruc: "", address: "", pipeline_stage: "lead", area_ids: [] });
     } catch {
       setErr("No se pudo guardar.");
     }
@@ -231,6 +234,33 @@ export function ClientsPage() {
 
   const toggle = (id: number) =>
     void setForm((f) => ({ ...f, area_ids: f.area_ids.includes(id) ? f.area_ids.filter((x) => x !== id) : [...f.area_ids, id] }));
+
+  const performRucSearch = async () => {
+    if (!form.ruc || form.ruc.length !== 11) {
+      setErr("Ingrese un RUC válido de 11 dígitos.");
+      return;
+    }
+    setSearchingRuc(true);
+    setErr(null);
+    try {
+      const res = await getJson<any>(`/api/clients/search-ruc/${form.ruc}`);
+      const info = res?.resultado ?? res?.data ?? res;
+      if (info && info.razon_social) {
+        setForm((f) => ({
+          ...f,
+          legal_name: info.razon_social,
+          trade_name: info.nombre_comercial && info.nombre_comercial !== "-" ? info.nombre_comercial : info.razon_social,
+          address: info.direccion || f.address,
+        }));
+      } else {
+        setErr("No se encontraron datos para ese RUC.");
+      }
+    } catch {
+      setErr("Error al consultar el RUC.");
+    } finally {
+      setSearchingRuc(false);
+    }
+  };
 
   return (
     <main className={labCrudMainClass(isLight)}>
@@ -310,7 +340,25 @@ export function ClientsPage() {
             <input className={labInputClass(isLight)} value={form.trade_name} onChange={(e) => setForm({ ...form, trade_name: e.target.value })} />
           </LabField>
           <LabField label="RUC" isLight={isLight}>
-            <input className={labInputClass(isLight)} value={form.ruc} onChange={(e) => setForm({ ...form, ruc: e.target.value })} />
+            <div className="flex gap-2">
+              <input className={labInputClass(isLight) + " flex-1"} value={form.ruc} onChange={(e) => setForm({ ...form, ruc: e.target.value })} />
+              <button
+                type="button"
+                onClick={performRucSearch}
+                disabled={searchingRuc}
+                className={labPrimaryBtn(isLight) + " flex items-center justify-center px-3"}
+                title="Buscar RUC"
+              >
+                {searchingRuc ? (
+                  <span className="block h-4 w-4 animate-spin rounded-full border-2 border-current border-t-transparent opacity-70" />
+                ) : (
+                  <Search className="h-4 w-4" />
+                )}
+              </button>
+            </div>
+          </LabField>
+          <LabField label="Dirección" isLight={isLight}>
+            <input className={labInputClass(isLight)} value={form.address} onChange={(e) => setForm({ ...form, address: e.target.value })} />
           </LabField>
           <LabField label="Etapa CRM" isLight={isLight}>
             <select className={labInputClass(isLight)} value={form.pipeline_stage} onChange={(e) => setForm({ ...form, pipeline_stage: e.target.value })}>

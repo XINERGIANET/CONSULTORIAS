@@ -1,5 +1,15 @@
 import axios from "axios";
 
+axios.defaults.headers.common['X-Requested-With'] = 'XMLHttpRequest';
+axios.defaults.withCredentials = true;
+
+axios.interceptors.request.use((config) => {
+  const csrf = document.querySelector('meta[name="csrf-token"]');
+  if (csrf) {
+    config.headers['X-CSRF-TOKEN'] = csrf.getAttribute('content');
+  }
+  return config;
+});
 export type LaravelPaginated<T> = {
   data: T[];
   current_page: number;

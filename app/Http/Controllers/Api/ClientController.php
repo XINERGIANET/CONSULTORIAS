@@ -118,6 +118,26 @@ class ClientController extends Controller
         return response()->json(null, 204);
     }
 
+    public function searchRuc(string $ruc): JsonResponse
+    {
+        $url = env('APIRENIEC_URL_RUC');
+        $token = env('APIRENIEC_KEY');
+
+        $response = \Illuminate\Support\Facades\Http::get($url, [
+            'document' => $ruc,
+            'key' => $token,
+        ]);
+
+        if ($response->successful()) {
+            return response()->json($response->json());
+        }
+
+        return response()->json([
+            'error' => 'No se pudo consultar el RUC',
+            'details' => $response->json(),
+        ], $response->status());
+    }
+
     private function assertClientScope(Request $request, Client $client): void
     {
         $q = Client::query()->whereKey($client->id);
