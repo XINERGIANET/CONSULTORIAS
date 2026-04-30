@@ -1,4 +1,4 @@
-import axios from "axios";
+import { httpClient as axios } from "../http/client";
 import type { LaravelPaginated } from "../xpande/http";
 
 export type ManagedUser = {

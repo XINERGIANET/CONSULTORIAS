@@ -1,4 +1,4 @@
-import axios from "axios";
+import { httpClient as axios } from "../http/client";
 import type { AuthUser } from "./types";
 
 export async function authMe(): Promise<AuthUser> {

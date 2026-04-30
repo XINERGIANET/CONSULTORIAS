@@ -1,4 +1,4 @@
-import axios from "axios";
+import { httpClient as axios } from "../http/client";
 
 export type LaravelPaginated<T> = {
   data: T[];
