@@ -88,6 +88,7 @@ Route::middleware('auth')->group(function (): void {
         Route::delete('areas/{area}', [AreaController::class, 'destroy']);
 
         Route::get('clients', [ClientController::class, 'index']);
+        Route::get('clients/search-ruc/{ruc}', [ClientController::class, 'searchRuc']);
         Route::post('clients', [ClientController::class, 'store']);
         Route::get('clients/{client}', [ClientController::class, 'show']);
         Route::put('clients/{client}', [ClientController::class, 'update']);
