@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Controllers\Api\AreaController;
+use App\Http\Controllers\Api\AccountReceivableController;
 use App\Http\Controllers\Api\AuthController;
 use App\Http\Controllers\Api\CollaboratorsController;
 use App\Http\Controllers\Api\CargoController;
@@ -85,6 +86,7 @@ Route::middleware('auth')->group(function (): void {
     Route::prefix('api')->group(function (): void {
         Route::get('collaborators', [CollaboratorsController::class, 'index']);
         Route::get('roles', [RoleController::class, 'index']);
+        Route::get('roles/permissions', [RoleController::class, 'permissions']);
         Route::get('areas', [AreaController::class, 'index']);
         Route::post('areas', [AreaController::class, 'store']);
         Route::put('areas/{area}', [AreaController::class, 'update']);
@@ -128,6 +130,11 @@ Route::middleware('auth')->group(function (): void {
         Route::get('incomes/{income}', [IncomeController::class, 'show']);
         Route::put('incomes/{income}', [IncomeController::class, 'update']);
         Route::delete('incomes/{income}', [IncomeController::class, 'destroy']);
+
+        Route::get('accounts-receivable', [AccountReceivableController::class, 'index'])->middleware('permission:view_finances');
+        Route::post('accounts-receivable', [AccountReceivableController::class, 'store'])->middleware('permission:register_payments');
+        Route::get('accounts-receivable/{accountReceivable}', [AccountReceivableController::class, 'show'])->middleware('permission:view_finances');
+        Route::post('accounts-receivable/{accountReceivable}/payments', [AccountReceivableController::class, 'registerPayment'])->middleware('permission:register_payments');
 
         Route::get('expenses', [ExpenseController::class, 'index']);
         Route::post('expenses', [ExpenseController::class, 'store']);
@@ -202,5 +209,11 @@ Route::middleware('auth')->group(function (): void {
         Route::get('/{user}', [UserManagementController::class, 'show']);
         Route::put('/{user}', [UserManagementController::class, 'update']);
         Route::delete('/{user}', [UserManagementController::class, 'destroy']);
+    });
+
+    Route::prefix('api/roles')->middleware('superadmin')->group(function (): void {
+        Route::post('/', [RoleController::class, 'store']);
+        Route::put('/{role}', [RoleController::class, 'update']);
+        Route::delete('/{role}', [RoleController::class, 'destroy']);
     });
 });

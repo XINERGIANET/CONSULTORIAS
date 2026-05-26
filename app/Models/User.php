@@ -52,6 +52,17 @@ class User extends Authenticatable
         return (bool) $this->is_superadmin;
     }
 
+    public function hasPermission(string $code): bool
+    {
+        if ($this->isSuperadmin()) {
+            return true;
+        }
+
+        $this->loadMissing('role.permissions');
+
+        return $this->role !== null && $this->role->permissions->contains('code', $code);
+    }
+
     /** @return BelongsTo<Role, User> */
     public function role(): BelongsTo
     {
@@ -81,15 +92,18 @@ class User extends Authenticatable
      */
     public function authPayload(): array
     {
-        $this->loadMissing(['role', 'areas']);
+        $this->loadMissing(['role.permissions', 'areas']);
 
         return [
             'id' => $this->id,
             'name' => $this->name,
             'email' => $this->email,
             'is_superadmin' => $this->is_superadmin,
-            'role_slug' => $this->role?->slug,
-            'role_name' => $this->role?->name,
+            'role_slug' => $this->role !== null ? $this->role->slug : null,
+            'role_name' => $this->role !== null ? $this->role->name : null,
+            'permissions' => $this->isSuperadmin()
+                ? array_keys(Permission::CATALOG)
+                : ($this->role !== null ? $this->role->permissions->pluck('code')->values()->all() : []),
             'area_ids' => $this->areas->pluck('id')->values()->all(),
             'phone' => $this->phone,
             'is_active' => $this->is_active,
