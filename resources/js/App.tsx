@@ -7,6 +7,7 @@ import { LoginPage } from "./pages/LoginPage";
 import { QuotationsPage, OpportunitiesPage } from "./pages/CommerceQuotationsOpportunities";
 import { CatalogosAdminPage, DocumentsPage, FinanzasHubPage, TimeEntriesPage } from "./pages/CommerceFinanceDocsTimeCatalog";
 import { ProjectsPage } from "./pages/ProjectsPage";
+import { SaasProductsPage } from "./pages/SaasProductsPage";
 import { AreasPage, ClientDetailPage, ClientsPage, IntegracionesPage, RentabilidadPage, ReportesGerenciaPage } from "./pages/OperationalPages";
 import { UsersPage } from "./pages/UsersPage";
 
@@ -65,6 +66,23 @@ function App() {
 
           <Route path="/proyectos" element={<ProjectsPage />} />
           <Route path="/proyectos/*" element={<ProjectsPage />} />
+
+          <Route
+            path="/saas"
+            element={
+              <RequireSuperadmin>
+                <SaasProductsPage />
+              </RequireSuperadmin>
+            }
+          />
+          <Route
+            path="/saas/*"
+            element={
+              <RequireSuperadmin>
+                <SaasProductsPage />
+              </RequireSuperadmin>
+            }
+          />
 
           <Route path="/cotizaciones" element={<QuotationsPage />} />
           <Route path="/cotizaciones/*" element={<QuotationsPage />} />

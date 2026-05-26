@@ -49,6 +49,9 @@ Route::middleware('auth')->group(function (): void {
     Route::get('/proyectos/{any}', $spaUi)->where('any', '.*');
     Route::get('/proyectos', $spaUi);
 
+    Route::get('/saas/{any}', $spaUi)->where('any', '.*');
+    Route::get('/saas', $spaUi);
+
     Route::get('/cotizaciones/{any}', $spaUi)->where('any', '.*');
     Route::get('/cotizaciones', $spaUi);
 

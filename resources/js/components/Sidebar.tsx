@@ -9,6 +9,7 @@ import {
   LayoutDashboard,
   Layers,
   LogOut,
+  PackageOpen,
   Plug,
   Radar,
   Receipt,
@@ -90,6 +91,7 @@ export function Sidebar() {
   const admin: NavLink[] = [
     { label: "Áreas", to: "/areas", icon: Layers },
     { label: "Catálogos", to: "/admin/catalogos", icon: Settings2 },
+    { label: "Productos SaaS", to: "/saas", icon: PackageOpen },
     { label: "Integraciones", to: "/integraciones", icon: Plug },
     { label: "Usuarios", to: "/usuarios", icon: Users },
   ];
