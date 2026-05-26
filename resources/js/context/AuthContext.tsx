@@ -53,7 +53,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       user,
       loading,
       isAuthenticated: user !== null,
-      isSuperadmin: Boolean(user?.is_superadmin || user?.role_slug === "admin"),
+      isSuperadmin: Boolean(user?.is_superadmin),
       refreshUser,
       login,
       logout,

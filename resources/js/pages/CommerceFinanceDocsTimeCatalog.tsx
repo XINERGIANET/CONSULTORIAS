@@ -1,4 +1,4 @@
-import { Clock, Database, FileText, Landmark, Receipt, Trash2, Wallet } from "lucide-react";
+import { Clock, Database, FileText, HandCoins, Landmark, Receipt, Trash2, Wallet } from "lucide-react";
 import { useEffect, useMemo, useState, type ReactNode } from "react";
 import { useAuth } from "../context/AuthContext";
 import { FormModal } from "../xpande/FormModal";
@@ -16,14 +16,15 @@ function canApproveTimes(user: { is_superadmin?: boolean; role_slug?: string | n
   if (!user) return false;
   if (user.is_superadmin) return true;
   const s = user.role_slug;
-  return s === "admin" || s === "gerente_area";
+  return s === "admin";
 }
 
 export function FinanzasHubPage() {
   const { isLight } = useApexTheme();
-  const [tab, setTab] = useState<"in" | "out" | "flow">("in");
+  const [tab, setTab] = useState<"in" | "out" | "receivable" | "flow">("in");
   const [incomes, setIncomes] = useState<LaravelPaginated<Record<string, unknown>> | null>(null);
   const [expenses, setExpenses] = useState<LaravelPaginated<Record<string, unknown>> | null>(null);
+  const [receivables, setReceivables] = useState<LaravelPaginated<Record<string, unknown>> | null>(null);
   const [cash, setCash] = useState<Record<string, unknown> | null>(null);
   const [clients, setClients] = useState<ClientOpt[]>([]);
   const [projects, setProjects] = useState<ProjOpt[]>([]);
@@ -31,6 +32,8 @@ export function FinanzasHubPage() {
   const [catsExpense, setCatsExpense] = useState<FinCat[]>([]);
   const [inModal, setInModal] = useState(false);
   const [outModal, setOutModal] = useState(false);
+  const [payModal, setPayModal] = useState(false);
+  const [payAccount, setPayAccount] = useState<Record<string, unknown> | null>(null);
   const [editInId, setEditInId] = useState<number | null>(null);
   const [editOutId, setEditOutId] = useState<number | null>(null);
   const [err, setErr] = useState<string | null>(null);
@@ -52,6 +55,13 @@ export function FinanzasHubPage() {
     responsible_user_id: "" as "" | number,
     observation: "",
   });
+  const [payForm, setPayForm] = useState({
+    amount: "",
+    paid_on: new Date().toISOString().slice(0, 10),
+    method: "",
+    reference: "",
+    notes: "",
+  });
 
   useEffect(() => {
     void getJson<LaravelPaginated<ClientOpt>>("/api/clients", { per_page: 100 }).then((r) => setClients(r.data));
@@ -63,6 +73,7 @@ export function FinanzasHubPage() {
   useEffect(() => {
     if (tab === "in") void getJson<LaravelPaginated<Record<string, unknown>>>("/api/incomes").then(setIncomes);
     if (tab === "out") void getJson<LaravelPaginated<Record<string, unknown>>>("/api/expenses").then(setExpenses);
+    if (tab === "receivable") void getJson<LaravelPaginated<Record<string, unknown>>>("/api/accounts-receivable").then(setReceivables);
     if (tab === "flow") void getJson<Record<string, unknown>>("/api/reports/cash-flow").then(setCash);
   }, [tab]);
 
@@ -206,6 +217,41 @@ export function FinanzasHubPage() {
     }
   };
 
+  const openPayment = (r: Record<string, unknown>) => {
+    setPayAccount(r);
+    setPayForm({
+      amount: String(r.balance_amount ?? ""),
+      paid_on: new Date().toISOString().slice(0, 10),
+      method: "",
+      reference: "",
+      notes: "",
+    });
+    setErr(null);
+    setPayModal(true);
+  };
+
+  const savePayment = async () => {
+    if (!payAccount || !payForm.amount) {
+      setErr("Monto requerido.");
+      return;
+    }
+    try {
+      await postJson(`/api/accounts-receivable/${Number(payAccount.id)}/payments`, {
+        amount: Number(payForm.amount),
+        paid_on: payForm.paid_on,
+        method: payForm.method || null,
+        reference: payForm.reference || null,
+        notes: payForm.notes || null,
+      });
+      setPayModal(false);
+      setPayAccount(null);
+      void getJson<LaravelPaginated<Record<string, unknown>>>("/api/accounts-receivable").then(setReceivables);
+      void getJson<LaravelPaginated<Record<string, unknown>>>("/api/incomes").then(setIncomes);
+    } catch {
+      setErr("No se pudo registrar el pago.");
+    }
+  };
+
   return (
     <main className={labCrudMainClass(isLight)}>
       <LabBreadcrumbs items={[{ label: "Dashboard", to: "/" }, { label: "Finanzas" }]} isLight={isLight} />
@@ -221,6 +267,9 @@ export function FinanzasHubPage() {
         <button type="button" className={tab === "out" ? labPrimaryBtn(isLight) : labGhostBtn(isLight)} onClick={() => setTab("out")}>
           <Receipt className="h-4 w-4" /> Gastos
         </button>
+        <button type="button" className={tab === "receivable" ? labPrimaryBtn(isLight) : labGhostBtn(isLight)} onClick={() => setTab("receivable")}>
+          <HandCoins className="h-4 w-4" /> Cuentas por cobrar
+        </button>
         <button type="button" className={tab === "flow" ? labPrimaryBtn(isLight) : labGhostBtn(isLight)} onClick={() => setTab("flow")}>
           <Landmark className="h-4 w-4" /> Flujo
         </button>
@@ -235,7 +284,7 @@ export function FinanzasHubPage() {
           </button>
         ) : null}
       </div>
-      {err && !(inModal || outModal) ? <p className="mb-4 text-sm text-red-600">{err}</p> : null}
+      {err && !(inModal || outModal || payModal) ? <p className="mb-4 text-sm text-red-600">{err}</p> : null}
 
       <div className={labPanelClass(isLight)}>
         {tab === "flow" && cash ? (
@@ -305,7 +354,46 @@ export function FinanzasHubPage() {
             </table>
           </div>
         ) : null}
-        {(tab === "in" && !incomes) || (tab === "out" && !expenses) ? <p className="text-sm text-zinc-500">Cargando…</p> : null}
+        {tab === "receivable" && receivables ? (
+          <div className={["overflow-x-auto", isLight ? "apex-table-scroll--light" : "apex-table-scroll--dark"].join(" ")}>
+            <table className="w-full min-w-[860px] text-left text-xs">
+              <thead>
+                <tr className={isLight ? "text-[#6B7280]" : "text-zinc-500"}>
+                  <th className="pb-2 uppercase">Cliente</th>
+                  <th className="pb-2 uppercase">Contrato</th>
+                  <th className="pb-2 text-right uppercase">Total</th>
+                  <th className="pb-2 text-right uppercase">Pagado</th>
+                  <th className="pb-2 text-right uppercase">Saldo</th>
+                  <th className="pb-2 uppercase">Emision</th>
+                  <th className="pb-2 uppercase">Vencimiento</th>
+                  <th className="pb-2 uppercase">Estado</th>
+                  <th className="pb-2 text-right uppercase"></th>
+                </tr>
+              </thead>
+              <tbody>
+                {receivables.data.map((r) => {
+                  const client = r.client as { legal_name?: string } | undefined;
+                  const document = r.document as { title?: string } | undefined;
+                  const status = String(r.status ?? "");
+                  return (
+                    <tr key={Number(r.id)} className={"border-t " + (isLight ? "border-[#F3F4F6]" : "border-white/[0.06]")}>
+                      <td className="py-2 pr-3">{client?.legal_name ?? "-"}</td>
+                      <td className="py-2 pr-3">{document?.title ?? "-"}</td>
+                      <td className="py-2 pr-3 text-right">S/. {String(r.total_amount ?? "")}</td>
+                      <td className="py-2 pr-3 text-right">S/. {String(r.paid_amount ?? "")}</td>
+                      <td className="py-2 pr-3 text-right">S/. {String(r.balance_amount ?? "")}</td>
+                      <td className="py-2 pr-3">{String(r.issued_on ?? "")}</td>
+                      <td className="py-2 pr-3">{String(r.due_on ?? "-")}</td>
+                      <td className="py-2 pr-3"><span className={labStatusPill(status === "paid" ? "ok" : status === "overdue" ? "warn" : "neutral", isLight)}>{status}</span></td>
+                      <td className="py-2 text-right">{status !== "paid" ? <button type="button" className={labGhostBtn(isLight)} onClick={() => openPayment(r)}>Registrar pago</button> : null}</td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        ) : null}
+        {(tab === "in" && !incomes) || (tab === "out" && !expenses) || (tab === "receivable" && !receivables) ? <p className="text-sm text-zinc-500">Cargando...</p> : null}
       </div>
 
       <FormModal
@@ -414,6 +502,39 @@ export function FinanzasHubPage() {
           </LabField>
           <LabField label="Observación" isLight={isLight} className="sm:col-span-2">
             <textarea className={labInputClass(isLight)} rows={2} value={outForm.observation} onChange={(e) => setOutForm({ ...outForm, observation: e.target.value })} />
+          </LabField>
+          {err ? <p className="sm:col-span-2 text-sm text-red-600">{err}</p> : null}
+        </div>
+      </FormModal>
+
+      <FormModal
+        open={payModal}
+        title="Registrar pago"
+        isLight={isLight}
+        wide
+        onClose={() => {setPayModal(false); setPayAccount(null);}}
+        footer={
+          <div className="flex justify-end gap-2">
+            <button type="button" className={labGhostBtn(isLight)} onClick={() => {setPayModal(false); setPayAccount(null);}}>Cerrar</button>
+            <button type="button" className={labPrimaryBtn(isLight)} onClick={() => void savePayment()}>Guardar pago</button>
+          </div>
+        }
+      >
+        <div className="grid gap-3 sm:grid-cols-2">
+          <LabField label="Monto" isLight={isLight}>
+            <input type="number" step="0.01" className={labInputClass(isLight)} value={payForm.amount} onChange={(e) => setPayForm({ ...payForm, amount: e.target.value })} />
+          </LabField>
+          <LabField label="Fecha de pago" isLight={isLight}>
+            <input type="date" className={labInputClass(isLight)} value={payForm.paid_on} onChange={(e) => setPayForm({ ...payForm, paid_on: e.target.value })} />
+          </LabField>
+          <LabField label="Metodo" isLight={isLight}>
+            <input className={labInputClass(isLight)} value={payForm.method} onChange={(e) => setPayForm({ ...payForm, method: e.target.value })} />
+          </LabField>
+          <LabField label="Referencia" isLight={isLight}>
+            <input className={labInputClass(isLight)} value={payForm.reference} onChange={(e) => setPayForm({ ...payForm, reference: e.target.value })} />
+          </LabField>
+          <LabField label="Notas" isLight={isLight} className="sm:col-span-2">
+            <textarea rows={2} className={labInputClass(isLight)} value={payForm.notes} onChange={(e) => setPayForm({ ...payForm, notes: e.target.value })} />
           </LabField>
           {err ? <p className="sm:col-span-2 text-sm text-red-600">{err}</p> : null}
         </div>
@@ -641,7 +762,20 @@ export function DocumentsPage() {
   const [open, setOpen] = useState(false);
   const [err, setErr] = useState<string | null>(null);
   const [file, setFile] = useState<File | null>(null);
-  const [meta, setMeta] = useState({ title: "", doc_type: "contract", client_id: "" as "" | number, project_id: "" as "" | number, area_id: "" as "" | number });
+  const [meta, setMeta] = useState({
+    title: "",
+    doc_type: "contract",
+    client_id: "" as "" | number,
+    project_id: "" as "" | number,
+    area_id: "" as "" | number,
+    contract_total: "",
+    contract_due_on: "",
+    register_payment: false,
+    payment_amount: "",
+    payment_paid_on: new Date().toISOString().slice(0, 10),
+    payment_method: "",
+    payment_reference: "",
+  });
 
   const load = () => void getJson<LaravelPaginated<Record<string, unknown>>>("/api/documents").then(setRows);
 
@@ -666,10 +800,21 @@ export function DocumentsPage() {
       if (meta.client_id !== "") fd.append("client_id", String(meta.client_id));
       if (meta.project_id !== "") fd.append("project_id", String(meta.project_id));
       if (meta.area_id !== "") fd.append("area_id", String(meta.area_id));
+      if (meta.doc_type === "contract" && meta.contract_total) {
+        fd.append("contract_total", meta.contract_total);
+        if (meta.contract_due_on) fd.append("contract_due_on", meta.contract_due_on);
+        if (meta.register_payment) {
+          fd.append("register_payment", "1");
+          if (meta.payment_amount) fd.append("payment_amount", meta.payment_amount);
+          fd.append("payment_paid_on", meta.payment_paid_on);
+          if (meta.payment_method) fd.append("payment_method", meta.payment_method);
+          if (meta.payment_reference) fd.append("payment_reference", meta.payment_reference);
+        }
+      }
       await postFormData<unknown>("/api/documents", fd);
       setOpen(false);
       setFile(null);
-      setMeta({ title: "", doc_type: "contract", client_id: "", project_id: "", area_id: "" });
+      setMeta({ title: "", doc_type: "contract", client_id: "", project_id: "", area_id: "", contract_total: "", contract_due_on: "", register_payment: false, payment_amount: "", payment_paid_on: new Date().toISOString().slice(0, 10), payment_method: "", payment_reference: "" });
       load();
     } catch {
       setErr("Error al subir (tamaño máx. 15MB).");
@@ -777,6 +922,37 @@ export function DocumentsPage() {
               ))}
             </select>
           </LabField>
+          {meta.doc_type === "contract" ? (
+            <>
+              <LabField label="Monto total contrato" isLight={isLight}>
+                <input type="number" step="0.01" className={labInputClass(isLight)} value={meta.contract_total} onChange={(e) => setMeta({ ...meta, contract_total: e.target.value })} />
+              </LabField>
+              <LabField label="Fecha vencimiento" isLight={isLight}>
+                <input type="date" className={labInputClass(isLight)} value={meta.contract_due_on} onChange={(e) => setMeta({ ...meta, contract_due_on: e.target.value })} />
+              </LabField>
+              <LabField label="Pago inmediato" isLight={isLight} className="sm:col-span-2">
+                <label className={(isLight ? "text-[#374151]" : "text-zinc-200") + " flex gap-2 text-sm"}>
+                  <input type="checkbox" checked={meta.register_payment} onChange={(e) => setMeta({ ...meta, register_payment: e.target.checked, payment_amount: e.target.checked ? meta.contract_total : meta.payment_amount })} /> Registrar pago al crear contrato
+                </label>
+              </LabField>
+              {meta.register_payment ? (
+                <>
+                  <LabField label="Monto pagado" isLight={isLight}>
+                    <input type="number" step="0.01" className={labInputClass(isLight)} value={meta.payment_amount} onChange={(e) => setMeta({ ...meta, payment_amount: e.target.value })} />
+                  </LabField>
+                  <LabField label="Fecha de pago" isLight={isLight}>
+                    <input type="date" className={labInputClass(isLight)} value={meta.payment_paid_on} onChange={(e) => setMeta({ ...meta, payment_paid_on: e.target.value })} />
+                  </LabField>
+                  <LabField label="Metodo" isLight={isLight}>
+                    <input className={labInputClass(isLight)} value={meta.payment_method} onChange={(e) => setMeta({ ...meta, payment_method: e.target.value })} />
+                  </LabField>
+                  <LabField label="Referencia" isLight={isLight}>
+                    <input className={labInputClass(isLight)} value={meta.payment_reference} onChange={(e) => setMeta({ ...meta, payment_reference: e.target.value })} />
+                  </LabField>
+                </>
+              ) : null}
+            </>
+          ) : null}
           {err ? <p className="sm:col-span-2 text-sm text-red-600">{err}</p> : null}
         </div>
       </FormModal>

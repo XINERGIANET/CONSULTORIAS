@@ -45,11 +45,12 @@ class TimeEntryController extends Controller
         $project = Project::query()->with('client')->findOrFail($data['project_id']);
         $this->assertProject($request, $project);
 
-        $uid = $data['user_id'] ?? $request->user()?->id;
+        $currentUserId = $request->user() !== null ? $request->user()->id : null;
+        $uid = $data['user_id'] ?? $currentUserId;
         if ($uid === null) {
             abort(422, 'Usuario requerido.');
         }
-        if ($uid !== $request->user()?->id && ! AreaVisibility::canSeeAll($request->user())) {
+        if ($uid !== $currentUserId && ! AreaVisibility::canSeeAll($request->user())) {
             abort(403);
         }
 
@@ -74,7 +75,8 @@ class TimeEntryController extends Controller
             'description' => ['nullable', 'string'],
             'billable' => ['sometimes', 'boolean'],
         ]);
-        if ($timeEntry->user_id !== $request->user()?->id && ! AreaVisibility::canSeeAll($request->user())) {
+        $currentUserId = $request->user() !== null ? $request->user()->id : null;
+        if ($timeEntry->user_id !== $currentUserId && ! AreaVisibility::canSeeAll($request->user())) {
             abort(403);
         }
         $timeEntry->update($data);
@@ -84,7 +86,7 @@ class TimeEntryController extends Controller
 
     public function review(Request $request, TimeEntry $timeEntry): JsonResponse
     {
-        if (! AreaVisibility::canSeeAll($request->user()) && $request->user()?->role?->slug !== 'gerente_area') {
+        if (! AreaVisibility::canSeeAll($request->user())) {
             abort(403);
         }
         $this->assertEntry($request, $timeEntry);
@@ -99,7 +101,8 @@ class TimeEntryController extends Controller
     public function destroy(Request $request, TimeEntry $timeEntry): JsonResponse
     {
         $this->assertEntry($request, $timeEntry);
-        if ($timeEntry->user_id !== $request->user()?->id && ! AreaVisibility::canSeeAll($request->user())) {
+        $currentUserId = $request->user() !== null ? $request->user()->id : null;
+        if ($timeEntry->user_id !== $currentUserId && ! AreaVisibility::canSeeAll($request->user())) {
             abort(403);
         }
         $timeEntry->delete();

@@ -71,18 +71,19 @@ export function Sidebar() {
   const { isLight } = useApexTheme();
   const { user, isSuperadmin, logout } = useAuth();
   const loc = useLocation();
+  const can = (code: string) => isSuperadmin || Boolean(user?.permissions?.includes(code));
 
   const crm: NavLink[] = [
-    { label: "Clientes", to: "/clientes", icon: Briefcase },
-    { label: "Oportunidades", to: "/oportunidades", icon: Target },
-    { label: "Cotizaciones", to: "/cotizaciones", icon: ClipboardList },
-  ];
+    can("view_clients") ? { label: "Clientes", to: "/clientes", icon: Briefcase } : null,
+    can("view_clients") ? { label: "Oportunidades", to: "/oportunidades", icon: Target } : null,
+    can("view_quotations") ? { label: "Cotizaciones", to: "/cotizaciones", icon: ClipboardList } : null,
+  ].filter(Boolean) as NavLink[];
   const ops: NavLink[] = [
-    { label: "Proyectos", to: "/proyectos", icon: FolderKanban },
-    { label: "Tiempos", to: "/tiempos", icon: Radar },
+    can("view_projects") ? { label: "Proyectos", to: "/proyectos", icon: FolderKanban } : null,
+    can("manage_productivity") ? { label: "Tiempos", to: "/tiempos", icon: Radar } : null,
     { label: "Documentos", to: "/documentos", icon: FileText },
-  ];
-  const finances: NavLink[] = [{ label: "Finanzas", to: "/finanzas", icon: Landmark }];
+  ].filter(Boolean) as NavLink[];
+  const finances: NavLink[] = can("view_finances") ? [{ label: "Finanzas", to: "/finanzas", icon: Landmark }] : [];
   const analytic: NavLink[] = [
     { label: "Rentabilidad", to: "/rentabilidad", icon: Receipt },
     { label: "Reportes gerenciales", to: "/reportes", icon: BarChart3 },
@@ -93,7 +94,7 @@ export function Sidebar() {
     { label: "Catálogos", to: "/admin/catalogos", icon: Settings2 },
     { label: "Productos SaaS", to: "/saas", icon: PackageOpen },
     { label: "Integraciones", to: "/integraciones", icon: Plug },
-    { label: "Usuarios", to: "/usuarios", icon: Users },
+    { label: "Usuarios y permisos", to: "/usuarios", icon: Users },
   ];
 
   const dashActive = loc.pathname === "/";
@@ -138,9 +139,9 @@ export function Sidebar() {
           </nav>
         </div>
 
-        <NavSection title="CRM" items={crm} isLight={isLight} />
-        <NavSection title="Operaciones" items={ops} isLight={isLight} />
-        <NavSection title="Finanzas" items={finances} isLight={isLight} />
+        {crm.length ? <NavSection title="CRM" items={crm} isLight={isLight} /> : null}
+        {ops.length ? <NavSection title="Operaciones" items={ops} isLight={isLight} /> : null}
+        {finances.length ? <NavSection title="Finanzas" items={finances} isLight={isLight} /> : null}
         <NavSection title="Analítica" items={analytic} isLight={isLight} />
         {isSuperadmin ? <NavSection title="Administración" items={admin} isLight={isLight} /> : null}
       </div>
