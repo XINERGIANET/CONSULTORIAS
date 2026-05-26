@@ -4,7 +4,7 @@ import { createUser, deleteUser, fetchUser, fetchUsersPage, updateUser, type Man
 import { ConfirmModal } from "../components/ConfirmModal";
 import { FormModal } from "../xpande/FormModal";
 import { apiErrorMessage } from "../xpande/apiError";
-import { getJson } from "../xpande/http";
+import { getJson, putJson } from "../xpande/http";
 import {
   LabCircleIconAction,
   LabDataPager,
@@ -54,7 +54,8 @@ function downloadUsersCsv(rows: ManagedUser[]) {
   URL.revokeObjectURL(url);
 }
 
-type RoleOpt = { id: number; name: string; slug: string };
+type PermissionOpt = { id: number; code: string; label: string };
+type RoleOpt = { id: number; name: string; slug: string; permissions?: PermissionOpt[] };
 type AreaOpt = { id: number; name: string };
 type SortCol = "id" | "name" | "email" | "created_at";
 type TabKey = "all" | "admins" | "users";
@@ -78,6 +79,8 @@ export function UsersPage() {
   const [perPage, setPerPage] = useState(50);
 
   const [roles, setRoles] = useState<RoleOpt[]>([]);
+  const [permissions, setPermissions] = useState<PermissionOpt[]>([]);
+  const [rolePermsErr, setRolePermsErr] = useState<string | null>(null);
   const [areasList, setAreasList] = useState<AreaOpt[]>([]);
 
   const [modalOpen, setModalOpen] = useState(false);
@@ -142,8 +145,23 @@ export function UsersPage() {
 
   useEffect(() => {
     void getJson<RoleOpt[]>("/api/roles").then(setRoles).catch(() => setRoles([]));
+    void getJson<PermissionOpt[]>("/api/roles/permissions").then(setPermissions).catch(() => setPermissions([]));
     void getJson<AreaOpt[]>("/api/areas", { active_only: false }).then(setAreasList).catch(() => setAreasList([]));
   }, []);
+
+  const reloadRoles = () => void getJson<RoleOpt[]>("/api/roles").then(setRoles).catch(() => setRoles([]));
+
+  const toggleRolePermission = async (role: RoleOpt, code: string) => {
+    setRolePermsErr(null);
+    const current = role.permissions?.map((p) => p.code) ?? [];
+    const next = current.includes(code) ? current.filter((c) => c !== code) : [...current, code];
+    try {
+      await putJson(`/api/roles/${role.id}`, { permission_codes: next });
+      reloadRoles();
+    } catch (e: unknown) {
+      setRolePermsErr(apiErrorMessage(e, "No se pudo actualizar permisos."));
+    }
+  };
 
   useEffect(() => {
     const delay = q.trim() === "" ? 0 : 280;
@@ -410,8 +428,38 @@ export function UsersPage() {
 
       <p className={["mt-3 inline-flex items-center gap-2 text-xs", isLight ? "text-[#6B7280]" : "text-zinc-500"].join(" ")}>
         <Shield className="h-4 w-4" />
-        Solo administradores pueden gestionar usuarios. El superadmin inicial no puede borrarse a sí mismo.
+        Solo el Superadmin puede gestionar usuarios, roles, permisos y accesos.
       </p>
+
+      <div className={labPanelClass(isLight) + " mt-4"}>
+        <div className="mb-3 flex items-center justify-between gap-3">
+          <h2 className={["text-sm font-semibold", isLight ? "text-[#111827]" : "text-zinc-100"].join(" ")}>Roles y permisos</h2>
+          {rolePermsErr ? <span className="text-xs text-red-600">{rolePermsErr}</span> : null}
+        </div>
+        <div className="grid gap-3 lg:grid-cols-2">
+          {roles.filter((r) => r.slug === "admin" || r.slug === "colaborador").map((role) => (
+            <div key={role.id} className={["rounded-lg border p-3", isLight ? "border-[#E5E7EB] bg-[#F9FAFB]" : "border-white/[0.06] bg-white/[0.02]"].join(" ")}>
+              <div className="mb-3 flex items-center justify-between">
+                <span className={["text-sm font-semibold", isLight ? "text-[#111827]" : "text-zinc-100"].join(" ")}>{role.name}</span>
+                <span className={labStatusPill("neutral", isLight)}>{role.slug}</span>
+              </div>
+              <div className="grid gap-2 sm:grid-cols-2">
+                {permissions.map((permission) => (
+                  <label key={permission.code} className={["flex items-center gap-2 text-xs", isLight ? "text-[#374151]" : "text-zinc-200"].join(" ")}>
+                    <input
+                      type="checkbox"
+                      checked={Boolean(role.permissions?.some((p) => p.code === permission.code))}
+                      disabled={permission.code === "manage_roles_permissions"}
+                      onChange={() => void toggleRolePermission(role, permission.code)}
+                    />
+                    {permission.label}
+                  </label>
+                ))}
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
 
       <LabNoticeModal
         open={notice !== null}

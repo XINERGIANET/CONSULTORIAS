@@ -45,7 +45,7 @@ class UserManagementController extends Controller
 
     public function show(User $user): JsonResponse
     {
-        return response()->json($user->load(['role', 'cargo', 'areas:id,name']));
+        return response()->json($user->load(['role.permissions', 'cargo', 'areas:id,name']));
     }
 
     public function store(Request $request): JsonResponse
@@ -55,7 +55,7 @@ class UserManagementController extends Controller
             'email' => ['required', 'email', 'max:255', 'unique:users,email'],
             'password' => ['required', 'string', 'min:8'],
             'is_superadmin' => ['sometimes', 'boolean'],
-            'role_id' => ['sometimes', 'nullable', 'exists:roles,id'],
+            'role_id' => ['sometimes', 'nullable', Rule::exists('roles', 'id')->whereIn('slug', ['superadmin', 'admin', 'colaborador'])],
             'cargo_id' => ['nullable', 'exists:cargos,id'],
             'phone' => ['nullable', 'string', 'max:64'],
             'is_active' => ['sometimes', 'boolean'],
@@ -101,7 +101,7 @@ class UserManagementController extends Controller
             'email' => ['sometimes', 'required', 'email', 'max:255', Rule::unique('users', 'email')->ignore($user->id)],
             'password' => ['nullable', 'string', 'min:8'],
             'is_superadmin' => ['sometimes', 'boolean'],
-            'role_id' => ['sometimes', 'nullable', 'exists:roles,id'],
+            'role_id' => ['sometimes', 'nullable', Rule::exists('roles', 'id')->whereIn('slug', ['superadmin', 'admin', 'colaborador'])],
             'cargo_id' => ['nullable', 'exists:cargos,id'],
             'phone' => ['nullable', 'string', 'max:64'],
             'is_active' => ['sometimes', 'boolean'],

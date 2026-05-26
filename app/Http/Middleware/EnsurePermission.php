@@ -6,22 +6,22 @@ use Closure;
 use Illuminate\Http\Request;
 use Symfony\Component\HttpFoundation\Response;
 
-class EnsureSuperadmin
+class EnsurePermission
 {
     /**
      * @param  Closure(Request): Response  $next
      */
-    public function handle(Request $request, Closure $next): Response
+    public function handle(Request $request, Closure $next, string $permission): Response
     {
         $user = $request->user();
         if ($user === null) {
             abort(401);
         }
 
-        if ($user->isSuperadmin()) {
+        if ($user->hasPermission($permission)) {
             return $next($request);
         }
 
-        abort(403, 'Solo el Superadmin puede acceder a esta operacion.');
+        abort(403, 'No tiene permiso para realizar esta operacion.');
     }
 }

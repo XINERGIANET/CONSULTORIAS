@@ -12,9 +12,9 @@ class AreaVisibility
         if ($user->is_superadmin) {
             return true;
         }
-        $slug = $user->role?->slug;
+        $slug = $user->role !== null ? $user->role->slug : null;
 
-        return \in_array($slug, ['admin', 'gerente_general'], true);
+        return $slug === 'admin';
     }
 
     /**
@@ -36,7 +36,7 @@ class AreaVisibility
             return $q;
         }
 
-        if ($user->role?->slug === 'consultor') {
+        if ($user->role !== null && $user->role->slug === 'colaborador') {
             return $q->whereHas('projects.users', fn (Builder $b) => $b->where('users.id', $user->id));
         }
 
@@ -55,7 +55,7 @@ class AreaVisibility
             return $q;
         }
 
-        if ($user->role?->slug === 'consultor') {
+        if ($user->role !== null && $user->role->slug === 'colaborador') {
             return $q->whereHas('users', fn (Builder $b) => $b->where('users.id', $user->id));
         }
 
@@ -74,7 +74,7 @@ class AreaVisibility
             return $q;
         }
 
-        if ($user->role?->slug === 'consultor') {
+        if ($user->role !== null && $user->role->slug === 'colaborador') {
             return $q->whereHas('client.projects.users', fn (Builder $b) => $b->where('users.id', $user->id));
         }
 
@@ -95,7 +95,7 @@ class AreaVisibility
             return $q;
         }
 
-        if ($user->role?->slug === 'consultor') {
+        if ($user->role !== null && $user->role->slug === 'colaborador') {
             $pids = $user->projects()->pluck('projects.id')->all();
 
             return $q->whereIn('project_id', $pids);
@@ -149,7 +149,7 @@ class AreaVisibility
             return $q;
         }
 
-        if ($user->role?->slug === 'consultor') {
+        if ($user->role !== null && $user->role->slug === 'colaborador') {
             return $q->where('user_id', $user->id);
         }
 
@@ -187,7 +187,7 @@ class AreaVisibility
             return $q;
         }
 
-        if ($user->role?->slug === 'consultor') {
+        if ($user->role !== null && $user->role->slug === 'colaborador') {
             return $q->whereHas('client.projects.users', fn (Builder $b) => $b->where('users.id', $user->id));
         }
 

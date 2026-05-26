@@ -3,11 +3,14 @@
 namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
+use App\Models\AccountReceivable;
 use App\Models\Document;
 use App\Models\DocumentVersion;
+use App\Services\AccountsReceivableService;
 use App\Support\AreaVisibility;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
 
 class DocumentController extends Controller
@@ -24,7 +27,7 @@ class DocumentController extends Controller
         return response()->json($q->orderByDesc('id')->paginate(30));
     }
 
-    public function store(Request $request): JsonResponse
+    public function store(Request $request, AccountsReceivableService $receivableService): JsonResponse
     {
         $data = $request->validate([
             'file' => ['required', 'file', 'max:15360'],
@@ -33,27 +36,68 @@ class DocumentController extends Controller
             'client_id' => ['nullable', 'integer', 'exists:clients,id'],
             'project_id' => ['nullable', 'integer', 'exists:projects,id'],
             'area_id' => ['nullable', 'integer', 'exists:areas,id'],
+            'contract_total' => ['nullable', 'numeric', 'min:0.01'],
+            'contract_due_on' => ['nullable', 'date'],
+            'register_payment' => ['sometimes', 'boolean'],
+            'payment_amount' => ['nullable', 'numeric', 'min:0.01'],
+            'payment_paid_on' => ['nullable', 'date'],
+            'payment_method' => ['nullable', 'string', 'max:64'],
+            'payment_reference' => ['nullable', 'string', 'max:255'],
         ]);
 
         $path = $data['file']->store('xpande_documents', 'public');
-        $doc = Document::query()->create([
-            'client_id' => $data['client_id'] ?? null,
-            'project_id' => $data['project_id'] ?? null,
-            'area_id' => $data['area_id'] ?? null,
-            'doc_type' => $data['doc_type'],
-            'title' => $data['title'],
-            'path' => $path,
-            'uploaded_by' => $request->user()?->id,
-            'version' => 1,
-        ]);
+        $doc = DB::transaction(function () use ($data, $path, $request, $receivableService) {
+            $doc = Document::query()->create([
+                'client_id' => $data['client_id'] ?? null,
+                'project_id' => $data['project_id'] ?? null,
+                'area_id' => $data['area_id'] ?? null,
+                'doc_type' => $data['doc_type'],
+                'title' => $data['title'],
+                'path' => $path,
+                'uploaded_by' => $request->user() !== null ? $request->user()->id : null,
+                'version' => 1,
+            ]);
 
-        DocumentVersion::query()->create([
-            'document_id' => $doc->id,
-            'version' => 1,
-            'path' => $path,
-            'user_id' => $request->user()?->id,
-            'note' => 'Alta inicial',
-        ]);
+            DocumentVersion::query()->create([
+                'document_id' => $doc->id,
+                'version' => 1,
+                'path' => $path,
+                'user_id' => $request->user() !== null ? $request->user()->id : null,
+                'note' => 'Alta inicial',
+            ]);
+
+            if ($data['doc_type'] === 'contract' && isset($data['contract_total'])) {
+                if (empty($data['client_id']) || empty($data['area_id'])) {
+                    abort(422, 'Cliente, area y monto son obligatorios para generar una cuenta por cobrar.');
+                }
+
+                $account = AccountReceivable::query()->create([
+                    'client_id' => $data['client_id'],
+                    'document_id' => $doc->id,
+                    'project_id' => $data['project_id'] ?? null,
+                    'area_id' => $data['area_id'],
+                    'total_amount' => $data['contract_total'],
+                    'paid_amount' => 0,
+                    'balance_amount' => $data['contract_total'],
+                    'issued_on' => now()->toDateString(),
+                    'due_on' => $data['contract_due_on'] ?? null,
+                    'status' => 'pending',
+                    'notes' => 'Generado automaticamente desde contrato: '.$doc->title,
+                ]);
+
+                if ($request->boolean('register_payment')) {
+                    $receivableService->registerPayment($account, [
+                        'amount' => $data['payment_amount'] ?? $data['contract_total'],
+                        'paid_on' => $data['payment_paid_on'] ?? now()->toDateString(),
+                        'method' => $data['payment_method'] ?? null,
+                        'reference' => $data['payment_reference'] ?? null,
+                        'notes' => 'Pago registrado al generar contrato.',
+                    ], (int) $request->user()->id);
+                }
+            }
+
+            return $doc;
+        });
 
         return response()->json($doc, 201);
     }
@@ -72,7 +116,7 @@ class DocumentController extends Controller
             'document_id' => $document->id,
             'version' => $next,
             'path' => $path,
-            'user_id' => $request->user()?->id,
+            'user_id' => $request->user() !== null ? $request->user()->id : null,
             'note' => $data['note'] ?? null,
         ]);
         $document->update(['path' => $path, 'version' => $next]);
