@@ -42,6 +42,10 @@ class ClientController extends Controller
             'contacts.area',
             'crmActivities' => fn ($r) => $r->orderByDesc('occurred_at')->limit(100),
             'opportunities',
+            'projects' => fn ($r) => $r->with(['areas:id,name', 'services:id,name,kind,billing_cycle,base_price'])
+                ->where('status', '!=', 'cancelled')
+                ->orderByDesc('id')
+                ->limit(50),
         ]));
     }
 

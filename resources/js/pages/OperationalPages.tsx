@@ -386,6 +386,15 @@ export function ClientsPage() {
 
 type CrmContact = { id: number; name: string; position?: string | null; phone?: string | null; email?: string | null };
 type CrmActivity = { id: number; type: string; subject?: string | null };
+type ClientPortfolioItem = {
+  id: number;
+  name?: string;
+  engagement_type?: string | null;
+  status?: string | null;
+  renewal_date?: string | null;
+  services?: { id: number; name: string; kind?: string | null }[];
+  areas?: { id: number; name: string }[];
+};
 
 export function ClientDetailPage() {
   const { id } = useParams();
@@ -408,6 +417,7 @@ export function ClientDetailPage() {
 
   const asRec = row as Record<string, unknown>;
   const contacts = Array.isArray(asRec.contacts) ? (asRec.contacts as CrmContact[]) : [];
+  const portfolio = Array.isArray(asRec.projects) ? (asRec.projects as ClientPortfolioItem[]) : [];
   const activities =
     ((asRec.crm_activities as CrmActivity[]) ?? (asRec.crmActivities as CrmActivity[]) ?? []);
 
@@ -495,6 +505,25 @@ export function ClientDetailPage() {
       {err ? <p className="mb-4 text-sm text-red-600">{err}</p> : null}
 
       <div className="grid gap-4 lg:grid-cols-2">
+        <section className={labPanelClass(isLight)}>
+          <h3 className={"mb-2 text-sm font-semibold " + (isLight ? "text-[#111827]" : "text-zinc-100")}>Productos y proyectos adquiridos</h3>
+          <ul className="space-y-3 text-sm">
+            {portfolio.map((item) => (
+              <li key={item.id} className={isLight ? "text-[#374151]" : "text-zinc-300"}>
+                <div className="flex flex-wrap items-center gap-2">
+                  <span className="font-medium">{item.name ?? "Registro"}</span>
+                  <span className={labStatusPill("neutral", isLight)}>{item.engagement_type === "saas" ? "SaaS" : "Proyecto"}</span>
+                  <span className="text-[11px] uppercase text-zinc-500">{item.status ?? ""}</span>
+                </div>
+                <div className="mt-1 text-[11px] text-zinc-500">
+                  {(item.services ?? []).map((s) => s.name).join(", ") || "Sin productos seleccionados"}
+                  {item.renewal_date ? " · Renueva " + String(item.renewal_date).slice(0, 10) : ""}
+                </div>
+              </li>
+            ))}
+            {!portfolio.length ? <li className="text-zinc-500">Sin productos o proyectos activos.</li> : null}
+          </ul>
+        </section>
         <section className={labPanelClass(isLight)}>
           <h3 className={"mb-2 text-sm font-semibold " + (isLight ? "text-[#111827]" : "text-zinc-100")}>Contactos</h3>
           <ul className="space-y-3 text-sm">

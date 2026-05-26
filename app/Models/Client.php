@@ -49,6 +49,11 @@ class Client extends Model
         return $this->hasMany(Project::class);
     }
 
+    public function saasAffiliations(): HasMany
+    {
+        return $this->hasMany(Project::class)->where('engagement_type', 'saas');
+    }
+
     /** @return HasMany<CrmActivity, Client> */
     public function crmActivities(): HasMany
     {

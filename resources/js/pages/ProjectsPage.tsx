@@ -28,9 +28,11 @@ import { useApexTheme } from "../context/ThemeContext";
 type AreaOpt = { id: number; name: string };
 type ClientOpt = { id: number; legal_name: string };
 type UserOpt = { id: number; name: string };
+type ServiceOpt = { id: number; name: string; kind?: string | null; billing_cycle?: string | null; base_price?: string | null };
 type ProjRow = {
   id: number;
   name: string;
+  engagement_type?: string | null;
   status: string;
   created_at?: string;
   client_id?: number;
@@ -39,12 +41,15 @@ type ProjRow = {
   service_type?: string | null;
   start_date?: string | null;
   end_estimated?: string | null;
+  subscription_status?: string | null;
+  renewal_date?: string | null;
   description?: string | null;
   objectives?: string | null;
   deliverables?: string | null;
   client?: { legal_name?: string };
   areas?: { id: number; name: string }[];
   users?: { id: number }[];
+  services?: ServiceOpt[];
 };
 type ProjSortCol = "id" | "name" | "client" | "status" | "start_date" | "created_at";
 
@@ -58,6 +63,7 @@ export function ProjectsPage() {
   const [clients, setClients] = useState<ClientOpt[]>([]);
   const [areas, setAreas] = useState<AreaOpt[]>([]);
   const [users, setUsers] = useState<UserOpt[]>([]);
+  const [services, setServices] = useState<ServiceOpt[]>([]);
   const [open, setOpen] = useState(false);
   const [editId, setEditId] = useState<number | null>(null);
   const [modalErr, setModalErr] = useState<string | null>(null);
@@ -70,11 +76,14 @@ export function ProjectsPage() {
 
   const [form, setForm] = useState({
     client_id: "" as "" | number,
+    engagement_type: "project",
     name: "",
     service_type: "",
     start_date: "",
     end_estimated: "",
     status: "pending",
+    subscription_status: "active",
+    renewal_date: "",
     budget: "",
     lead_user_id: "" as "" | number,
     description: "",
@@ -82,6 +91,7 @@ export function ProjectsPage() {
     deliverables: "",
     area_ids: [] as number[],
     user_ids: [] as number[],
+    service_ids: [] as number[],
   });
 
   const fetchProjects = useCallback(
@@ -104,6 +114,7 @@ export function ProjectsPage() {
     void getJson<LaravelPaginated<ClientOpt>>("/api/clients", { per_page: 150 }).then((r) => setClients(r.data));
     void getJson<AreaOpt[]>("/api/areas", { active_only: false }).then(setAreas);
     void getJson<UserOpt[]>("/api/collaborators").then(setUsers);
+    void getJson<ServiceOpt[]>("/api/catalog/services", { active_only: false }).then(setServices);
   }, []);
 
   useEffect(() => {
@@ -122,11 +133,14 @@ export function ProjectsPage() {
       setEditId(null);
       setForm({
         client_id: "",
+        engagement_type: "project",
         name: "",
         service_type: "",
         start_date: "",
         end_estimated: "",
         status: "pending",
+        subscription_status: "active",
+        renewal_date: "",
         budget: "",
         lead_user_id: "",
         description: "",
@@ -134,6 +148,7 @@ export function ProjectsPage() {
         deliverables: "",
         area_ids: [],
         user_ids: [],
+        service_ids: [],
       });
       setOpen(true);
       navigate(loc.pathname, { replace: true, state: {} });
@@ -144,6 +159,9 @@ export function ProjectsPage() {
     void setForm((f) => ({ ...f, area_ids: f.area_ids.includes(id) ? f.area_ids.filter((x) => x !== id) : [...f.area_ids, id] }));
   const toggleUser = (id: number) =>
     void setForm((f) => ({ ...f, user_ids: f.user_ids.includes(id) ? f.user_ids.filter((x) => x !== id) : [...f.user_ids, id] }));
+
+  const toggleService = (id: number) =>
+    void setForm((f) => ({ ...f, service_ids: f.service_ids.includes(id) ? f.service_ids.filter((x) => x !== id) : [...f.service_ids, id] }));
 
   const onSortHeader = (col: ProjSortCol) => {
     if (sortCol === col) {
@@ -158,17 +176,24 @@ export function ProjectsPage() {
 
   const openEdit = async (id: number) => {
     setModalErr(null);
+    if (form.engagement_type === "saas" && form.service_ids.length === 0) {
+      setModalErr("Seleccione al menos un producto SaaS para la afiliacion.");
+      return;
+    }
     try {
       const p = await getJson<ProjRow>(`/api/projects/${id}`);
       setEditId(id);
       const aid = (p.areas ?? []).map((a) => a.id);
       setForm({
         client_id: typeof p.client_id === "number" ? p.client_id : "",
+        engagement_type: p.engagement_type ?? "project",
         name: p.name,
         service_type: p.service_type ?? "",
         start_date: p.start_date ?? "",
         end_estimated: p.end_estimated ?? "",
         status: p.status,
+        subscription_status: p.subscription_status ?? "active",
+        renewal_date: p.renewal_date ?? "",
         budget: p.budget ?? "",
         lead_user_id: p.lead_user_id ?? "",
         description: p.description ?? "",
@@ -176,6 +201,7 @@ export function ProjectsPage() {
         deliverables: p.deliverables ?? "",
         area_ids: aid.length ? aid : [],
         user_ids: (p.users ?? []).map((u) => u.id),
+        service_ids: (p.services ?? []).map((s) => s.id),
       });
       setOpen(true);
     } catch (e: unknown) {
@@ -192,11 +218,14 @@ export function ProjectsPage() {
     try {
       const body: Record<string, unknown> = {
         client_id: form.client_id,
+        engagement_type: form.engagement_type,
         name: form.name,
         service_type: form.service_type || null,
         start_date: form.start_date || null,
         end_estimated: form.end_estimated || null,
         status: form.status,
+        subscription_status: form.engagement_type === "saas" ? form.subscription_status || null : null,
+        renewal_date: form.engagement_type === "saas" ? form.renewal_date || null : null,
         budget: form.budget ? Number(form.budget) : null,
         lead_user_id: form.lead_user_id === "" ? null : form.lead_user_id,
         description: form.description || null,
@@ -204,6 +233,7 @@ export function ProjectsPage() {
         deliverables: form.deliverables || null,
         area_ids: form.area_ids,
         user_ids: form.user_ids,
+        service_ids: form.service_ids,
       };
       if (editId) await putJson(`/api/projects/${editId}`, body);
       else await postJson("/api/projects", body);
@@ -245,12 +275,12 @@ export function ProjectsPage() {
     <main className={labCrudMainClass(isLight)}>
       <LabBreadcrumbs items={[{ label: "Dashboard", to: "/" }, { label: "Proyectos" }]} isLight={isLight} />
       <LabPageHeader
-        title="Portafolio de proyectos"
+        title="Portafolio de proyectos y SaaS"
         subtitle="Búsqueda, ordenamiento y paginación en servidor."
         isLight={isLight}
         action={
           <button type="button" className={labPrimaryBtn(isLight)} onClick={() => {setEditId(null); setModalErr(null); setOpen(true);}}>
-            <FolderKanban className="h-4 w-4" /> Nuevo proyecto
+            <FolderKanban className="h-4 w-4" /> Nuevo registro
           </button>
         }
       />
@@ -280,6 +310,8 @@ export function ProjectsPage() {
                 <tr className={isLight ? "text-[#6B7280]" : "text-zinc-500"}>
                   <LabSortableTh label="Proyecto" sorted={sortState("name")} isLight={isLight} onToggle={() => onSortHeader("name")} />
                   <LabSortableTh label="Cliente" sorted={sortState("client")} isLight={isLight} onToggle={() => onSortHeader("client")} />
+                  <th className="pb-3 pr-3 text-left text-xs font-semibold uppercase tracking-wide">Tipo</th>
+                  <th className="pb-3 pr-3 text-left text-xs font-semibold uppercase tracking-wide">Productos</th>
                   <th className="pb-3 pr-3 text-left text-xs font-semibold uppercase tracking-wide">Áreas</th>
                   <LabSortableTh label="Estado" sorted={sortState("status")} isLight={isLight} onToggle={() => onSortHeader("status")} />
                   <LabSortableTh
@@ -296,7 +328,6 @@ export function ProjectsPage() {
                     onToggle={() => onSortHeader("created_at")}
                     className="w-28 whitespace-nowrap"
                   />
-                  <LabSortableTh label="ID" sorted={sortState("id")} isLight={isLight} onToggle={() => onSortHeader("id")} className="w-16" align="right" />
                   <th className="w-[6.5rem] pb-3 text-right text-xs font-semibold uppercase tracking-wide">Acciones</th>
                 </tr>
               </thead>
@@ -305,11 +336,12 @@ export function ProjectsPage() {
                   <tr key={p.id} className={"border-t " + (isLight ? "border-[#F3F4F6]" : "border-white/[0.06]")}>
                     <td className={"py-2.5 pr-4 font-semibold " + (isLight ? "text-[#111827]" : "text-white")}>{p.name}</td>
                     <td className="py-2.5 pr-4 text-xs">{p.client?.legal_name ?? "—"}</td>
+                    <td className="py-2.5 pr-4 text-xs uppercase">{p.engagement_type === "saas" ? "SaaS" : "Proyecto"}</td>
+                    <td className="py-2.5 pr-4 text-xs">{(p.services ?? []).map((x) => x.name).join(", ") || "Sin productos"}</td>
                     <td className="py-2.5 pr-4 text-xs">{(p.areas ?? []).map((x) => x.name).join(", ")}</td>
                     <td className="py-2.5 pr-4 text-xs uppercase">{p.status}</td>
                     <td className="py-2.5 pr-4 text-xs whitespace-nowrap">{p.start_date ? String(p.start_date).slice(0, 10) : "—"}</td>
                     <td className="py-2.5 pr-4 text-xs whitespace-nowrap">{p.created_at ? String(p.created_at).slice(0, 10) : "—"}</td>
-                    <td className="py-2.5 text-right text-xs tabular-nums">{p.id}</td>
                     <td className="py-2.5 text-right align-middle">
                       <div className="flex justify-end gap-2">
                         <LabCircleIconAction variant="edit" tooltip="Editar" ariaLabel={`Editar ${p.name}`} onClick={() => void openEdit(p.id)} />
@@ -378,7 +410,7 @@ export function ProjectsPage() {
 
       <FormModal
         open={open}
-        title={editId ? "Editar proyecto" : "Nuevo proyecto"}
+        title={editId ? "Editar registro" : "Nuevo registro"}
         isLight={isLight}
         wide
         onClose={() => {setOpen(false); setModalErr(null);}}
@@ -411,6 +443,13 @@ export function ProjectsPage() {
           <LabField label="Nombre *" isLight={isLight} className="sm:col-span-2">
             <input className={labInputClass(isLight)} value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} />
           </LabField>
+          <LabField label="Tipo de registro" isLight={isLight}>
+            <select className={labInputClass(isLight)} value={form.engagement_type} onChange={(e) => setForm({ ...form, engagement_type: e.target.value })}>
+              <option value="project">Proyecto / servicio</option>
+              <option value="saas">Afiliacion SaaS</option>
+              <option value="retainer">Bolsa recurrente</option>
+            </select>
+          </LabField>
           <LabField label="Tipo de servicio" isLight={isLight}>
             <input className={labInputClass(isLight)} value={form.service_type} onChange={(e) => setForm({ ...form, service_type: e.target.value })} />
           </LabField>
@@ -429,6 +468,21 @@ export function ProjectsPage() {
           <LabField label="Fin estimado" isLight={isLight}>
             <input type="date" className={labInputClass(isLight)} value={form.end_estimated} onChange={(e) => setForm({ ...form, end_estimated: e.target.value })} />
           </LabField>
+          {form.engagement_type === "saas" ? (
+            <>
+              <LabField label="Estado SaaS" isLight={isLight}>
+                <select className={labInputClass(isLight)} value={form.subscription_status} onChange={(e) => setForm({ ...form, subscription_status: e.target.value })}>
+                  <option value="trial">Prueba</option>
+                  <option value="active">Activo</option>
+                  <option value="paused">Pausado</option>
+                  <option value="cancelled">Cancelado</option>
+                </select>
+              </LabField>
+              <LabField label="Renovacion" isLight={isLight}>
+                <input type="date" className={labInputClass(isLight)} value={form.renewal_date} onChange={(e) => setForm({ ...form, renewal_date: e.target.value })} />
+              </LabField>
+            </>
+          ) : null}
           <LabField label="Presupuesto" isLight={isLight}>
             <input type="number" step="0.01" className={labInputClass(isLight)} value={form.budget} onChange={(e) => setForm({ ...form, budget: e.target.value })} />
           </LabField>
@@ -458,6 +512,17 @@ export function ProjectsPage() {
                   <input type="checkbox" checked={form.area_ids.includes(a.id)} onChange={() => toggleArea(a.id)} /> {a.name}
                 </label>
               ))}
+            </div>
+          </LabField>
+          <LabField label="Productos / SaaS adquiridos" isLight={isLight} className="sm:col-span-2">
+            <div className={["max-h-40 flex flex-wrap gap-2 overflow-y-auto rounded-lg border p-3 text-xs", isLight ? "border-[#E5E7EB] bg-[#F9FAFB]" : "border-white/[0.08] bg-[#0a0a0a]/60"].join(" ")}>
+              {services.map((s) => (
+                <label key={s.id} className={(isLight ? "text-[#374151]" : "text-zinc-200") + " flex gap-2"}>
+                  <input type="checkbox" checked={form.service_ids.includes(s.id)} onChange={() => toggleService(s.id)} /> {s.name}
+                  <span className="text-[10px] uppercase text-zinc-500">{s.kind === "saas" ? "SaaS" : "Servicio"}</span>
+                </label>
+              ))}
+              {!services.length ? <span className="text-zinc-500">Cargue productos en Catalogos &gt; Servicios.</span> : null}
             </div>
           </LabField>
           <LabField label="Equipo asignado" isLight={isLight} className="sm:col-span-2">

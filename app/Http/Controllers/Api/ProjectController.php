@@ -13,7 +13,7 @@ class ProjectController extends Controller
 {
     public function index(Request $request): JsonResponse
     {
-        $q = Project::query()->with(['client:id,legal_name', 'areas:id,name', 'leadUser:id,name']);
+        $q = Project::query()->with(['client:id,legal_name', 'areas:id,name', 'leadUser:id,name', 'services:id,name,kind,billing_cycle,base_price']);
         AreaVisibility::applyProjectScope($q, $request->user());
 
         if ($request->filled('area_id')) {
@@ -23,13 +23,21 @@ class ProjectController extends Controller
         if ($request->filled('status')) {
             $q->where('status', $request->input('status'));
         }
+        if ($request->filled('engagement_type')) {
+            $q->where('engagement_type', $request->input('engagement_type'));
+        }
+        if ($request->filled('service_id')) {
+            $sid = (int) $request->input('service_id');
+            $q->whereHas('services', fn ($b) => $b->where('services.id', $sid));
+        }
 
         if ($request->filled('q')) {
             $s = '%'.$request->string('q').'%';
             $q->where(function ($w) use ($s) {
                 $w->where('name', 'like', $s)
                     ->orWhere('service_type', 'like', $s)
-                    ->orWhereHas('client', fn ($c) => $c->where('legal_name', 'like', $s));
+                    ->orWhereHas('client', fn ($c) => $c->where('legal_name', 'like', $s))
+                    ->orWhereHas('services', fn ($svc) => $svc->where('name', 'like', $s));
             });
         }
 
@@ -57,19 +65,22 @@ class ProjectController extends Controller
     {
         $this->assertProject($request, $project);
 
-        return response()->json($project->load(['client', 'areas', 'users', 'leadUser']));
+        return response()->json($project->load(['client', 'areas', 'users', 'leadUser', 'services']));
     }
 
     public function store(Request $request): JsonResponse
     {
         $data = $request->validate([
             'client_id' => ['required', 'integer', 'exists:clients,id'],
+            'engagement_type' => ['nullable', 'string', 'max:64'],
             'name' => ['required', 'string', 'max:255'],
             'service_type' => ['nullable', 'string', 'max:255'],
             'start_date' => ['nullable', 'date'],
             'end_estimated' => ['nullable', 'date'],
             'end_actual' => ['nullable', 'date'],
             'status' => ['nullable', 'string', 'max:64'],
+            'subscription_status' => ['nullable', 'string', 'max:64'],
+            'renewal_date' => ['nullable', 'date'],
             'budget' => ['nullable', 'numeric', 'min:0'],
             'lead_user_id' => ['nullable', 'integer', 'exists:users,id'],
             'description' => ['nullable', 'string'],
@@ -79,20 +90,24 @@ class ProjectController extends Controller
             'area_ids.*' => ['integer', 'exists:areas,id'],
             'user_ids' => ['sometimes', 'array'],
             'user_ids.*' => ['integer', 'exists:users,id'],
+            'service_ids' => ['sometimes', 'array'],
+            'service_ids.*' => ['integer', 'exists:services,id'],
         ]);
 
         $project = DB::transaction(function () use ($data) {
             $aids = $data['area_ids'];
             $uids = $data['user_ids'] ?? [];
-            unset($data['area_ids'], $data['user_ids']);
+            $sids = $data['service_ids'] ?? [];
+            unset($data['area_ids'], $data['user_ids'], $data['service_ids']);
             $p = Project::query()->create($data);
             $p->areas()->sync($aids);
             $p->users()->sync($uids);
+            $p->services()->sync($sids);
 
             return $p;
         });
 
-        return response()->json($project->load(['areas', 'users']), 201);
+        return response()->json($project->load(['areas', 'users', 'services']), 201);
     }
 
     public function update(Request $request, Project $project): JsonResponse
@@ -100,12 +115,15 @@ class ProjectController extends Controller
         $this->assertProject($request, $project);
         $data = $request->validate([
             'client_id' => ['sometimes', 'required', 'integer', 'exists:clients,id'],
+            'engagement_type' => ['nullable', 'string', 'max:64'],
             'name' => ['sometimes', 'required', 'string', 'max:255'],
             'service_type' => ['nullable', 'string', 'max:255'],
             'start_date' => ['nullable', 'date'],
             'end_estimated' => ['nullable', 'date'],
             'end_actual' => ['nullable', 'date'],
             'status' => ['nullable', 'string', 'max:64'],
+            'subscription_status' => ['nullable', 'string', 'max:64'],
+            'renewal_date' => ['nullable', 'date'],
             'budget' => ['nullable', 'numeric', 'min:0'],
             'lead_user_id' => ['nullable', 'integer', 'exists:users,id'],
             'description' => ['nullable', 'string'],
@@ -115,12 +133,15 @@ class ProjectController extends Controller
             'area_ids.*' => ['integer', 'exists:areas,id'],
             'user_ids' => ['sometimes', 'array'],
             'user_ids.*' => ['integer', 'exists:users,id'],
+            'service_ids' => ['sometimes', 'array'],
+            'service_ids.*' => ['integer', 'exists:services,id'],
         ]);
 
         DB::transaction(function () use ($project, $data) {
             $aids = $data['area_ids'] ?? null;
             $uids = $data['user_ids'] ?? null;
-            unset($data['area_ids'], $data['user_ids']);
+            $sids = $data['service_ids'] ?? null;
+            unset($data['area_ids'], $data['user_ids'], $data['service_ids']);
             $project->update($data);
             if (is_array($aids)) {
                 $project->areas()->sync($aids);
@@ -128,9 +149,12 @@ class ProjectController extends Controller
             if (is_array($uids)) {
                 $project->users()->sync($uids);
             }
+            if (is_array($sids)) {
+                $project->services()->sync($sids);
+            }
         });
 
-        return response()->json($project->fresh()->load(['areas', 'users', 'client']));
+        return response()->json($project->fresh()->load(['areas', 'users', 'client', 'services']));
     }
 
     public function destroy(Request $request, Project $project): JsonResponse

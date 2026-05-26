@@ -9,7 +9,12 @@ class Service extends Model
 {
     protected $fillable = [
         'name',
+        'kind',
+        'slug',
         'area_id',
+        'description',
+        'billing_cycle',
+        'base_price',
         'is_active',
     ];
 
@@ -17,6 +22,7 @@ class Service extends Model
     {
         return [
             'is_active' => 'boolean',
+            'base_price' => 'decimal:2',
         ];
     }
 
@@ -24,5 +30,12 @@ class Service extends Model
     public function area(): BelongsTo
     {
         return $this->belongsTo(Area::class);
+    }
+
+    public function projects(): \Illuminate\Database\Eloquent\Relations\BelongsToMany
+    {
+        return $this->belongsToMany(Project::class, 'project_service')
+            ->withPivot(['quantity', 'unit_price', 'notes'])
+            ->withTimestamps();
     }
 }

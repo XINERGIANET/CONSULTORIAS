@@ -872,6 +872,9 @@ function catalogRowCells(cat: CatSlug, r: Record<string, unknown>, td: string, i
       return [
         <td key="i" className={td + " " + mono}>{id}</td>,
         <td key="n" className={td + " font-medium"}>{String(r.name ?? "")}</td>,
+        <td key="k" className={td}>{r.kind === "saas" ? "SaaS" : r.kind === "product" ? "Producto" : "Servicio"}</td>,
+        <td key="bc" className={td}>{String(r.billing_cycle ?? "Sin ciclo")}</td>,
+        <td key="bp" className={td}>{String(r.base_price ?? "Sin precio")}</td>,
         <td key="a" className={td + " text-[11px]"}>{arTxt}</td>,
       ];
     }
@@ -924,7 +927,7 @@ export function CatalogosAdminPage() {
   const [err, setErr] = useState<string | null>(null);
   interface CurRow { code: string; name: string; symbol: string }
   interface FiRow { name: string; type: "income" | "expense" }
-  interface SvcRow { name: string; area_id: string }
+  interface SvcRow { name: string; kind: string; area_id: string; billing_cycle: string; base_price: string; description: string }
   interface TxRow { name: string; rate_percent: string }
   interface CgRow { name: string }
   interface TfRow { name: string; rate_type: string; amount: string; currency_id: string; area_id: string }
@@ -932,7 +935,7 @@ export function CatalogosAdminPage() {
 
   const [formFin, setFormFin] = useState<FiRow>({ name: "", type: "income" });
   const [formCur, setFormCur] = useState<CurRow>({ code: "", name: "", symbol: "" });
-  const [formSvc, setFormSvc] = useState<SvcRow>({ name: "", area_id: "" });
+  const [formSvc, setFormSvc] = useState<SvcRow>({ name: "", kind: "service", area_id: "", billing_cycle: "", base_price: "", description: "" });
   const [formTx, setFormTx] = useState<TxRow>({ name: "", rate_percent: "" });
   const [formCg, setFormCg] = useState<CgRow>({ name: "" });
   const [formTf, setFormTf] = useState<TfRow>({ name: "", rate_type: "hourly", amount: "", currency_id: "", area_id: "" });
@@ -963,7 +966,7 @@ export function CatalogosAdminPage() {
     setErr(null);
     setFormFin({ name: "", type: "income" });
     setFormCur({ code: "", name: "", symbol: "" });
-    setFormSvc({ name: "", area_id: "" });
+    setFormSvc({ name: "", kind: "service", area_id: "", billing_cycle: "", base_price: "", description: "" });
     setFormTx({ name: "", rate_percent: "" });
     setFormCg({ name: "" });
     setFormTf({ name: "", rate_type: "hourly", amount: "", currency_id: "", area_id: "" });
@@ -976,7 +979,7 @@ export function CatalogosAdminPage() {
     setEditRow(r);
     if (cat === "financial-categories") setFormFin({ name: String(r.name ?? ""), type: (r.type === "expense" ? "expense" : "income") });
     if (cat === "currencies") setFormCur({ code: String(r.code ?? ""), name: String(r.name ?? ""), symbol: String(r.symbol ?? "") });
-    if (cat === "services") setFormSvc({ name: String(r.name ?? ""), area_id: r.area_id != null ? String(r.area_id) : "" });
+    if (cat === "services") setFormSvc({ name: String(r.name ?? ""), kind: String(r.kind ?? "service"), area_id: r.area_id != null ? String(r.area_id) : "", billing_cycle: String(r.billing_cycle ?? ""), base_price: String(r.base_price ?? ""), description: String(r.description ?? "") });
     if (cat === "tax-rates") setFormTx({ name: String(r.name ?? ""), rate_percent: String(r.rate_percent ?? "") });
     if (cat === "cargos") setFormCg({ name: String(r.name ?? "") });
     if (cat === "tariffs") setFormTf({ name: String(r.name ?? ""), rate_type: String(r.rate_type ?? "hourly"), amount: String(r.amount ?? ""), currency_id: r.currency_id != null ? String(r.currency_id) : "", area_id: r.area_id != null ? String(r.area_id) : "" });
@@ -999,7 +1002,14 @@ export function CatalogosAdminPage() {
         if (editRow) await putJson(`/api/catalog/currencies/${parseId(editRow)}`, body);
         else await postJson("/api/catalog/currencies", body);
       } else if (cat === "services") {
-        const body = { name: formSvc.name.trim(), area_id: formSvc.area_id ? Number(formSvc.area_id) : null };
+        const body = {
+          name: formSvc.name.trim(),
+          kind: formSvc.kind,
+          area_id: formSvc.area_id ? Number(formSvc.area_id) : null,
+          billing_cycle: formSvc.billing_cycle.trim() || null,
+          base_price: formSvc.base_price ? Number(formSvc.base_price) : null,
+          description: formSvc.description.trim() || null,
+        };
         if (!body.name) throw new Error("Nombre");
         if (editRow) await putJson(`/api/catalog/services/${parseId(editRow)}`, body);
         else await postJson("/api/catalog/services", body);
@@ -1074,7 +1084,7 @@ export function CatalogosAdminPage() {
               setErr(null);
               setFormFin({ name: "", type: "income" });
               setFormCur({ code: "", name: "", symbol: "" });
-              setFormSvc({ name: "", area_id: "" });
+              setFormSvc({ name: "", kind: "service", area_id: "", billing_cycle: "", base_price: "", description: "" });
               setFormTx({ name: "", rate_percent: "" });
               setFormCg({ name: "" });
               setFormTf({ name: "", rate_type: "hourly", amount: "", currency_id: "", area_id: "" });
@@ -1162,6 +1172,25 @@ export function CatalogosAdminPage() {
           {cat === "services" ? (
             <>
               <LabField label="Nombre" isLight={isLight} className="sm:col-span-2"><input className={labInputClass(isLight)} value={formSvc.name} onChange={(e) => setFormSvc({ ...formSvc, name: e.target.value })} /></LabField>
+              <LabField label="Tipo" isLight={isLight}>
+                <select className={labInputClass(isLight)} value={formSvc.kind} onChange={(e) => setFormSvc({ ...formSvc, kind: e.target.value })}>
+                  <option value="service">Servicio</option>
+                  <option value="saas">SaaS</option>
+                  <option value="product">Producto</option>
+                </select>
+              </LabField>
+              <LabField label="Ciclo de cobro" isLight={isLight}>
+                <select className={labInputClass(isLight)} value={formSvc.billing_cycle} onChange={(e) => setFormSvc({ ...formSvc, billing_cycle: e.target.value })}>
+                  <option value="">Sin ciclo</option>
+                  <option value="monthly">Mensual</option>
+                  <option value="quarterly">Trimestral</option>
+                  <option value="annual">Anual</option>
+                  <option value="one_time">Unico</option>
+                </select>
+              </LabField>
+              <LabField label="Precio base" isLight={isLight} className="sm:col-span-2">
+                <input type="number" step="0.01" className={labInputClass(isLight)} value={formSvc.base_price} onChange={(e) => setFormSvc({ ...formSvc, base_price: e.target.value })} />
+              </LabField>
               <LabField label="Área" isLight={isLight} className="sm:col-span-2">
                 <select className={labInputClass(isLight)} value={formSvc.area_id} onChange={(e) => setFormSvc({ ...formSvc, area_id: e.target.value })}>
                   <option value="">—</option>
@@ -1169,6 +1198,9 @@ export function CatalogosAdminPage() {
                     <option key={a.id} value={a.id}>{a.name}</option>
                   ))}
                 </select>
+              </LabField>
+              <LabField label="Descripcion" isLight={isLight} className="sm:col-span-2">
+                <textarea rows={2} className={labInputClass(isLight)} value={formSvc.description} onChange={(e) => setFormSvc({ ...formSvc, description: e.target.value })} />
               </LabField>
             </>
           ) : null}

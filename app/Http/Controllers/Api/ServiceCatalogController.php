@@ -21,6 +21,9 @@ class ServiceCatalogController extends Controller
         if ($request->filled('area_id')) {
             $q->where('area_id', (int) $request->input('area_id'));
         }
+        if ($request->filled('kind')) {
+            $q->where('kind', $request->string('kind')->toString());
+        }
 
         return response()->json($q->get());
     }
@@ -30,7 +33,12 @@ class ServiceCatalogController extends Controller
         $this->authorizePrivileged($request);
         $data = $request->validate([
             'name' => ['required', 'string', 'max:255'],
+            'kind' => ['nullable', 'string', 'max:64'],
+            'slug' => ['nullable', 'string', 'max:255', 'unique:services,slug'],
             'area_id' => ['nullable', 'integer', 'exists:areas,id'],
+            'description' => ['nullable', 'string'],
+            'billing_cycle' => ['nullable', 'string', 'max:64'],
+            'base_price' => ['nullable', 'numeric', 'min:0'],
             'is_active' => ['sometimes', 'boolean'],
         ]);
 
@@ -42,7 +50,12 @@ class ServiceCatalogController extends Controller
         $this->authorizePrivileged($request);
         $service->update($request->validate([
             'name' => ['sometimes', 'required', 'string', 'max:255'],
+            'kind' => ['nullable', 'string', 'max:64'],
+            'slug' => ['nullable', 'string', 'max:255', 'unique:services,slug,'.$service->id],
             'area_id' => ['nullable', 'integer', 'exists:areas,id'],
+            'description' => ['nullable', 'string'],
+            'billing_cycle' => ['nullable', 'string', 'max:64'],
+            'base_price' => ['nullable', 'numeric', 'min:0'],
             'is_active' => ['sometimes', 'boolean'],
         ]));
 

@@ -11,12 +11,15 @@ class Project extends Model
 {
     protected $fillable = [
         'client_id',
+        'engagement_type',
         'name',
         'service_type',
         'start_date',
         'end_estimated',
         'end_actual',
         'status',
+        'subscription_status',
+        'renewal_date',
         'budget',
         'lead_user_id',
         'description',
@@ -30,6 +33,7 @@ class Project extends Model
             'start_date' => 'date',
             'end_estimated' => 'date',
             'end_actual' => 'date',
+            'renewal_date' => 'date',
             'budget' => 'decimal:2',
         ];
     }
@@ -56,6 +60,14 @@ class Project extends Model
     public function users(): BelongsToMany
     {
         return $this->belongsToMany(User::class, 'project_user');
+    }
+
+    /** @return BelongsToMany<Service, Project> */
+    public function services(): BelongsToMany
+    {
+        return $this->belongsToMany(Service::class, 'project_service')
+            ->withPivot(['quantity', 'unit_price', 'notes'])
+            ->withTimestamps();
     }
 
     /** @return HasMany<Income, Project> */

@@ -55,6 +55,7 @@ class XpandeSeeder extends Seeder
 
         $incomeTypes = [
             'Servicio mensual',
+            'Suscripcion SaaS',
             'Proyecto cerrado',
             'Consultoría por hora',
             'Desarrollo de software',
@@ -131,13 +132,22 @@ class XpandeSeeder extends Seeder
             ['name' => 'Consultoría empresarial', 'area_id' => $xpande?->id],
             ['name' => 'Marketing digital', 'area_id' => $xango?->id],
             ['name' => 'Branding', 'area_id' => $xango?->id],
+            ['name' => 'Xinergia ERP', 'kind' => 'saas', 'slug' => 'xinergia-erp', 'area_id' => $xingeria?->id, 'billing_cycle' => 'monthly'],
+            ['name' => 'Portal Inmobiliario', 'kind' => 'saas', 'slug' => 'portal-inmobiliario', 'area_id' => $xingeria?->id, 'billing_cycle' => 'monthly'],
+            ['name' => 'CRM Comercial SaaS', 'kind' => 'saas', 'slug' => 'crm-comercial-saas', 'area_id' => $xingeria?->id, 'billing_cycle' => 'monthly'],
         ];
 
         foreach ($services as $s) {
             if ($s['area_id'] !== null) {
                 Service::query()->firstOrCreate(
                     ['name' => $s['name']],
-                    ['area_id' => $s['area_id'], 'is_active' => true]
+                    [
+                        'kind' => $s['kind'] ?? 'service',
+                        'slug' => $s['slug'] ?? null,
+                        'area_id' => $s['area_id'],
+                        'billing_cycle' => $s['billing_cycle'] ?? null,
+                        'is_active' => true,
+                    ]
                 );
             }
         }
