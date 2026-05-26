@@ -4,55 +4,53 @@ namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
 use App\Models\Client;
-use App\Models\ClientContact;
+use App\Models\ClientLocation;
 use App\Support\AreaVisibility;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 
-class ClientContactController extends Controller
+class ClientLocationController extends Controller
 {
     public function store(Request $request, Client $client): JsonResponse
     {
         $this->assertClient($request, $client);
         $data = $request->validate([
             'name' => ['required', 'string', 'max:255'],
-            'position' => ['nullable', 'string', 'max:255'],
+            'address' => ['nullable', 'string', 'max:500'],
             'phone' => ['nullable', 'string', 'max:64'],
-            'email' => ['nullable', 'email', 'max:255'],
-            'area_id' => ['nullable', 'integer', 'exists:areas,id'],
-            'observations' => ['nullable', 'string'],
+            'responsible_person' => ['nullable', 'string', 'max:255'],
+            'is_active' => ['sometimes', 'boolean'],
         ]);
         $data['client_id'] = $client->id;
 
-        return response()->json(ClientContact::query()->create($data), 201);
+        return response()->json(ClientLocation::query()->create($data), 201);
     }
 
-    public function update(Request $request, Client $client, ClientContact $contact): JsonResponse
+    public function update(Request $request, Client $client, ClientLocation $location): JsonResponse
     {
         $this->assertClient($request, $client);
-        if ($contact->client_id !== $client->id) {
+        if ($location->client_id !== $client->id) {
             abort(404);
         }
         $data = $request->validate([
             'name' => ['sometimes', 'required', 'string', 'max:255'],
-            'position' => ['nullable', 'string', 'max:255'],
+            'address' => ['nullable', 'string', 'max:500'],
             'phone' => ['nullable', 'string', 'max:64'],
-            'email' => ['nullable', 'email', 'max:255'],
-            'area_id' => ['nullable', 'integer', 'exists:areas,id'],
-            'observations' => ['nullable', 'string'],
+            'responsible_person' => ['nullable', 'string', 'max:255'],
+            'is_active' => ['sometimes', 'boolean'],
         ]);
-        $contact->update($data);
+        $location->update($data);
 
-        return response()->json($contact->fresh()->load('area'));
+        return response()->json($location->fresh());
     }
 
-    public function destroy(Request $request, Client $client, ClientContact $contact): JsonResponse
+    public function destroy(Request $request, Client $client, ClientLocation $location): JsonResponse
     {
         $this->assertClient($request, $client);
-        if ($contact->client_id !== $client->id) {
+        if ($location->client_id !== $client->id) {
             abort(404);
         }
-        $contact->delete();
+        $location->delete();
 
         return response()->json(null, 204);
     }

@@ -101,6 +101,10 @@ Route::middleware('auth')->group(function (): void {
         Route::put('clients/{client}/contacts/{contact}', [ClientContactController::class, 'update']);
         Route::delete('clients/{client}/contacts/{contact}', [ClientContactController::class, 'destroy']);
 
+        Route::post('clients/{client}/locations', [\App\Http\Controllers\Api\ClientLocationController::class, 'store']);
+        Route::put('clients/{client}/locations/{location}', [\App\Http\Controllers\Api\ClientLocationController::class, 'update']);
+        Route::delete('clients/{client}/locations/{location}', [\App\Http\Controllers\Api\ClientLocationController::class, 'destroy']);
+
         Route::get('clients/{client}/crm-activities', [CrmActivityController::class, 'index']);
         Route::post('clients/{client}/crm-activities', [CrmActivityController::class, 'store']);
         Route::delete('clients/{client}/crm-activities/{activity}', [CrmActivityController::class, 'destroy']);
@@ -116,11 +120,13 @@ Route::middleware('auth')->group(function (): void {
         Route::put('projects/{project}', [ProjectController::class, 'update']);
         Route::delete('projects/{project}', [ProjectController::class, 'destroy']);
 
-        Route::get('quotations', [QuotationController::class, 'index']);
-        Route::post('quotations', [QuotationController::class, 'store']);
         Route::get('quotations/{quotation}', [QuotationController::class, 'show']);
+        Route::post('quotations', [QuotationController::class, 'store']);
         Route::put('quotations/{quotation}', [QuotationController::class, 'update']);
         Route::post('quotations/{quotation}/accept', [QuotationController::class, 'accept']);
+        Route::get('quotations/{quotation}/pdf', [QuotationController::class, 'generatePdf']);
+        Route::post('quotations/{quotation}/send-whatsapp', [QuotationController::class, 'sendWhatsapp']);
+        Route::post('quotations/{quotation}/send-email', [QuotationController::class, 'sendEmail']);
         Route::delete('quotations/{quotation}', [QuotationController::class, 'destroy']);
 
         Route::get('incomes', [IncomeController::class, 'index']);

@@ -32,14 +32,13 @@ class DocumentController extends Controller
             'doc_type' => ['required', 'string', 'max:64'],
             'client_id' => ['nullable', 'integer', 'exists:clients,id'],
             'project_id' => ['nullable', 'integer', 'exists:projects,id'],
-            'area_id' => ['nullable', 'integer', 'exists:areas,id'],
         ]);
 
         $path = $data['file']->store('xpande_documents', 'public');
         $doc = Document::query()->create([
             'client_id' => $data['client_id'] ?? null,
             'project_id' => $data['project_id'] ?? null,
-            'area_id' => $data['area_id'] ?? null,
+            'area_id' => $request->user()->areas()->first()?->id,
             'doc_type' => $data['doc_type'],
             'title' => $data['title'],
             'path' => $path,

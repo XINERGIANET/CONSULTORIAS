@@ -150,21 +150,30 @@ type ClientLite = {
   areas?: AreaRow[];
 };
 
+type CrmContact = { id: number; name: string; position?: string | null; phone?: string | null; email?: string | null; observations?: string | null };
+
+const emptyClientForm = () => ({
+  legal_name: "",
+  trade_name: "",
+  ruc: "",
+  address: "",
+  rubro: "",
+  pipeline_stage: "lead",
+  representative_contact_id: null as number | null,
+  representative_name: "",
+  representative_phone: "",
+  representative_position: "",
+  representative_email: "",
+  representative_observations: "",
+});
+
 export function ClientsPage() {
   const { isLight } = useApexTheme();
   const [data, setData] = useState<LaravelPaginated<ClientLite> | null>(null);
-  const [areas, setAreas] = useState<AreaRow[]>([]);
   const [modal, setModal] = useState(false);
   const [editId, setEditId] = useState<number | null>(null);
   const [searchingRuc, setSearchingRuc] = useState(false);
-  const [form, setForm] = useState({
-    legal_name: "",
-    trade_name: "",
-    ruc: "",
-    address: "",
-    pipeline_stage: "lead",
-    area_ids: [] as number[],
-  });
+  const [form, setForm] = useState(emptyClientForm());
   const [err, setErr] = useState<string | null>(null);
 
   const load = async (page = 1) => {
@@ -174,12 +183,11 @@ export function ClientsPage() {
 
   useEffect(() => {
     void load();
-    void getJson<AreaRow[]>("/api/areas", { active_only: false }).then(setAreas);
   }, []);
 
   const openCreate = () => {
     setEditId(null);
-    setForm({ legal_name: "", trade_name: "", ruc: "", address: "", pipeline_stage: "lead", area_ids: [] });
+    setForm(emptyClientForm());
     setErr(null);
     setModal(true);
   };
@@ -187,15 +195,21 @@ export function ClientsPage() {
   const openEditClient = async (c: ClientLite) => {
     setErr(null);
     try {
-      const full = await getJson<{ legal_name?: string; trade_name?: string | null; ruc?: string | null; address?: string | null; pipeline_stage?: string; areas?: { id: number }[] }>(`/api/clients/${c.id}`);
-      const aids = (full.areas ?? []).map((a) => a.id);
+      const full = await getJson<{ legal_name?: string; trade_name?: string | null; ruc?: string | null; address?: string | null; rubro?: string | null; pipeline_stage?: string; contacts?: CrmContact[] }>(`/api/clients/${c.id}`);
+      const representative = full.contacts?.[0] ?? null;
       setForm({
         legal_name: full.legal_name ?? c.legal_name,
         trade_name: full.trade_name ?? "",
         ruc: full.ruc ?? "",
         address: full.address ?? "",
+        rubro: full.rubro ?? "",
         pipeline_stage: full.pipeline_stage ?? c.pipeline_stage,
-        area_ids: aids.length ? aids : (c.areas ?? []).map((a) => a.id),
+        representative_contact_id: representative?.id ?? null,
+        representative_name: representative?.name ?? "",
+        representative_phone: representative?.phone ?? "",
+        representative_position: representative?.position ?? "",
+        representative_email: representative?.email ?? "",
+        representative_observations: representative?.observations ?? "",
       });
       setEditId(c.id);
       setModal(true);
@@ -217,23 +231,45 @@ export function ClientsPage() {
   const save = async () => {
     setErr(null);
     try {
-      if (form.area_ids.length === 0) {
-        setErr("Seleccione al menos un área.");
-        return;
+      const clientBody = {
+        legal_name: form.legal_name,
+        trade_name: form.trade_name,
+        ruc: form.ruc,
+        address: form.address,
+        rubro: form.rubro,
+        pipeline_stage: form.pipeline_stage,
+      };
+      let clientId = editId;
+      if (editId) {
+        await putJson(`/api/clients/${editId}`, clientBody);
+      } else {
+        const saved = await postJson<{ id: number }>("/api/clients", clientBody);
+        clientId = saved.id;
       }
-      if (editId) await putJson(`/api/clients/${editId}`, { ...form });
-      else await postJson("/api/clients", form);
+
+      if (clientId && form.representative_name.trim()) {
+        const representativeBody = {
+          name: form.representative_name.trim(),
+          position: form.representative_position.trim() || null,
+          phone: form.representative_phone.trim() || null,
+          email: form.representative_email.trim() || null,
+          observations: form.representative_observations.trim() || null,
+        };
+        if (form.representative_contact_id) {
+          await putJson(`/api/clients/${clientId}/contacts/${form.representative_contact_id}`, representativeBody);
+        } else {
+          await postJson(`/api/clients/${clientId}/contacts`, representativeBody);
+        }
+      }
+
       setModal(false);
       setEditId(null);
       await load(data?.current_page ?? 1);
-      setForm({ legal_name: "", trade_name: "", ruc: "", address: "", pipeline_stage: "lead", area_ids: [] });
+      setForm(emptyClientForm());
     } catch {
       setErr("No se pudo guardar.");
     }
   };
-
-  const toggle = (id: number) =>
-    void setForm((f) => ({ ...f, area_ids: f.area_ids.includes(id) ? f.area_ids.filter((x) => x !== id) : [...f.area_ids, id] }));
 
   const performRucSearch = async () => {
     if (!form.ruc || form.ruc.length !== 11) {
@@ -364,19 +400,29 @@ export function ClientsPage() {
             <select className={labInputClass(isLight)} value={form.pipeline_stage} onChange={(e) => setForm({ ...form, pipeline_stage: e.target.value })}>
               <option value="lead">Lead</option>
               <option value="prospect">Prospecto</option>
-              <option value="client">Cliente</option>
               <option value="active_client">Cliente activo</option>
-              <option value="inactive_client">Cliente inactivo</option>
             </select>
           </LabField>
-          <LabField label="Áreas relacionadas" isLight={isLight} className="sm:col-span-2">
-            <div className={["flex flex-wrap gap-2 rounded-lg border p-3 text-xs font-medium", isLight ? "border-[#E5E7EB] bg-[#F9FAFB]" : "border-white/[0.06] bg-[#0a0a0a]/60"].join(" ")}>
-              {areas.map((a) => (
-                <label key={a.id} className={"flex gap-2 " + (isLight ? "text-[#374151]" : "text-zinc-200")}>
-                  <input type="checkbox" checked={form.area_ids.includes(a.id)} onChange={() => toggle(a.id)} /> {a.name}
-                </label>
-              ))}
-            </div>
+          <LabField label="Rubro" isLight={isLight}>
+            <input className={labInputClass(isLight)} value={form.rubro} onChange={(e) => setForm({ ...form, rubro: e.target.value })} />
+          </LabField>
+          <div className="sm:col-span-2">
+            <h3 className={"mb-2 text-sm font-semibold " + (isLight ? "text-[#111827]" : "text-zinc-100")}>Representante del cliente</h3>
+          </div>
+          <LabField label="Nombre completo" isLight={isLight}>
+            <input className={labInputClass(isLight)} value={form.representative_name} onChange={(e) => setForm({ ...form, representative_name: e.target.value })} />
+          </LabField>
+          <LabField label="Número telefónico" isLight={isLight}>
+            <input className={labInputClass(isLight)} value={form.representative_phone} onChange={(e) => setForm({ ...form, representative_phone: e.target.value })} />
+          </LabField>
+          <LabField label="Cargo o puesto" isLight={isLight}>
+            <input className={labInputClass(isLight)} value={form.representative_position} onChange={(e) => setForm({ ...form, representative_position: e.target.value })} />
+          </LabField>
+          <LabField label="Correo electrónico" isLight={isLight}>
+            <input type="email" className={labInputClass(isLight)} value={form.representative_email} onChange={(e) => setForm({ ...form, representative_email: e.target.value })} />
+          </LabField>
+          <LabField label="Observaciones" isLight={isLight} className="sm:col-span-2">
+            <textarea className={labInputClass(isLight)} rows={2} value={form.representative_observations} onChange={(e) => setForm({ ...form, representative_observations: e.target.value })} />
           </LabField>
         </div>
       </FormModal>
@@ -384,7 +430,6 @@ export function ClientsPage() {
   );
 }
 
-type CrmContact = { id: number; name: string; position?: string | null; phone?: string | null; email?: string | null };
 type CrmActivity = { id: number; type: string; subject?: string | null };
 type ClientPortfolioItem = {
   id: number;
@@ -395,6 +440,7 @@ type ClientPortfolioItem = {
   services?: { id: number; name: string; kind?: string | null }[];
   areas?: { id: number; name: string }[];
 };
+type ClientLocation = { id: number; name: string; address?: string | null; phone?: string | null; responsible_person?: string | null; is_active: boolean };
 
 export function ClientDetailPage() {
   const { id } = useParams();
@@ -404,8 +450,11 @@ export function ClientDetailPage() {
   const [contactModal, setContactModal] = useState(false);
   const [activityModal, setActivityModal] = useState(false);
   const [err, setErr] = useState<string | null>(null);
-  const [cf, setCf] = useState({ name: "", position: "", phone: "", email: "" });
+  const [cf, setCf] = useState({ name: "", position: "", phone: "", email: "", observations: "" });
   const [af, setAf] = useState({ type: "call", subject: "", body: "", occurred_at: "", next_followup_at: "" });
+  const [locModal, setLocModal] = useState(false);
+  const [locEditId, setLocEditId] = useState<number | null>(null);
+  const [lf, setLf] = useState({ name: "", address: "", phone: "", responsible_person: "", is_active: true });
 
   const reload = () => void getJson<Record<string, unknown>>(`/api/clients/${cid}`).then(setRow);
 
@@ -418,6 +467,7 @@ export function ClientDetailPage() {
   const asRec = row as Record<string, unknown>;
   const contacts = Array.isArray(asRec.contacts) ? (asRec.contacts as CrmContact[]) : [];
   const portfolio = Array.isArray(asRec.projects) ? (asRec.projects as ClientPortfolioItem[]) : [];
+  const locations = Array.isArray(asRec.locations) ? (asRec.locations as ClientLocation[]) : [];
   const activities =
     ((asRec.crm_activities as CrmActivity[]) ?? (asRec.crmActivities as CrmActivity[]) ?? []);
 
@@ -433,9 +483,10 @@ export function ClientDetailPage() {
         position: cf.position.trim() || null,
         phone: cf.phone.trim() || null,
         email: cf.email.trim() || null,
+        observations: cf.observations.trim() || null,
       });
       setContactModal(false);
-      setCf({ name: "", position: "", phone: "", email: "" });
+      setCf({ name: "", position: "", phone: "", email: "", observations: "" });
       reload();
     } catch {
       setErr("No se pudo guardar contacto.");
@@ -484,6 +535,64 @@ export function ClientDetailPage() {
     }
   };
 
+  const resetLocationForm = () => {
+    setLocEditId(null);
+    setLf({ name: "", address: "", phone: "", responsible_person: "", is_active: true });
+    setErr(null);
+  };
+
+  const openLocationCreate = () => {
+    resetLocationForm();
+    setLocModal(true);
+  };
+
+  const openLocationEdit = (loc: ClientLocation) => {
+    setLocEditId(loc.id);
+    setLf({
+      name: loc.name,
+      address: loc.address ?? "",
+      phone: loc.phone ?? "",
+      responsible_person: loc.responsible_person ?? "",
+      is_active: loc.is_active,
+    });
+    setErr(null);
+    setLocModal(true);
+  };
+
+  const saveLocation = async () => {
+    setErr(null);
+    if (!lf.name.trim()) {
+      setErr("Nombre de la sede requerido.");
+      return;
+    }
+    try {
+      const body = {
+        name: lf.name.trim(),
+        address: lf.address.trim() || null,
+        phone: lf.phone.trim() || null,
+        responsible_person: lf.responsible_person.trim() || null,
+        is_active: lf.is_active,
+      };
+      if (locEditId) await putJson(`/api/clients/${cid}/locations/${locEditId}`, body);
+      else await postJson(`/api/clients/${cid}/locations`, body);
+      setLocModal(false);
+      resetLocationForm();
+      reload();
+    } catch {
+      setErr("No se pudo guardar sede.");
+    }
+  };
+
+  const delLocation = async (locId: number) => {
+    if (!confirm("¿Eliminar sede?")) return;
+    try {
+      await deleteJson(`/api/clients/${cid}/locations/${locId}`);
+      reload();
+    } catch {
+      setErr("No se pudo eliminar.");
+    }
+  };
+
   return (
     <main className={labCrudMainClass(isLight)}>
       <LabBreadcrumbs isLight={isLight} items={[{ label: "Dashboard", to: "/" }, { label: "Clientes", to: "/clientes" }, { label: String(row.legal_name) }]} />
@@ -495,6 +604,9 @@ export function ClientDetailPage() {
           <div className="flex flex-wrap gap-2">
             <button type="button" className={labPrimaryBtn(isLight)} onClick={() => {setErr(null); setContactModal(true);}}>
               + Contacto
+            </button>
+            <button type="button" className={labPrimaryBtn(isLight)} onClick={openLocationCreate}>
+              + Sede
             </button>
             <button type="button" className={labGhostBtn(isLight)} onClick={() => {setErr(null); setActivityModal(true);}}>
               + Actividad
@@ -525,12 +637,13 @@ export function ClientDetailPage() {
           </ul>
         </section>
         <section className={labPanelClass(isLight)}>
-          <h3 className={"mb-2 text-sm font-semibold " + (isLight ? "text-[#111827]" : "text-zinc-100")}>Contactos</h3>
+          <h3 className={"mb-2 text-sm font-semibold " + (isLight ? "text-[#111827]" : "text-zinc-100")}>Contactos y Representantes</h3>
           <ul className="space-y-3 text-sm">
             {contacts.map((co) => (
               <li key={co.id} className={isLight ? "text-[#374151]" : "text-zinc-300"}>
                 <div className="font-medium">{co.name}</div>
                 <div className="text-[11px] text-zinc-500">{co.position ?? ""} {co.phone ? "· " + co.phone : ""} {co.email ? "· " + co.email : ""}</div>
+                {co.observations && <div className="text-[11px] mt-1 text-zinc-600 italic border-l-2 pl-2">Obs: {co.observations}</div>}
                 <button type="button" className={"mt-1 " + labGhostBtn(isLight)} onClick={() => void delContact(co.id)}>
                   Eliminar
                 </button>
@@ -555,6 +668,31 @@ export function ClientDetailPage() {
             {!activities.length ? <li className="text-zinc-500">Registre actividades de seguimiento.</li> : null}
           </ul>
         </section>
+        <section className={labPanelClass(isLight)}>
+          <h3 className={"mb-2 text-sm font-semibold " + (isLight ? "text-[#111827]" : "text-zinc-100")}>Sedes</h3>
+          <ul className="space-y-3 text-sm">
+            {locations.map((loc) => (
+              <li key={loc.id} className={isLight ? "text-[#374151]" : "text-zinc-300"}>
+                <div className="font-medium">{loc.name}</div>
+                <div className="text-[11px] text-zinc-500">
+                  {loc.address ? loc.address : "Sin dirección"} 
+                  {loc.phone ? " · " + loc.phone : ""} 
+                  {loc.responsible_person ? " · " + loc.responsible_person : ""}
+                  {!loc.is_active ? " · Inactiva" : ""}
+                </div>
+                <div className="mt-1 flex flex-wrap gap-1">
+                  <button type="button" className={labGhostBtn(isLight)} onClick={() => openLocationEdit(loc)}>
+                    Editar
+                  </button>
+                  <button type="button" className={labGhostBtn(isLight)} onClick={() => void delLocation(loc.id)}>
+                    Eliminar
+                  </button>
+                </div>
+              </li>
+            ))}
+            {!locations.length ? <li className="text-zinc-500">Sin sedes registradas.</li> : null}
+          </ul>
+        </section>
       </div>
 
       <FormModal
@@ -574,6 +712,7 @@ export function ClientDetailPage() {
           <LabField label="Cargo" isLight={isLight}><input className={labInputClass(isLight)} value={cf.position} onChange={(e) => setCf({ ...cf, position: e.target.value })} /></LabField>
           <LabField label="Teléfono" isLight={isLight}><input className={labInputClass(isLight)} value={cf.phone} onChange={(e) => setCf({ ...cf, phone: e.target.value })} /></LabField>
           <LabField label="Email" isLight={isLight}><input className={labInputClass(isLight)} value={cf.email} onChange={(e) => setCf({ ...cf, email: e.target.value })} /></LabField>
+          <LabField label="Observaciones" isLight={isLight}><textarea className={labInputClass(isLight)} rows={2} value={cf.observations} onChange={(e) => setCf({ ...cf, observations: e.target.value })} /></LabField>
           {err ? <p className="text-sm text-red-600">{err}</p> : null}
         </div>
       </FormModal>
@@ -614,6 +753,32 @@ export function ClientDetailPage() {
             <textarea className={labInputClass(isLight)} rows={3} value={af.body} onChange={(e) => setAf({ ...af, body: e.target.value })} />
           </LabField>
           {err ? <p className="sm:col-span-2 text-sm text-red-600">{err}</p> : null}
+        </div>
+      </FormModal>
+
+      <FormModal
+        open={locModal}
+        title={locEditId ? "Editar sede" : "Nueva sede"}
+        isLight={isLight}
+        onClose={() => {setLocModal(false); resetLocationForm();}}
+        footer={
+          <div className="flex justify-end gap-2">
+            <button type="button" className={labGhostBtn(isLight)} onClick={() => {setLocModal(false); resetLocationForm();}}>Cerrar</button>
+            <button type="button" className={labPrimaryBtn(isLight)} onClick={() => void saveLocation()}>Guardar</button>
+          </div>
+        }
+      >
+        <div className="grid gap-3">
+          <LabField label="Nombre de la sede *" isLight={isLight}><input className={labInputClass(isLight)} value={lf.name} onChange={(e) => setLf({ ...lf, name: e.target.value })} placeholder="Ej: Sede principal" /></LabField>
+          <LabField label="Dirección" isLight={isLight}><input className={labInputClass(isLight)} value={lf.address} onChange={(e) => setLf({ ...lf, address: e.target.value })} /></LabField>
+          <LabField label="Teléfono" isLight={isLight}><input className={labInputClass(isLight)} value={lf.phone} onChange={(e) => setLf({ ...lf, phone: e.target.value })} /></LabField>
+          <LabField label="Responsable" isLight={isLight}><input className={labInputClass(isLight)} value={lf.responsible_person} onChange={(e) => setLf({ ...lf, responsible_person: e.target.value })} /></LabField>
+          <LabField label="Estado" isLight={isLight}>
+            <label className={(isLight ? "text-[#374151]" : "text-zinc-200") + " flex gap-2 text-sm"}>
+              <input type="checkbox" checked={lf.is_active} onChange={(e) => setLf({ ...lf, is_active: e.target.checked })} /> Sede activa
+            </label>
+          </LabField>
+          {err ? <p className="text-sm text-red-600">{err}</p> : null}
         </div>
       </FormModal>
     </main>

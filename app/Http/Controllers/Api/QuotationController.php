@@ -8,9 +8,11 @@ use App\Models\Project;
 use App\Models\Quotation;
 use App\Models\QuotationLine;
 use App\Support\AreaVisibility;
+use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Mail;
 
 class QuotationController extends Controller
 {
@@ -44,8 +46,6 @@ class QuotationController extends Controller
             'valid_until' => ['nullable', 'date'],
             'opportunity_id' => ['nullable', 'integer', 'exists:opportunities,id'],
             'notes' => ['nullable', 'string'],
-            'area_ids' => ['required', 'array', 'min:1'],
-            'area_ids.*' => ['integer', 'exists:areas,id'],
             'lines' => ['required', 'array', 'min:1'],
             'lines.*.description' => ['required', 'string'],
             'lines.*.quantity' => ['required', 'numeric', 'min:0'],
@@ -56,8 +56,8 @@ class QuotationController extends Controller
 
         $quotation = DB::transaction(function () use ($request, $data) {
             $lines = $data['lines'];
-            $areaIds = $data['area_ids'];
-            unset($data['lines'], $data['area_ids']);
+            unset($data['lines']);
+            $areaIds = $request->user()->areas()->pluck('areas.id')->toArray();
 
             $data['tax_amount'] = $data['tax_amount'] ?? 0;
             $data['discount'] = $data['discount'] ?? 0;
@@ -92,8 +92,6 @@ class QuotationController extends Controller
             'currency_id' => ['nullable', 'integer', 'exists:currencies,id'],
             'valid_until' => ['nullable', 'date'],
             'notes' => ['nullable', 'string'],
-            'area_ids' => ['sometimes', 'array', 'min:1'],
-            'area_ids.*' => ['integer', 'exists:areas,id'],
             'lines' => ['sometimes', 'array', 'min:1'],
             'lines.*.description' => ['required', 'string'],
             'lines.*.quantity' => ['required', 'numeric', 'min:0'],
@@ -103,8 +101,6 @@ class QuotationController extends Controller
         DB::transaction(function () use ($quotation, $data) {
             $linesData = $data['lines'] ?? null;
             unset($data['lines']);
-            $areaIds = $data['area_ids'] ?? null;
-            unset($data['area_ids']);
             foreach (['tax_amount', 'discount', 'currency_id', 'valid_until', 'status', 'notes'] as $key) {
                 if (array_key_exists($key, $data)) {
                     $quotation->{$key} = $data[$key];
@@ -113,9 +109,6 @@ class QuotationController extends Controller
             $quotation->save();
             if (is_array($linesData)) {
                 self::persistLinesAndTotals($quotation, $linesData);
-            }
-            if (is_array($areaIds)) {
-                $quotation->areas()->sync($areaIds);
             }
         });
 
@@ -128,8 +121,6 @@ class QuotationController extends Controller
         $data = $request->validate([
             'project_name' => ['nullable', 'string', 'max:255'],
             'service_type' => ['nullable', 'string', 'max:255'],
-            'area_ids' => ['sometimes', 'array', 'min:1'],
-            'area_ids.*' => ['integer', 'exists:areas,id'],
             'lead_user_id' => ['nullable', 'integer', 'exists:users,id'],
         ]);
 
@@ -151,8 +142,7 @@ class QuotationController extends Controller
                 'description' => $quotation->notes,
             ]);
 
-            $areaIds = $data['area_ids'] ?? $quotation->areas()->pluck('areas.id')->all();
-            $p->areas()->sync($areaIds);
+            $p->areas()->sync($quotation->areas()->pluck('areas.id')->all());
 
             $quotation->update(['accepted_project_id' => $p->id]);
 
@@ -204,6 +194,74 @@ class QuotationController extends Controller
             'subtotal' => round($subtotal, 2),
             'total' => max(0, $total),
         ]);
+    }
+
+    public function generatePdf(Request $request, Quotation $quotation)
+    {
+        $this->assertQuotation($request, $quotation);
+        $quotation->load(['client.contacts', 'lines', 'currency', 'creator']);
+
+        $pdf = Pdf::loadView('pdf.quotation', compact('quotation'));
+        return $pdf->stream("cotizacion_{$quotation->number}.pdf");
+    }
+
+    public function sendWhatsapp(Request $request, Quotation $quotation): JsonResponse
+    {
+        $this->assertQuotation($request, $quotation);
+        $quotation->load(['client.contacts']);
+
+        $this->advanceClientStageToProspect($quotation->client);
+        if ($quotation->status === 'draft') {
+            $quotation->update(['status' => 'sent']);
+        }
+
+        $contact = $quotation->client->contacts->first(fn ($contact) => filled($contact->phone));
+        $rawPhone = $contact?->phone ?: $quotation->client->phone;
+        $phone = $rawPhone ? preg_replace('/[^0-9]/', '', $rawPhone) : '';
+        $pdfUrl = url("/api/quotations/{$quotation->id}/pdf");
+
+        $message = "Hola, te enviamos la cotizacion Nro. {$quotation->number}. Puedes revisarla aqui: {$pdfUrl}";
+
+        return response()->json([
+            'success' => true,
+            'whatsapp_url' => "https://api.whatsapp.com/send?phone={$phone}&text=" . urlencode($message),
+        ]);
+    }
+
+    public function sendEmail(Request $request, Quotation $quotation): JsonResponse
+    {
+        $this->assertQuotation($request, $quotation);
+        $quotation->load(['client.contacts', 'lines', 'currency', 'creator']);
+
+        $this->advanceClientStageToProspect($quotation->client);
+        if ($quotation->status === 'draft') {
+            $quotation->update(['status' => 'sent']);
+        }
+
+        $contact = $quotation->client->contacts->first(fn ($contact) => filled($contact->email));
+        $recipient = $contact?->email ?: $quotation->client->email;
+        if (! $recipient) {
+            abort(422, 'El cliente no tiene correo disponible para enviar la cotizacion.');
+        }
+
+        $pdfBytes = Pdf::loadView('pdf.quotation', compact('quotation'))->output();
+        $fileName = "cotizacion_{$quotation->number}.pdf";
+
+        Mail::raw("Adjuntamos la cotizacion {$quotation->number}.", function ($message) use ($recipient, $quotation, $pdfBytes, $fileName): void {
+            $message
+                ->to($recipient)
+                ->subject("Cotizacion {$quotation->number}")
+                ->attachData($pdfBytes, $fileName, ['mime' => 'application/pdf']);
+        });
+
+        return response()->json(['success' => true, 'message' => 'Cotizacion enviada por correo.']);
+    }
+
+    private function advanceClientStageToProspect(Client $client): void
+    {
+        if ($client->pipeline_stage === 'lead') {
+            $client->update(['pipeline_stage' => 'prospect']);
+        }
     }
 
     private function assertQuotation(Request $request, Quotation $quotation): void

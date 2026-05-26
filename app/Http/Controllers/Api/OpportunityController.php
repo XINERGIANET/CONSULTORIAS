@@ -27,7 +27,6 @@ class OpportunityController extends Controller
     {
         $data = $request->validate([
             'client_id' => ['required', 'integer', 'exists:clients,id'],
-            'area_id' => ['nullable', 'integer', 'exists:areas,id'],
             'owner_user_id' => ['nullable', 'integer', 'exists:users,id'],
             'title' => ['required', 'string', 'max:255'],
             'stage' => ['nullable', 'string', 'max:64'],
@@ -39,6 +38,8 @@ class OpportunityController extends Controller
         ]);
 
         $this->assertClientVisible($request, (int) $data['client_id']);
+        
+        $data['area_id'] = $request->user()->areas()->first()?->id;
 
         return response()->json(Opportunity::query()->create($data), 201);
     }
@@ -48,7 +49,6 @@ class OpportunityController extends Controller
         $this->scopeOne($request, $opportunity);
         $data = $request->validate([
             'client_id' => ['sometimes', 'required', 'integer', 'exists:clients,id'],
-            'area_id' => ['nullable', 'integer', 'exists:areas,id'],
             'owner_user_id' => ['nullable', 'integer', 'exists:users,id'],
             'title' => ['sometimes', 'required', 'string', 'max:255'],
             'stage' => ['nullable', 'string', 'max:64'],

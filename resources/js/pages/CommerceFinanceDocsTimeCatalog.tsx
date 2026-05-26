@@ -25,7 +25,6 @@ export function FinanzasHubPage() {
   const [incomes, setIncomes] = useState<LaravelPaginated<Record<string, unknown>> | null>(null);
   const [expenses, setExpenses] = useState<LaravelPaginated<Record<string, unknown>> | null>(null);
   const [cash, setCash] = useState<Record<string, unknown> | null>(null);
-  const [areas, setAreas] = useState<AreaOpt[]>([]);
   const [clients, setClients] = useState<ClientOpt[]>([]);
   const [projects, setProjects] = useState<ProjOpt[]>([]);
   const [catsIncome, setCatsIncome] = useState<FinCat[]>([]);
@@ -36,7 +35,6 @@ export function FinanzasHubPage() {
   const [editOutId, setEditOutId] = useState<number | null>(null);
   const [err, setErr] = useState<string | null>(null);
   const [inForm, setInForm] = useState({
-    area_id: "" as "" | number,
     financial_category_id: "" as "" | number,
     amount: "",
     recorded_on: new Date().toISOString().slice(0, 10),
@@ -46,7 +44,6 @@ export function FinanzasHubPage() {
     description: "",
   });
   const [outForm, setOutForm] = useState({
-    area_id: "" as "" | number,
     financial_category_id: "" as "" | number,
     amount: "",
     recorded_on: new Date().toISOString().slice(0, 10),
@@ -57,7 +54,6 @@ export function FinanzasHubPage() {
   });
 
   useEffect(() => {
-    void getJson<AreaOpt[]>("/api/areas", { active_only: false }).then(setAreas);
     void getJson<LaravelPaginated<ClientOpt>>("/api/clients", { per_page: 100 }).then((r) => setClients(r.data));
     void getJson<LaravelPaginated<ProjOpt>>("/api/projects", { per_page: 100 }).then((r) => setProjects(r.data));
     void getJson<FinCat[]>("/api/catalog/financial-categories", { type: "income" }).then(setCatsIncome);
@@ -73,7 +69,6 @@ export function FinanzasHubPage() {
   const resetIn = () => {
     setEditInId(null);
     setInForm({
-      area_id: "",
       financial_category_id: "",
       amount: "",
       recorded_on: new Date().toISOString().slice(0, 10),
@@ -88,7 +83,6 @@ export function FinanzasHubPage() {
   const resetOut = () => {
     setEditOutId(null);
     setOutForm({
-      area_id: "",
       financial_category_id: "",
       amount: "",
       recorded_on: new Date().toISOString().slice(0, 10),
@@ -106,7 +100,6 @@ export function FinanzasHubPage() {
       const r = await getJson<Record<string, unknown>>(`/api/incomes/${id}`);
       setEditInId(id);
       setInForm({
-        area_id: typeof r.area_id === "number" ? r.area_id : "",
         financial_category_id: typeof r.financial_category_id === "number" ? r.financial_category_id : "",
         amount: String(r.amount ?? ""),
         recorded_on: typeof r.recorded_on === "string" ? r.recorded_on.slice(0, 10) : "",
@@ -123,12 +116,11 @@ export function FinanzasHubPage() {
 
   const saveIn = async () => {
     setErr(null);
-    if (inForm.area_id === "" || inForm.financial_category_id === "" || !inForm.amount) {
-      setErr("Área, categoría y monto son obligatorios.");
+    if (inForm.financial_category_id === "" || !inForm.amount) {
+      setErr("Categoría y monto son obligatorios.");
       return;
     }
     const body: Record<string, unknown> = {
-      area_id: inForm.area_id,
       financial_category_id: inForm.financial_category_id,
       amount: Number(inForm.amount),
       recorded_on: inForm.recorded_on,
@@ -164,7 +156,6 @@ export function FinanzasHubPage() {
       const r = await getJson<Record<string, unknown>>(`/api/expenses/${id}`);
       setEditOutId(id);
       setOutForm({
-        area_id: typeof r.area_id === "number" ? r.area_id : "",
         financial_category_id: typeof r.financial_category_id === "number" ? r.financial_category_id : "",
         amount: String(r.amount ?? ""),
         recorded_on: typeof r.recorded_on === "string" ? r.recorded_on.slice(0, 10) : "",
@@ -181,12 +172,11 @@ export function FinanzasHubPage() {
 
   const saveOut = async () => {
     setErr(null);
-    if (outForm.area_id === "" || outForm.financial_category_id === "" || !outForm.amount) {
-      setErr("Área, categoría y monto son obligatorios.");
+    if (outForm.financial_category_id === "" || !outForm.amount) {
+      setErr("Categoría y monto son obligatorios.");
       return;
     }
     const body: Record<string, unknown> = {
-      area_id: outForm.area_id,
       financial_category_id: outForm.financial_category_id,
       amount: Number(outForm.amount),
       recorded_on: outForm.recorded_on,
@@ -332,14 +322,6 @@ export function FinanzasHubPage() {
         }
       >
         <div className="grid gap-3 sm:grid-cols-2">
-          <LabField label="Área *" isLight={isLight}>
-            <select className={labInputClass(isLight)} value={inForm.area_id === "" ? "" : String(inForm.area_id)} onChange={(e) => setInForm({ ...inForm, area_id: e.target.value ? Number(e.target.value) : "" })}>
-              <option value="">—</option>
-              {areas.map((a) => (
-                <option key={a.id} value={a.id}>{a.name}</option>
-              ))}
-            </select>
-          </LabField>
           <LabField label="Categoría (ingreso) *" isLight={isLight}>
             <select className={labInputClass(isLight)} value={inForm.financial_category_id === "" ? "" : String(inForm.financial_category_id)} onChange={(e) => setInForm({ ...inForm, financial_category_id: e.target.value ? Number(e.target.value) : "" })}>
               <option value="">—</option>
@@ -400,14 +382,6 @@ export function FinanzasHubPage() {
         }
       >
         <div className="grid gap-3 sm:grid-cols-2">
-          <LabField label="Área *" isLight={isLight}>
-            <select className={labInputClass(isLight)} value={outForm.area_id === "" ? "" : String(outForm.area_id)} onChange={(e) => setOutForm({ ...outForm, area_id: e.target.value ? Number(e.target.value) : "" })}>
-              <option value="">—</option>
-              {areas.map((a) => (
-                <option key={a.id} value={a.id}>{a.name}</option>
-              ))}
-            </select>
-          </LabField>
           <LabField label="Categoría (gasto) *" isLight={isLight}>
             <select className={labInputClass(isLight)} value={outForm.financial_category_id === "" ? "" : String(outForm.financial_category_id)} onChange={(e) => setOutForm({ ...outForm, financial_category_id: e.target.value ? Number(e.target.value) : "" })}>
               <option value="">—</option>
@@ -452,7 +426,6 @@ export function TimeEntriesPage() {
   const { isLight } = useApexTheme();
   const { user } = useAuth();
   const [rows, setRows] = useState<LaravelPaginated<Record<string, unknown>> | null>(null);
-  const [areas, setAreas] = useState<AreaOpt[]>([]);
   const [projects, setProjects] = useState<ProjOpt[]>([]);
   const [users, setUsers] = useState<{ id: number; name: string }[]>([]);
   const [open, setOpen] = useState(false);
@@ -460,7 +433,6 @@ export function TimeEntriesPage() {
   const [err, setErr] = useState<string | null>(null);
   const [form, setForm] = useState({
     project_id: "" as "" | number,
-    area_id: "" as "" | number,
     work_date: new Date().toISOString().slice(0, 10),
     hours: "1",
     description: "",
@@ -473,7 +445,6 @@ export function TimeEntriesPage() {
 
   useEffect(() => {
     load();
-    void getJson<AreaOpt[]>("/api/areas", { active_only: false }).then(setAreas);
     void getJson<LaravelPaginated<ProjOpt>>("/api/projects", { per_page: 150 }).then((r) => setProjects(r.data));
     void getJson<{ id: number; name: string }[]>("/api/collaborators").then(setUsers);
   }, []);
@@ -482,7 +453,6 @@ export function TimeEntriesPage() {
     setEditId(null);
     setForm({
       project_id: "",
-      area_id: "",
       work_date: new Date().toISOString().slice(0, 10),
       hours: "1",
       description: "",
@@ -497,7 +467,6 @@ export function TimeEntriesPage() {
     setEditId(Number(r.id));
     setForm({
       project_id: typeof r.project_id === "number" ? r.project_id : "",
-      area_id: typeof (r.area as { id?: number })?.id === "number" ? (r.area as { id: number }).id : typeof r.area_id === "number" ? r.area_id : "",
       work_date: typeof r.work_date === "string" ? r.work_date.slice(0, 10) : "",
       hours: String(r.hours ?? "1"),
       description: String(r.description ?? ""),
@@ -509,8 +478,8 @@ export function TimeEntriesPage() {
 
   const save = async () => {
     setErr(null);
-    if (form.project_id === "" || form.area_id === "") {
-      setErr("Proyecto y área son obligatorios.");
+    if (!editId && form.project_id === "") {
+      setErr("Proyecto es obligatorio.");
       return;
     }
     try {
@@ -520,12 +489,10 @@ export function TimeEntriesPage() {
           hours: Number(form.hours),
           description: form.description || null,
           billable: form.billable,
-          area_id: form.area_id,
         });
       } else {
         const body: Record<string, unknown> = {
           project_id: form.project_id,
-          area_id: form.area_id,
           work_date: form.work_date,
           hours: Number(form.hours),
           description: form.description || null,
@@ -644,14 +611,6 @@ export function TimeEntriesPage() {
           ) : (
             <p className={"sm:col-span-2 text-xs " + (isLight ? "text-[#6B7280]" : "text-zinc-500")}>El proyecto no se altera desde esta edición.</p>
           )}
-          <LabField label="Área *" isLight={isLight} className="sm:col-span-2">
-            <select className={labInputClass(isLight)} value={form.area_id === "" ? "" : String(form.area_id)} onChange={(e) => setForm({ ...form, area_id: e.target.value ? Number(e.target.value) : "" })}>
-              <option value="">—</option>
-              {areas.map((a) => (
-                <option key={a.id} value={a.id}>{a.name}</option>
-              ))}
-            </select>
-          </LabField>
           <LabField label="Fecha labor" isLight={isLight}>
             <input type="date" className={labInputClass(isLight)} value={form.work_date} onChange={(e) => setForm({ ...form, work_date: e.target.value })} />
           </LabField>

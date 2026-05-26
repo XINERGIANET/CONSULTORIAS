@@ -41,7 +41,6 @@ class ExpenseController extends Controller
     public function store(Request $request): JsonResponse
     {
         $data = $request->validate([
-            'area_id' => ['required', 'integer', 'exists:areas,id'],
             'project_id' => ['nullable', 'integer', 'exists:projects,id'],
             'client_id' => ['nullable', 'integer', 'exists:clients,id'],
             'financial_category_id' => ['required', 'integer', 'exists:financial_categories,id'],
@@ -50,6 +49,8 @@ class ExpenseController extends Controller
             'responsible_user_id' => ['nullable', 'integer', 'exists:users,id'],
             'observation' => ['nullable', 'string'],
         ]);
+        
+        $data['area_id'] = $request->user()->areas()->first()?->id;
 
         return response()->json(Expense::query()->create($data), 201);
     }
@@ -58,7 +59,6 @@ class ExpenseController extends Controller
     {
         $this->assertExpense($request, $expense);
         $data = $request->validate([
-            'area_id' => ['sometimes', 'required', 'integer', 'exists:areas,id'],
             'project_id' => ['nullable', 'integer', 'exists:projects,id'],
             'client_id' => ['nullable', 'integer', 'exists:clients,id'],
             'financial_category_id' => ['sometimes', 'required', 'integer', 'exists:financial_categories,id'],

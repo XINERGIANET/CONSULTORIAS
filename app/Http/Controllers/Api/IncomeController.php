@@ -49,7 +49,6 @@ class IncomeController extends Controller
         $data = $request->validate([
             'client_id' => ['nullable', 'integer', 'exists:clients,id'],
             'project_id' => ['nullable', 'integer', 'exists:projects,id'],
-            'area_id' => ['required', 'integer', 'exists:areas,id'],
             'financial_category_id' => ['required', 'integer', 'exists:financial_categories,id'],
             'amount' => ['required', 'numeric', 'min:0'],
             'recorded_on' => ['required', 'date'],
@@ -57,6 +56,8 @@ class IncomeController extends Controller
             'quotation_id' => ['nullable', 'integer', 'exists:quotations,id'],
             'description' => ['nullable', 'string'],
         ]);
+        
+        $data['area_id'] = $request->user()->areas()->first()?->id;
 
         return response()->json(Income::query()->create($data), 201);
     }
@@ -67,7 +68,6 @@ class IncomeController extends Controller
         $data = $request->validate([
             'client_id' => ['nullable', 'integer', 'exists:clients,id'],
             'project_id' => ['nullable', 'integer', 'exists:projects,id'],
-            'area_id' => ['sometimes', 'required', 'integer', 'exists:areas,id'],
             'financial_category_id' => ['sometimes', 'required', 'integer', 'exists:financial_categories,id'],
             'amount' => ['sometimes', 'numeric', 'min:0'],
             'recorded_on' => ['sometimes', 'date'],

@@ -33,7 +33,6 @@ class TimeEntryController extends Controller
     {
         $data = $request->validate([
             'project_id' => ['required', 'integer', 'exists:projects,id'],
-            'area_id' => ['required', 'integer', 'exists:areas,id'],
             'work_date' => ['required', 'date'],
             'started_at' => ['nullable', 'date_format:H:i'],
             'ended_at' => ['nullable', 'date_format:H:i'],
@@ -59,6 +58,7 @@ class TimeEntryController extends Controller
         $data['user_id'] = $uid;
         $data['client_id'] = $project->client_id;
         $data['status'] = 'pending';
+        $data['area_id'] = $request->user()->areas()->first()?->id;
 
         return response()->json(TimeEntry::query()->create($data), 201);
     }
@@ -73,7 +73,6 @@ class TimeEntryController extends Controller
             'hours' => ['sometimes', 'numeric', 'min:0.01', 'max:24'],
             'description' => ['nullable', 'string'],
             'billable' => ['sometimes', 'boolean'],
-            'area_id' => ['sometimes', 'integer', 'exists:areas,id'],
         ]);
         if ($timeEntry->user_id !== $request->user()?->id && ! AreaVisibility::canSeeAll($request->user())) {
             abort(403);

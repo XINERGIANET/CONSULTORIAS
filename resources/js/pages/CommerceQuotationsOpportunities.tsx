@@ -1,11 +1,10 @@
-import { FileSpreadsheet } from "lucide-react";
+import { FileSpreadsheet, FileText, Mail, MessageCircle } from "lucide-react";
 import { useEffect, useState } from "react";
 import { FormModal } from "../xpande/FormModal";
 import { deleteJson, getJson, postJson, putJson, type LaravelPaginated } from "../xpande/http";
 import { LabBreadcrumbs, LabField, LabPageHeader, labCrudMainClass, labGhostBtn, labInputClass, labPanelClass, labPrimaryBtn } from "../xpande/XpandeUi";
 import { useApexTheme } from "../context/ThemeContext";
 
-type AreaOpt = { id: number; name: string };
 type ClientOpt = { id: number; legal_name: string };
 type CurrOpt = { id: number; code: string };
 type CollabOpt = { id: number; name: string };
@@ -16,7 +15,6 @@ export function QuotationsPage() {
   const { isLight } = useApexTheme();
   const [rows, setRows] = useState<LaravelPaginated<Record<string, unknown>> | null>(null);
   const [clients, setClients] = useState<ClientOpt[]>([]);
-  const [areas, setAreas] = useState<AreaOpt[]>([]);
   const [currencies, setCurrencies] = useState<CurrOpt[]>([]);
   const [open, setOpen] = useState(false);
   const [acceptId, setAcceptId] = useState<number | null>(null);
@@ -30,7 +28,6 @@ export function QuotationsPage() {
     discount: "0",
     valid_until: "",
     notes: "",
-    area_ids: [] as number[],
     lines: [{ description: "", quantity: "1", unit_price: "" }] as QLineUI[],
   });
   const [acceptForm, setAcceptForm] = useState({ project_name: "", service_type: "" });
@@ -41,7 +38,6 @@ export function QuotationsPage() {
   useEffect(() => {
     load();
     void getJson<LaravelPaginated<ClientOpt>>("/api/clients", { per_page: 120 }).then((r) => setClients(r.data));
-    void getJson<AreaOpt[]>("/api/areas", { active_only: false }).then(setAreas);
     void getJson<CurrOpt[]>("/api/catalog/currencies").then(setCurrencies);
   }, []);
 
@@ -54,25 +50,19 @@ export function QuotationsPage() {
       discount: "0",
       valid_until: "",
       notes: "",
-      area_ids: [],
       lines: [{ description: "", quantity: "1", unit_price: "" }],
     });
     setEditId(null);
     setErr(null);
   };
 
-  const toggleArea = (id: number) =>
-    void setForm((f) => ({
-      ...f,
-      area_ids: f.area_ids.includes(id) ? f.area_ids.filter((x) => x !== id) : [...f.area_ids, id],
-    }));
+
 
   const loadEdit = async (id: number) => {
     setErr(null);
     try {
       const q = await getJson<Record<string, unknown>>(`/api/quotations/${id}`);
       const linesRaw = Array.isArray(q.lines) ? (q.lines as Record<string, unknown>[]) : [];
-      const lids = ((q.areas as { id: number }[]) ?? []).map((a) => a.id);
       setEditId(id);
       setForm({
         client_id: typeof q.client_id === "number" ? q.client_id : "",
@@ -82,14 +72,13 @@ export function QuotationsPage() {
         discount: String(q.discount ?? "0"),
         valid_until: typeof q.valid_until === "string" ? q.valid_until.slice(0, 10) : "",
         notes: String(q.notes ?? ""),
-        area_ids: lids,
         lines:
           linesRaw.length > 0
             ? linesRaw.map((l) => ({
-                description: String(l.description ?? ""),
-                quantity: String(l.quantity ?? "1"),
-                unit_price: String(l.unit_price ?? ""),
-              }))
+              description: String(l.description ?? ""),
+              quantity: String(l.quantity ?? "1"),
+              unit_price: String(l.unit_price ?? ""),
+            }))
             : [{ description: "", quantity: "1", unit_price: "" }],
       });
       setOpen(true);
@@ -100,8 +89,8 @@ export function QuotationsPage() {
 
   const save = async () => {
     setErr(null);
-    if (form.client_id === "" || form.area_ids.length === 0) {
-      setErr("Cliente y al menos un área son obligatorios.");
+    if (form.client_id === "") {
+      setErr("Seleccione un cliente.");
       return;
     }
     const lines = form.lines
@@ -124,7 +113,6 @@ export function QuotationsPage() {
         currency_id: form.currency_id === "" ? null : form.currency_id,
         valid_until: form.valid_until || null,
         notes: form.notes || null,
-        area_ids: form.area_ids,
         lines,
       };
       if (editId) {
@@ -164,6 +152,26 @@ export function QuotationsPage() {
     }
   };
 
+  const sendWhatsapp = async (id: number) => {
+    try {
+      const res = await postJson<{ whatsapp_url?: string }>(`/api/quotations/${id}/send-whatsapp`, {});
+      if (res.whatsapp_url) window.open(res.whatsapp_url, "_blank");
+      load();
+    } catch {
+      setErr("Error al preparar envío por WhatsApp.");
+    }
+  };
+
+  const sendEmail = async (id: number) => {
+    try {
+      await postJson(`/api/quotations/${id}/send-email`, {});
+      alert("Cotización enviada por correo exitosamente.");
+      load();
+    } catch {
+      setErr("Error al enviar por correo.");
+    }
+  };
+
   return (
     <main className={labCrudMainClass(isLight)}>
       <LabBreadcrumbs items={[{ label: "Dashboard", to: "/" }, { label: "Cotizaciones" }]} isLight={isLight} />
@@ -172,7 +180,7 @@ export function QuotationsPage() {
         subtitle="Creación por cliente, líneas editables y conversión a proyecto al aceptar."
         isLight={isLight}
         action={
-          <button type="button" className={labPrimaryBtn(isLight)} onClick={() => {resetForm(); setOpen(true);}}>
+          <button type="button" className={labPrimaryBtn(isLight)} onClick={() => { resetForm(); setOpen(true); }}>
             <FileSpreadsheet className="h-4 w-4" /> Nueva cotización
           </button>
         }
@@ -208,6 +216,15 @@ export function QuotationsPage() {
                         <button type="button" className={labGhostBtn(isLight)} onClick={() => void loadEdit(Number(q.id))}>
                           Editar
                         </button>{" "}
+                        <a href={`/api/quotations/${Number(q.id)}/pdf`} target="_blank" rel="noreferrer" className={labGhostBtn(isLight)}>
+                          <FileText className="h-4 w-4" /> PDF
+                        </a>{" "}
+                        <button type="button" className={labGhostBtn(isLight)} onClick={() => void sendWhatsapp(Number(q.id))}>
+                          <MessageCircle className="h-4 w-4" /> WhatsApp
+                        </button>{" "}
+                        <button type="button" className={labGhostBtn(isLight)} onClick={() => void sendEmail(Number(q.id))}>
+                          <Mail className="h-4 w-4" /> Correo
+                        </button>{" "}
                         {st !== "accepted" && st !== "rejected" ? (
                           <>
                             <button
@@ -241,10 +258,10 @@ export function QuotationsPage() {
         title={editId ? "Editar cotización" : "Nueva cotización"}
         isLight={isLight}
         wide
-        onClose={() => {setOpen(false); resetForm();}}
+        onClose={() => { setOpen(false); resetForm(); }}
         footer={
           <div className="flex justify-end gap-2">
-            <button type="button" className={labGhostBtn(isLight)} onClick={() => {setOpen(false); resetForm();}}>
+            <button type="button" className={labGhostBtn(isLight)} onClick={() => { setOpen(false); resetForm(); }}>
               Cerrar
             </button>
             <button type="button" className={labPrimaryBtn(isLight)} onClick={() => void save()}>
@@ -292,15 +309,6 @@ export function QuotationsPage() {
           </LabField>
           <LabField label="Notas" isLight={isLight} className="sm:col-span-2">
             <textarea className={labInputClass(isLight)} rows={2} value={form.notes} onChange={(e) => setForm({ ...form, notes: e.target.value })} />
-          </LabField>
-          <LabField label="Áreas *" isLight={isLight} className="sm:col-span-2">
-            <div className={["flex flex-wrap gap-2 rounded-lg border p-3 text-xs", isLight ? "border-[#E5E7EB] bg-[#F9FAFB]" : "border-white/[0.06] bg-[#0a0a0a]/60"].join(" ")}>
-              {areas.map((a) => (
-                <label key={a.id} className={(isLight ? "text-[#374151]" : "text-zinc-200") + " flex gap-2"}>
-                  <input type="checkbox" checked={form.area_ids.includes(a.id)} onChange={() => toggleArea(a.id)} /> {a.name}
-                </label>
-              ))}
-            </div>
           </LabField>
           <LabField label="Líneas *" isLight={isLight} className="sm:col-span-2">
             <div className="space-y-2">
@@ -369,14 +377,12 @@ export function OpportunitiesPage() {
   const { isLight } = useApexTheme();
   const [rows, setRows] = useState<LaravelPaginated<Record<string, unknown>> | null>(null);
   const [clients, setClients] = useState<ClientOpt[]>([]);
-  const [areas, setAreas] = useState<AreaOpt[]>([]);
   const [users, setUsers] = useState<CollabOpt[]>([]);
   const [open, setOpen] = useState(false);
   const [editId, setEditId] = useState<number | null>(null);
   const [err, setErr] = useState<string | null>(null);
   const [form, setForm] = useState({
     client_id: "" as "" | number,
-    area_id: "" as "" | number,
     owner_user_id: "" as "" | number,
     title: "",
     stage: "lead",
@@ -392,7 +398,6 @@ export function OpportunitiesPage() {
   useEffect(() => {
     load();
     void getJson<LaravelPaginated<ClientOpt>>("/api/clients", { per_page: 120 }).then((r) => setClients(r.data));
-    void getJson<AreaOpt[]>("/api/areas", { active_only: false }).then(setAreas);
     void getJson<CollabOpt[]>("/api/collaborators").then(setUsers);
   }, []);
 
@@ -400,7 +405,6 @@ export function OpportunitiesPage() {
     setEditId(null);
     setForm({
       client_id: "",
-      area_id: "",
       owner_user_id: "",
       title: "",
       stage: "lead",
@@ -421,11 +425,9 @@ export function OpportunitiesPage() {
   const openEdit = (o: Record<string, unknown>) => {
     reset();
     setEditId(Number(o.id));
-    const ar = (o.area as { id?: number } | undefined)?.id;
     const ow = typeof o.owner_user_id === "number" ? o.owner_user_id : "";
     setForm({
       client_id: typeof o.client_id === "number" ? o.client_id : "",
-      area_id: typeof ar === "number" ? ar : "",
       owner_user_id: ow === "" ? "" : ow,
       title: String(o.title ?? ""),
       stage: String(o.stage ?? "lead"),
@@ -448,7 +450,6 @@ export function OpportunitiesPage() {
       client_id: form.client_id,
       title: form.title.trim(),
       stage: form.stage || null,
-      area_id: form.area_id === "" ? null : form.area_id,
       owner_user_id: form.owner_user_id === "" ? null : form.owner_user_id,
       probability: form.probability === "" ? null : Number(form.probability),
       expected_amount: form.expected_amount === "" ? null : Number(form.expected_amount),
@@ -532,10 +533,10 @@ export function OpportunitiesPage() {
         title={editId ? "Editar oportunidad" : "Nueva oportunidad"}
         isLight={isLight}
         wide
-        onClose={() => {setOpen(false); reset();}}
+        onClose={() => { setOpen(false); reset(); }}
         footer={
           <div className="flex justify-end gap-2">
-            <button type="button" className={labGhostBtn(isLight)} onClick={() => {setOpen(false); reset();}}>Cerrar</button>
+            <button type="button" className={labGhostBtn(isLight)} onClick={() => { setOpen(false); reset(); }}>Cerrar</button>
             <button type="button" className={labPrimaryBtn(isLight)} onClick={() => void save()}>Guardar</button>
           </div>
         }
@@ -556,14 +557,6 @@ export function OpportunitiesPage() {
           </LabField>
           <LabField label="Título *" isLight={isLight} className="sm:col-span-2">
             <input className={labInputClass(isLight)} value={form.title} onChange={(e) => setForm({ ...form, title: e.target.value })} />
-          </LabField>
-          <LabField label="Área" isLight={isLight}>
-            <select className={labInputClass(isLight)} value={form.area_id === "" ? "" : String(form.area_id)} onChange={(e) => setForm({ ...form, area_id: e.target.value ? Number(e.target.value) : "" })}>
-              <option value="">—</option>
-              {areas.map((a) => (
-                <option key={a.id} value={a.id}>{a.name}</option>
-              ))}
-            </select>
           </LabField>
           <LabField label="Responsable" isLight={isLight}>
             <select className={labInputClass(isLight)} value={form.owner_user_id === "" ? "" : String(form.owner_user_id)} onChange={(e) => setForm({ ...form, owner_user_id: e.target.value ? Number(e.target.value) : "" })}>

@@ -14,6 +14,7 @@ class ClientContact extends Model
         'phone',
         'email',
         'area_id',
+        'observations',
     ];
 
     /** @return BelongsTo<Client, ClientContact> */

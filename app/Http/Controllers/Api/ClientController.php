@@ -39,6 +39,7 @@ class ClientController extends Controller
 
         return response()->json($client->load([
             'areas',
+            'locations',
             'contacts.area',
             'crmActivities' => fn ($r) => $r->orderByDesc('occurred_at')->limit(100),
             'opportunities',
@@ -62,16 +63,14 @@ class ClientController extends Controller
             'company_size' => ['nullable', 'string', 'max:255'],
             'client_type' => ['nullable', 'string', 'max:255'],
             'industry' => ['nullable', 'string', 'max:255'],
-            'pipeline_stage' => ['nullable', 'string', 'max:64'],
+            'rubro' => ['nullable', 'string', 'max:255'],
+            'pipeline_stage' => ['nullable', 'string', 'in:lead,prospect,active_client'],
             'is_active' => ['sometimes', 'boolean'],
             'notes' => ['nullable', 'string'],
-            'area_ids' => ['required', 'array', 'min:1'],
-            'area_ids.*' => ['integer', 'exists:areas,id'],
         ]);
 
-        $client = DB::transaction(function () use ($data) {
-            $areaIds = $data['area_ids'];
-            unset($data['area_ids']);
+        $client = DB::transaction(function () use ($data, $request) {
+            $areaIds = $request->user()->areas()->pluck('areas.id')->toArray();
             $c = Client::query()->create($data);
             $c->areas()->sync($areaIds);
 
@@ -95,20 +94,14 @@ class ClientController extends Controller
             'company_size' => ['nullable', 'string', 'max:255'],
             'client_type' => ['nullable', 'string', 'max:255'],
             'industry' => ['nullable', 'string', 'max:255'],
-            'pipeline_stage' => ['nullable', 'string', 'max:64'],
+            'rubro' => ['nullable', 'string', 'max:255'],
+            'pipeline_stage' => ['nullable', 'string', 'in:lead,prospect,active_client'],
             'is_active' => ['sometimes', 'boolean'],
             'notes' => ['nullable', 'string'],
-            'area_ids' => ['sometimes', 'array', 'min:1'],
-            'area_ids.*' => ['integer', 'exists:areas,id'],
         ]);
 
         DB::transaction(function () use ($client, $data) {
-            $areaIds = $data['area_ids'] ?? null;
-            unset($data['area_ids']);
             $client->update($data);
-            if (is_array($areaIds)) {
-                $client->areas()->sync($areaIds);
-            }
         });
 
         return response()->json($client->fresh()->load('areas'));

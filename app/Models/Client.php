@@ -19,6 +19,7 @@ class Client extends Model
         'company_size',
         'client_type',
         'industry',
+        'rubro',
         'pipeline_stage',
         'is_active',
         'notes',
@@ -41,6 +42,12 @@ class Client extends Model
     public function contacts(): HasMany
     {
         return $this->hasMany(ClientContact::class);
+    }
+
+    /** @return HasMany<ClientLocation, Client> */
+    public function locations(): HasMany
+    {
+        return $this->hasMany(ClientLocation::class);
     }
 
     /** @return HasMany<Project, Client> */
