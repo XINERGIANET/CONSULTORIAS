@@ -219,6 +219,9 @@ export function QuotationsPage() {
                         <a href={`/api/quotations/${Number(q.id)}/pdf`} target="_blank" rel="noreferrer" className={labGhostBtn(isLight)}>
                           <FileText className="h-4 w-4" /> PDF
                         </a>{" "}
+                        <a href={`/api/quotations/${Number(q.id)}/excel`} target="_blank" rel="noreferrer" className={labGhostBtn(isLight)}>
+                          <FileSpreadsheet className="h-4 w-4" /> Excel
+                        </a>{" "}
                         <button type="button" className={labGhostBtn(isLight)} onClick={() => void sendWhatsapp(Number(q.id))}>
                           <MessageCircle className="h-4 w-4" /> WhatsApp
                         </button>{" "}

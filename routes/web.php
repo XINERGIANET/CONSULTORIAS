@@ -122,11 +122,13 @@ Route::middleware('auth')->group(function (): void {
         Route::put('projects/{project}', [ProjectController::class, 'update']);
         Route::delete('projects/{project}', [ProjectController::class, 'destroy']);
 
+        Route::get('quotations', [QuotationController::class, 'index']);
         Route::get('quotations/{quotation}', [QuotationController::class, 'show']);
         Route::post('quotations', [QuotationController::class, 'store']);
         Route::put('quotations/{quotation}', [QuotationController::class, 'update']);
         Route::post('quotations/{quotation}/accept', [QuotationController::class, 'accept']);
         Route::get('quotations/{quotation}/pdf', [QuotationController::class, 'generatePdf']);
+        Route::get('quotations/{quotation}/excel', [QuotationController::class, 'generateExcel']);
         Route::post('quotations/{quotation}/send-whatsapp', [QuotationController::class, 'sendWhatsapp']);
         Route::post('quotations/{quotation}/send-email', [QuotationController::class, 'sendEmail']);
         Route::delete('quotations/{quotation}', [QuotationController::class, 'destroy']);

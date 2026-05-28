@@ -2,118 +2,212 @@
 <html lang="es">
 <head>
     <meta charset="UTF-8">
-    <title>Cotización #{{ $quotation->number }}</title>
+    <title>Propuesta Comercial - {{ $quotation->client->legal_name ?? $quotation->client->trade_name ?? 'Cliente' }}</title>
     <style>
-        body { font-family: 'Helvetica', 'Arial', sans-serif; font-size: 14px; color: #333; margin: 0; padding: 20px; }
-        .header { width: 100%; border-bottom: 2px solid #465fff; padding-bottom: 15px; margin-bottom: 20px; text-align: center; }
-        .header img { max-width: 150px; }
-        .header-title { font-size: 24px; color: #465fff; font-weight: bold; margin-top: 10px; }
-        .info-table { width: 100%; margin-bottom: 20px; border-collapse: collapse; }
-        .info-table td { padding: 5px; vertical-align: top; }
-        .info-table .title { font-weight: bold; color: #555; width: 120px; }
-        .details-table { width: 100%; border-collapse: collapse; margin-bottom: 20px; }
-        .details-table th, .details-table td { border: 1px solid #ddd; padding: 10px; text-align: left; }
-        .details-table th { background-color: #f8f9fa; color: #465fff; font-weight: bold; }
-        .text-right { text-align: right !important; }
-        .totals-table { width: 50%; float: right; border-collapse: collapse; margin-bottom: 30px; }
-        .totals-table td { padding: 8px; border: 1px solid #ddd; }
-        .totals-table .totals-title { font-weight: bold; background-color: #f8f9fa; }
-        .footer { clear: both; margin-top: 40px; font-size: 12px; color: #777; text-align: center; border-top: 1px solid #ddd; padding-top: 10px; }
-        .notes { margin-top: 20px; padding: 15px; background-color: #f9f9f9; border-left: 4px solid #465fff; }
+        @page { margin: 40px 50px; }
+        body { font-family: 'Helvetica', 'Arial', sans-serif; font-size: 11px; color: #333; line-height: 1.3; }
+        .navy { color: #002060; }
+        .bg-navy { background-color: #002060; color: white; }
+        
+        table { width: 100%; border-collapse: collapse; margin-bottom: 10px; }
+        th, td { padding: 4px 6px; }
+        
+        .header-table { border-bottom: 2px solid #002060; margin-bottom: 10px; padding-bottom: 10px; }
+        .header-title { font-size: 28px; font-weight: bold; color: #002060; }
+        .logo-placeholder { text-align: right; color: #002060; font-size: 20px; font-weight: bold; }
+        
+        .info-table { font-weight: bold; color: #002060; margin-bottom: 15px; }
+        
+        .banner { background-color: #002060; color: white; text-align: center; font-weight: bold; font-size: 11px; border: 1px solid white; }
+        .banner-cell { background-color: #002060; color: white; text-align: center; font-weight: bold; border: 1px solid white; padding: 4px; }
+        
+        .bordered td { border: 1px solid #ddd; }
+        .text-center { text-align: center; }
+        .text-right { text-align: right; }
+        
+        .about-text { padding: 5px 0 10px 0; text-align: justify; }
+        
+        .content-row td { padding: 8px; text-align: center; background-color: #f9f9f9; border-bottom: 2px solid white; border-right: 2px solid white; }
+        
+        .list-table td { vertical-align: top; border: none; padding: 2px 5px; }
+        .list-table .num { width: 20px; text-align: center; }
+        
+        .totals-table { width: 100%; margin-top: 10px; }
+        .totals-table td { padding: 3px 5px; }
+        .totals-label { font-weight: bold; color: #002060; text-align: right; width: 80%; }
+        .totals-value { text-align: right; width: 20%; }
+        
+        .footer-bottom { margin-top: 40px; border-top: 1px solid #002060; padding-top: 10px; font-size: 9px; color: #555; }
+        .footer-table td { padding: 0; }
+        
+        .qr-placeholder { width: 80px; height: 80px; border: 1px solid #ccc; text-align: center; line-height: 80px; font-size: 10px; color: #999; margin: 0 auto; }
     </style>
 </head>
 <body>
 
-    <div class="header">
-        <!-- Logo placeholder -->
-        <div class="header-title">COTIZACIÓN DE SERVICIOS</div>
-        <div>Cotizacion N: {{ $quotation->number }}</div>
-        <div>Fecha: {{ $quotation->created_at->format('d/m/Y') }}</div>
-        @if($quotation->valid_until)
-        <div>Válido hasta: {{ $quotation->valid_until->format('d/m/Y') }}</div>
-        @endif
-    </div>
+    <table class="header-table">
+        <tr>
+            <td class="header-title">PROPUESTA COMERCIAL</td>
+            <td class="logo-placeholder">
+                <!-- Reemplazar con la etiqueta img cuando tengas el logo -->
+                <span style="font-size: 24px;">&#10004; XINERGIA</span>
+            </td>
+        </tr>
+    </table>
 
     <table class="info-table">
         <tr>
-            <td class="title">Cliente:</td>
-            <td>{{ $quotation->client->legal_name ?? $quotation->client->trade_name }}</td>
-            <td class="title">RUC:</td>
-            <td>{{ $quotation->client->ruc ?? '-' }}</td>
+            <td style="width: 70%;">EMPRESA: &nbsp; <span style="font-weight: normal; color:#333;">{{ $quotation->client->legal_name ?? $quotation->client->trade_name ?? '-' }}</span></td>
+            <td style="width: 30%; text-align: right;">Fecha: &nbsp; <span style="font-weight: normal; color:#333;">{{ $quotation->created_at->format('d/m/Y') }}</span></td>
+        </tr>
+    </table>
+
+    <div class="banner">SOBRE NOSOTROS</div>
+    <div class="about-text">
+        Somos una consultora especializada en <strong>desarrollo empresarial</strong> y <strong>sistemas integrados de gestión</strong>, el principal compromiso con nuestros clientes es optimizar su desempeño mediante un enfoque aplicado a la <strong>mejora de procesos</strong>.
+    </div>
+
+    <table>
+        <tr>
+            <td class="banner-cell" style="width: 33%;">SERVICIO</td>
+            <td class="banner-cell" style="width: 33%;">PLAN</td>
+            <td class="banner-cell" style="width: 33%;">LÍNEA DEL SERVICIO</td>
         </tr>
         <tr>
-            <td class="title">Dirección:</td>
-            <td>{{ $quotation->client->address ?? '-' }}</td>
-            <td class="title">Representante:</td>
-            <td>
-                @if($quotation->client->contacts->isNotEmpty())
-                    {{ $quotation->client->contacts->first()->name }} 
-                    ({{ $quotation->client->contacts->first()->phone ?? 'Sin teléfono' }})
-                @else
-                    -
-                @endif
-            </td>
+            <td class="content-row text-center">(Consultoría)</td>
+            <td class="content-row text-center">(Estándar)</td>
+            <td class="content-row text-center">(Integral)</td>
         </tr>
     </table>
 
-    <table class="details-table">
-        <thead>
-            <tr>
-                <th>Descripción</th>
-                <th class="text-right" style="width: 80px;">Cant.</th>
-                <th class="text-right" style="width: 120px;">Precio Unit.</th>
-                <th class="text-right" style="width: 120px;">Subtotal</th>
-            </tr>
-        </thead>
-        <tbody>
-            @foreach($quotation->lines as $line)
-            <tr>
-                <td>{{ $line->description }}</td>
-                <td class="text-right">{{ number_format($line->quantity, 2) }}</td>
-                <td class="text-right">{{ $quotation->currency->symbol ?? '$' }} {{ number_format($line->unit_price, 2) }}</td>
-                <td class="text-right">{{ $quotation->currency->symbol ?? '$' }} {{ number_format((float) $line->line_total, 2) }}</td>
-            </tr>
-            @endforeach
-        </tbody>
+    <div class="banner">DETALLE DEL SERVICIO</div>
+    <table class="list-table" style="margin-top: 5px;">
+        <tr>
+            <td class="num navy" style="font-weight: bold;">N°</td>
+            <td class="navy" style="font-weight: bold;">DESCRIPCIÓN</td>
+            <td class="navy text-center" style="font-weight: bold; width: 60px;">CANT.</td>
+            <td class="navy text-right" style="font-weight: bold; width: 80px;">SUBTOTAL</td>
+        </tr>
+        @foreach($quotation->lines as $index => $line)
+        <tr>
+            <td class="num">{{ $index + 1 }}</td>
+            <td>{{ $line->description }}</td>
+            <td class="text-center">{{ number_format($line->quantity, 2) }}</td>
+            <td class="text-right">{{ $quotation->currency->symbol ?? 'S/' }} {{ number_format((float) $line->line_total, 2) }}</td>
+        </tr>
+        @endforeach
     </table>
 
+    <div class="banner" style="margin-top: 15px;">BENEFICIOS</div>
+    <table class="list-table" style="margin-top: 5px;">
+        <tr>
+            <td class="num navy" style="font-weight: bold;">N°</td>
+            <td class="navy" style="font-weight: bold;">DESCRIPCIÓN</td>
+        </tr>
+        <tr>
+            <td class="num">1</td>
+            <td>Soporte técnico y asesoría constante.</td>
+        </tr>
+        <tr>
+            <td class="num">2</td>
+            <td>Optimización de procesos operativos.</td>
+        </tr>
+    </table>
+
+    <table style="margin-top: 15px;">
+        <tr>
+            <td class="banner-cell" style="width: 50%;">MODALIDAD</td>
+            <td class="banner-cell" style="width: 50%;">TIEMPO DE DURACIÓN</td>
+        </tr>
+        <tr>
+            <td class="content-row text-center">Presencial / Remoto</td>
+            <td class="content-row text-center">Según cronograma establecido</td>
+        </tr>
+    </table>
+
+    <div class="banner">TÉRMINOS Y CONDICIONES</div>
+    <div class="content-row" style="text-align: left; padding: 10px;">
+        @if($quotation->notes)
+            {!! nl2br(e($quotation->notes)) !!}
+        @else
+            Condiciones de pago, entregables y responsabilidades según contrato.
+        @endif
+    </div>
+
+    <div class="banner" style="margin-top: 15px;">VALOR DEL SERVICIO</div>
     <table class="totals-table">
         <tr>
-            <td class="totals-title text-right">Subtotal:</td>
-            <td class="text-right">{{ $quotation->currency->symbol ?? '$' }} {{ number_format($quotation->subtotal, 2) }}</td>
+            <td class="totals-label">Subtotal</td>
+            <td class="totals-value">{{ $quotation->currency->symbol ?? 'S/' }} {{ number_format($quotation->subtotal, 2) }}</td>
         </tr>
         @if($quotation->discount > 0)
         <tr>
-            <td class="totals-title text-right">Descuento:</td>
-            <td class="text-right">- {{ $quotation->currency->symbol ?? '$' }} {{ number_format($quotation->discount, 2) }}</td>
-        </tr>
-        @endif
-        @if($quotation->tax_amount > 0)
-        <tr>
-            <td class="totals-title text-right">Impuestos:</td>
-            <td class="text-right">{{ $quotation->currency->symbol ?? '$' }} {{ number_format($quotation->tax_amount, 2) }}</td>
+            <td class="totals-label">Descuento</td>
+            <td class="totals-value">- {{ $quotation->currency->symbol ?? 'S/' }} {{ number_format($quotation->discount, 2) }}</td>
         </tr>
         @endif
         <tr>
-            <td class="totals-title text-right" style="font-size: 16px;"><strong>TOTAL:</strong></td>
-            <td class="text-right" style="font-size: 16px; font-weight: bold; color: #465fff;">
-                {{ $quotation->currency->symbol ?? '$' }} {{ number_format($quotation->total, 2) }}
+            <td class="totals-label">IGV 18%</td>
+            <td class="totals-value">{{ $quotation->currency->symbol ?? 'S/' }} {{ number_format($quotation->tax_amount, 2) }}</td>
+        </tr>
+        <tr>
+            <td class="totals-label" style="font-size: 13px;">Total</td>
+            <td class="totals-value" style="font-size: 13px; font-weight: bold; background-color: #f0f0f0;">
+                {{ $quotation->currency->symbol ?? 'S/' }} {{ number_format($quotation->total, 2) }}
             </td>
         </tr>
     </table>
 
-    <div style="clear: both;"></div>
+    <div class="banner" style="margin-top: 20px;">NUESTROS DATOS</div>
+    <table style="text-align: center; margin-top: 5px;">
+        <tr>
+            <td class="banner-cell" style="width: 33%;">RAZÓN SOCIAL</td>
+            <td class="banner-cell" style="width: 33%;">CUENTA INTERBANK</td>
+            <td class="banner-cell" style="width: 33%;">INTERBANK CCI</td>
+        </tr>
+        <tr>
+            <td class="content-row">CORPORACIÓN XPANDE S.A.C.</td>
+            <td class="content-row">700-3004474-109</td>
+            <td class="content-row">003-700-00300447-410-925</td>
+        </tr>
+    </table>
+    
+    <table style="text-align: center;">
+        <tr>
+            <td class="banner-cell" style="width: 33%;">CUENTA DE DETRACCIONES</td>
+            <td class="banner-cell" style="width: 33%;">CUENTA SCOTIABANK</td>
+            <td class="banner-cell" style="width: 33%;">SCOTIABANK CCI</td>
+        </tr>
+        <tr>
+            <td class="content-row">00-250-046413</td>
+            <td class="content-row">000-3657026</td>
+            <td class="content-row">009-409-000003657026-45</td>
+        </tr>
+    </table>
 
-    @if($quotation->notes)
-    <div class="notes">
-        <strong>Condiciones y Notas:</strong><br>
-        {!! nl2br(e($quotation->notes)) !!}
-    </div>
-    @endif
+    <table style="margin-top: 30px;">
+        <tr>
+            <td style="width: 30%; text-align: center;">
+                <div style="font-size: 10px; color: #002060; margin-bottom: 5px;">¡Conócenos!</div>
+                <div class="qr-placeholder">[Código QR]</div>
+            </td>
+            <td style="width: 40%; text-align: center; color: #002060; font-weight: bold; font-size: 13px; vertical-align: middle;">
+                Gracias por su confianza.
+            </td>
+            <td style="width: 30%; text-align: right; color: #002060; font-weight: bold; font-size: 13px; vertical-align: bottom;">
+                &raquo; Somos parte de <span style="font-size: 16px;">Xpandecorp</span>
+            </td>
+        </tr>
+    </table>
 
-    <div class="footer">
-        Documento generado por el sistema CRM - Consultoría.<br>
-        Si tiene alguna consulta sobre esta cotización, por favor contáctenos.
+    <div class="footer-bottom">
+        <table class="footer-table">
+            <tr>
+                <td style="width: 33%; text-align: left;">Av. Garcilaso # 323. Chiclayo.</td>
+                <td style="width: 33%; text-align: center;">Correo: contacto@xpandecorp.com</td>
+                <td style="width: 34%; text-align: right;">Contacto: 994195832 - 940174022</td>
+            </tr>
+        </table>
     </div>
 
 </body>

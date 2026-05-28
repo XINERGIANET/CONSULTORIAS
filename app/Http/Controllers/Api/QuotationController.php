@@ -73,7 +73,7 @@ class QuotationController extends Controller
 
             $qRow->areas()->sync($areaIds);
 
-            $qRow->number = 'COT-'.date('Y').'-'.str_pad((string) $qRow->id, 6, '0', STR_PAD_LEFT);
+            $qRow->number = 'COT-' . date('Y') . '-' . str_pad((string) $qRow->id, 6, '0', STR_PAD_LEFT);
             $qRow->save();
 
             return $qRow->fresh(['lines', 'areas']);
@@ -130,7 +130,7 @@ class QuotationController extends Controller
                 'accepted_at' => now(),
             ]);
 
-            $name = $data['project_name'] ?? ('Proyecto — '.$quotation->number);
+            $name = $data['project_name'] ?? ('Proyecto — ' . $quotation->number);
 
             $p = Project::query()->create([
                 'client_id' => $quotation->client_id,
@@ -205,6 +205,18 @@ class QuotationController extends Controller
         return $pdf->stream("cotizacion_{$quotation->number}.pdf");
     }
 
+    public function generateExcel(Request $request, Quotation $quotation)
+    {
+        $this->assertQuotation($request, $quotation);
+        $quotation->load(['client.contacts', 'lines', 'currency', 'creator']);
+
+        $html = view('pdf.quotation_excel', compact('quotation'))->render();
+
+        return response($html)
+            ->header('Content-Type', 'application/vnd.ms-excel; charset=utf-8')
+            ->header('Content-Disposition', 'attachment; filename="cotizacion_' . $quotation->number . '.xls"');
+    }
+
     public function sendWhatsapp(Request $request, Quotation $quotation): JsonResponse
     {
         $this->assertQuotation($request, $quotation);
@@ -215,7 +227,7 @@ class QuotationController extends Controller
             $quotation->update(['status' => 'sent']);
         }
 
-        $contact = $quotation->client->contacts->first(fn ($contact) => filled($contact->phone));
+        $contact = $quotation->client->contacts->first(fn($contact) => filled($contact->phone));
         $rawPhone = $contact?->phone ?: $quotation->client->phone;
         $phone = $rawPhone ? preg_replace('/[^0-9]/', '', $rawPhone) : '';
         $pdfUrl = url("/api/quotations/{$quotation->id}/pdf");
@@ -238,9 +250,9 @@ class QuotationController extends Controller
             $quotation->update(['status' => 'sent']);
         }
 
-        $contact = $quotation->client->contacts->first(fn ($contact) => filled($contact->email));
+        $contact = $quotation->client->contacts->first(fn($contact) => filled($contact->email));
         $recipient = $contact?->email ?: $quotation->client->email;
-        if (! $recipient) {
+        if (!$recipient) {
             abort(422, 'El cliente no tiene correo disponible para enviar la cotizacion.');
         }
 
@@ -268,7 +280,7 @@ class QuotationController extends Controller
     {
         $q = Quotation::query()->whereKey($quotation->id);
         AreaVisibility::applyQuotationScope($q, $request->user());
-        if (! $q->exists()) {
+        if (!$q->exists()) {
             abort(404);
         }
     }
@@ -277,7 +289,7 @@ class QuotationController extends Controller
     {
         $q = Client::query()->whereKey($clientId);
         AreaVisibility::applyClientScope($q, $request->user());
-        if (! $q->exists()) {
+        if (!$q->exists()) {
             abort(422, 'Cliente fuera del alcance de su usuario.');
         }
     }
