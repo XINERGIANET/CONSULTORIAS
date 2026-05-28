@@ -49,8 +49,11 @@
         <tr>
             <td class="header-title">PROPUESTA COMERCIAL</td>
             <td class="logo-placeholder">
-                <!-- Reemplazar con la etiqueta img cuando tengas el logo -->
-                <span style="font-size: 24px;">&#10004; XINERGIA</span>
+                @if(file_exists(public_path('img/logo-xinergia.png')))
+                    <img src="{{ public_path('img/logo-xinergia.png') }}" width="150" alt="XINERGIA">
+                @else
+                    <span style="font-size: 24px;">&#10004; XINERGIA</span>
+                @endif
             </td>
         </tr>
     </table>
@@ -185,11 +188,15 @@
         </tr>
     </table>
 
-    <table style="margin-top: 30px;">
+        <table style="margin-top: 30px;">
         <tr>
             <td style="width: 30%; text-align: center;">
                 <div style="font-size: 10px; color: #002060; margin-bottom: 5px;">¡Conócenos!</div>
-                <div class="qr-placeholder">[Código QR]</div>
+                @if(file_exists(public_path('img/qr.png')))
+                    <img src="{{ public_path('img/qr.png') }}" width="70" height="70" style="margin-top: 5px;">
+                @else
+                    <div class="qr-placeholder">[Código QR]</div>
+                @endif
             </td>
             <td style="width: 40%; text-align: center; color: #002060; font-weight: bold; font-size: 13px; vertical-align: middle;">
                 Gracias por su confianza.

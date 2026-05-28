@@ -32,7 +32,13 @@
         <!-- HEADER -->
         <tr>
             <td colspan="4" class="navy-text" style="font-size: 24px; border-bottom: 2px solid #002060;">PROPUESTA COMERCIAL</td>
-            <td colspan="3" class="navy-text text-right" style="font-size: 20px; border-bottom: 2px solid #002060;">&#10004; XINERGIA</td>
+            <td colspan="3" class="navy-text text-right" style="font-size: 20px; border-bottom: 2px solid #002060;">
+                @if(file_exists(public_path('img/logo-xinergia.png')))
+                    <img src="{{ asset('img/logo-xinergia.png') }}" width="150" alt="XINERGIA">
+                @else
+                    &#10004; XINERGIA
+                @endif
+            </td>
         </tr>
         <tr>
             <td colspan="7" style="height: 5px;"></td>
@@ -209,7 +215,14 @@
 
         <!-- FOOTER -->
         <tr>
-            <td colspan="2" class="text-center navy-text" style="font-size: 10px;">¡Conócenos!<br><br>[Código QR]</td>
+            <td colspan="2" class="text-center navy-text" style="font-size: 10px;">
+                ¡Conócenos!<br><br>
+                @if(file_exists(public_path('img/qr.png')))
+                    <img src="{{ asset('img/qr.png') }}" width="70" height="70">
+                @else
+                    [Código QR]
+                @endif
+            </td>
             <td colspan="3" class="text-center navy-text" style="font-size: 12px; vertical-align: middle;">Gracias por su confianza.</td>
             <td colspan="2" class="text-right navy-text" style="font-size: 12px; vertical-align: bottom;">&raquo; Somos parte de <b>Xpandecorp</b></td>
         </tr>
