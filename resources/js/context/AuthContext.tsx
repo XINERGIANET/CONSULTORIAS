@@ -7,6 +7,7 @@ type AuthContextValue = {
   loading: boolean;
   isAuthenticated: boolean;
   isSuperadmin: boolean;
+  hasPermission: (code: string) => boolean;
   refreshUser: () => Promise<void>;
   login: (payload: { email: string; password: string; remember?: boolean }) => Promise<void>;
   logout: () => Promise<void>;
@@ -57,6 +58,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       loading,
       isAuthenticated: user !== null,
       isSuperadmin: Boolean(user?.is_superadmin),
+      hasPermission: (code: string) => {
+        if (!user) return false;
+        if (user.is_superadmin) return true;
+        return Array.isArray(user.permissions) && user.permissions.includes(code);
+      },
       refreshUser,
       login,
       logout,

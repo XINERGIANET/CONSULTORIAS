@@ -103,7 +103,9 @@ export function UsersPage() {
     availability: "",
     specialty: "",
     area_ids: [] as number[],
+    permissions: {} as Record<string, boolean | null>,
   });
+  const [inheritedPermissions, setInheritedPermissions] = useState<Record<string, boolean>>({});
 
   const scopeFromTab = (t: TabKey): "all" | "admins" | "users" => {
     if (t === "admins") return "admins";
@@ -149,6 +151,23 @@ export function UsersPage() {
     void getJson<PermissionOpt[]>("/api/roles/permissions").then(setPermissions).catch(() => setPermissions([]));
     void getJson<AreaOpt[]>("/api/areas", { active_only: false }).then(setAreasList).catch(() => setAreasList([]));
   }, []);
+
+  useEffect(() => {
+    // Update inherited permissions when role selection changes
+    const rid = form.role_id;
+    if (!rid) {
+      setInheritedPermissions({});
+      return;
+    }
+    const r = roles.find((x) => x.id === Number(rid));
+    if (!r) {
+      setInheritedPermissions({});
+      return;
+    }
+    const map: Record<string, boolean> = {};
+    (r.permissions ?? []).forEach((p) => (map[p.code] = true));
+    setInheritedPermissions(map);
+  }, [form.role_id, roles]);
 
   const reloadRoles = () => void getJson<RoleOpt[]>("/api/roles").then(setRoles).catch(() => setRoles([]));
 
@@ -207,6 +226,7 @@ export function UsersPage() {
       availability: "",
       specialty: "",
       area_ids: [],
+      permissions: {},
     });
     setModalOpen(true);
   };
@@ -230,6 +250,7 @@ export function UsersPage() {
         availability: u.availability ?? "",
         specialty: u.specialty ?? "",
         area_ids: (u.areas ?? []).map((a) => a.id),
+        permissions: u.permissions ?? {},
       });
       setModalOpen(true);
     } catch (e: unknown) {
@@ -256,6 +277,7 @@ export function UsersPage() {
         availability: form.availability || null,
         specialty: form.specialty || null,
         area_ids: form.area_ids,
+        permissions: form.permissions,
       };
       if (form.role_id !== "") payload.role_id = form.role_id;
       if (form.password.trim()) payload.password = form.password;
@@ -562,6 +584,36 @@ export function UsersPage() {
               ))}
             </div>
           </LabField>
+            <LabField label="Permisos por usuario" isLight={isLight} className="sm:col-span-2">
+              <div className={["grid gap-2 rounded-lg border p-3", isLight ? "border-[#E5E7EB] bg-[#F9FAFB]" : "border-white/[0.06] bg-white/[0.02]"].join(" ")}>
+                <p className={isLight ? "text-sm text-[#374151]" : "text-sm text-zinc-200"}>Defina permisos específicos para este usuario. "Heredar" usa los permisos del rol. "Permitir" o "Denegar" anulan el rol.</p>
+                <div className="grid gap-2 sm:grid-cols-2">
+                  {permissions.map((p) => {
+                    const val = Object.prototype.hasOwnProperty.call(form.permissions, p.code) ? form.permissions[p.code] : null;
+                    return (
+                      <div key={p.code} className="flex items-center justify-between gap-3">
+                        <div className="flex items-center gap-2">
+                          <div className={isLight ? "text-xs text-[#374151]" : "text-xs text-zinc-200"}>{p.label}</div>
+                          <div className="text-[11px] text-zinc-400">{inheritedPermissions[p.code] ? "Rol: Sí" : "Rol: —"}</div>
+                        </div>
+                        <select
+                          className={labInputClass(isLight)}
+                          value={val === null ? "" : val ? "1" : "0"}
+                          onChange={(e) => {
+                            const v = e.target.value === "" ? null : e.target.value === "1";
+                            setForm((f) => ({ ...f, permissions: { ...f.permissions, [p.code]: v } }));
+                          }}
+                        >
+                          <option value="">Heredar</option>
+                          <option value="1">Permitir</option>
+                          <option value="0">Denegar</option>
+                        </select>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            </LabField>
           {modalFormErr ? <p className="sm:col-span-2 text-sm font-medium text-red-600">{modalFormErr}</p> : null}
         </div>
       </FormModal>

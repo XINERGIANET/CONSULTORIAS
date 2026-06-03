@@ -68,6 +68,8 @@ class UserManagementController extends Controller
             'area_ids.*' => ['integer', 'exists:areas,id'],
             'project_ids' => ['sometimes', 'array'],
             'project_ids.*' => ['integer', 'exists:projects,id'],
+            'permissions' => ['sometimes', 'array'],
+            'permissions.*' => ['nullable', 'boolean'],
         ]);
 
         $user = DB::transaction(function () use ($data) {
@@ -82,6 +84,11 @@ class UserManagementController extends Controller
                 ...$data,
                 'password' => $password,
             ]);
+
+            if (array_key_exists('permissions', $data)) {
+                $u->permissions = $data['permissions'];
+                $u->save();
+            }
 
             $u->areas()->sync($areaIds);
             if ($projectIds !== []) {
@@ -114,6 +121,8 @@ class UserManagementController extends Controller
             'area_ids.*' => ['integer', 'exists:areas,id'],
             'project_ids' => ['sometimes', 'array'],
             'project_ids.*' => ['integer', 'exists:projects,id'],
+            'permissions' => ['sometimes', 'array'],
+            'permissions.*' => ['nullable', 'boolean'],
         ]);
 
         if (array_key_exists('is_superadmin', $data) && $user->is_superadmin && ! $data['is_superadmin']) {

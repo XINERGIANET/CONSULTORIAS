@@ -19,6 +19,7 @@ export type ManagedUser = {
   cargo?: { id: number; name: string };
   areas?: { id: number; name: string }[];
   created_at?: string;
+  permissions?: Record<string, boolean | null>;
 };
 
 const p = "/api/users";

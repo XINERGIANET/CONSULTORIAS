@@ -18,6 +18,8 @@ class Permission extends Model
         'send_quotations' => 'Enviar cotizaciones',
         'view_projects' => 'Ver proyectos',
         'manage_productivity' => 'Gestionar productividad',
+        'create_tasks' => 'Crear tareas',
+        'edit_tasks' => 'Editar tareas',
         'view_finances' => 'Ver finanzas',
         'register_payments' => 'Registrar pagos',
         'manage_users' => 'Gestionar usuarios',

@@ -8,6 +8,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
+use App\Models\Permission;
 
 class User extends Authenticatable
 {
@@ -28,6 +29,7 @@ class User extends Authenticatable
         'cost_per_hour',
         'availability',
         'specialty',
+        'permissions',
     ];
 
     protected $hidden = [
@@ -44,6 +46,7 @@ class User extends Authenticatable
             'is_active' => 'boolean',
             'salary' => 'decimal:2',
             'cost_per_hour' => 'decimal:2',
+            'permissions' => 'array',
         ];
     }
 
@@ -60,7 +63,24 @@ class User extends Authenticatable
 
         $this->loadMissing('role.permissions');
 
-        return $this->role !== null && $this->role->permissions->contains('code', $code);
+        $rolePerms = $this->role !== null ? $this->role->permissions->pluck('code')->values()->all() : [];
+        $userPerms = $this->permissions ?? [];
+
+        // Start with role permissions
+        $set = array_values($rolePerms);
+
+        // Apply per-user overrides: true => allow, false => deny
+        foreach ($userPerms as $k => $v) {
+            if ($v === true || $v === 1) {
+                if (! in_array($k, $set, true)) {
+                    $set[] = $k;
+                }
+            } elseif ($v === false || $v === 0) {
+                $set = array_values(array_filter($set, fn ($c) => $c !== $k));
+            }
+        }
+
+        return in_array($code, $set, true);
     }
 
     /** @return BelongsTo<Role, User> */
@@ -94,6 +114,18 @@ class User extends Authenticatable
     {
         $this->loadMissing(['role.permissions', 'areas']);
 
+        $rolePerms = $this->role !== null ? $this->role->permissions->pluck('code')->values()->all() : [];
+        $userPerms = $this->permissions ?? [];
+
+        $effective = array_values($rolePerms);
+        foreach ($userPerms as $k => $v) {
+            if ($v === true || $v === 1) {
+                if (! in_array($k, $effective, true)) $effective[] = $k;
+            } elseif ($v === false || $v === 0) {
+                $effective = array_values(array_filter($effective, fn ($c) => $c !== $k));
+            }
+        }
+
         return [
             'id' => $this->id,
             'name' => $this->name,
@@ -101,9 +133,7 @@ class User extends Authenticatable
             'is_superadmin' => $this->is_superadmin,
             'role_slug' => $this->role !== null ? $this->role->slug : null,
             'role_name' => $this->role !== null ? $this->role->name : null,
-            'permissions' => $this->isSuperadmin()
-                ? array_keys(Permission::CATALOG)
-                : ($this->role !== null ? $this->role->permissions->pluck('code')->values()->all() : []),
+            'permissions' => $this->isSuperadmin() ? array_keys(Permission::CATALOG) : $effective,
             'area_ids' => $this->areas->pluck('id')->values()->all(),
             'phone' => $this->phone,
             'is_active' => $this->is_active,

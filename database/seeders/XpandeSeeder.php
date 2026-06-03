@@ -45,6 +45,8 @@ class XpandeSeeder extends Seeder
                 'send_quotations',
                 'view_projects',
                 'manage_productivity',
+                'create_tasks',
+                'edit_tasks',
                 'view_finances',
                 'register_payments',
                 'manage_users',
@@ -57,6 +59,7 @@ class XpandeSeeder extends Seeder
                 'view_quotations',
                 'view_projects',
                 'manage_productivity',
+                // by default colaboradores do not get create/edit tasks; can be granted per-user
             ])->pluck('id'));
         }
 

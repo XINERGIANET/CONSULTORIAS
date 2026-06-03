@@ -2,6 +2,7 @@ import { ListTodo } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
 import { ConfirmModal } from "../components/ConfirmModal";
 import { DateInput } from "../components/DateInput";
+import { useAuth } from "../context/AuthContext";
 import { SmartSelect } from "../components/SmartSelect";
 import { FormModal } from "../xpande/FormModal";
 import { apiErrorMessage } from "../xpande/apiError";
@@ -157,6 +158,7 @@ export function TasksPage() {
   const [users, setUsers] = useState<UserOpt[]>([]);
 
   const [q, setQ] = useState("");
+  const { user, isSuperadmin, hasPermission } = useAuth();
   const [statusFilter, setStatusFilter] = useState<StatusFilter>("all");
   const [sortCol, setSortCol] = useState<TaskSortCol>("created_at");
   const [sortDir, setSortDir] = useState<"asc" | "desc">("desc");
@@ -181,13 +183,14 @@ export function TasksPage() {
           dir: sortDir,
           per_page: pp,
           status: statusFilter !== "all" ? statusFilter : undefined,
+          assigned_user_id: !isSuperadmin && user ? user.id : undefined,
         });
         setData(res);
       } finally {
         setRefreshing(false);
       }
     },
-    [q, sortCol, sortDir, perPage, statusFilter],
+    [q, sortCol, sortDir, perPage, statusFilter, user, isSuperadmin],
   );
 
   useEffect(() => {
@@ -301,16 +304,18 @@ export function TasksPage() {
 
   return (
     <main className={labCrudMainClass(isLight)}>
-      <LabBreadcrumbs items={[{ label: "Dashboard", to: "/" }, { label: "Tareas" }]} isLight={isLight} />
+      <LabBreadcrumbs items={[{ label: "Dashboard", to: "/" }, { label: "Mis tareas" }]} isLight={isLight} />
       <LabPageHeader
-        title="Gestión de tareas"
-        subtitle="Asigna, prioriza y hace seguimiento de tareas por proyecto y encargado."
+        title="Mis tareas"
+        subtitle="Tus tareas asignadas: pendientes, en proceso y finalizadas con fechas límite y proyecto relacionado."
         isLight={isLight}
         action={
-          <button type="button" className={labPrimaryBtn(isLight)} onClick={openCreate}>
-            <ListTodo className="h-4 w-4" /> Nueva tarea
-          </button>
-        }
+            (isSuperadmin || hasPermission('create_tasks')) ? (
+              <button type="button" className={labPrimaryBtn(isLight)} onClick={openCreate}>
+                <ListTodo className="h-4 w-4" /> Nueva tarea
+              </button>
+            ) : null
+          }
       />
 
       <div className="mb-4 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
@@ -381,7 +386,7 @@ export function TasksPage() {
                     </td>
                     <td className="py-2.5 text-right align-middle">
                       <div className="flex justify-end gap-2">
-                        <LabCircleIconAction variant="edit" tooltip="Editar" ariaLabel={`Editar ${t.title}`} onClick={() => void openEdit(t.id)} />
+                        <LabCircleIconAction variant="edit" tooltip="Editar" ariaLabel={`Editar ${t.title}`} onClick={() => void openEdit(t.id)} disabled={!isSuperadmin && !hasPermission('edit_tasks')} />
                         <LabCircleIconAction variant="cancel" tooltip="Eliminar" ariaLabel={`Eliminar ${t.title}`} onClick={() => setPendingDelete(t)} />
                       </div>
                     </td>

@@ -38,8 +38,17 @@ class TaskController extends Controller
             $q->where('project_id', (int) $request->input('project_id'));
         }
 
+        $assignedUserId = null;
         if ($request->filled('assigned_user_id')) {
-            $q->where('assigned_user_id', (int) $request->input('assigned_user_id'));
+            $assignedUserId = (int) $request->input('assigned_user_id');
+        }
+
+        if ($request->user() && ! $request->user()->isSuperadmin()) {
+            $assignedUserId = $request->user()->id;
+        }
+
+        if ($assignedUserId !== null) {
+            $q->where('assigned_user_id', $assignedUserId);
         }
 
         if ($request->filled('priority')) {
@@ -66,6 +75,10 @@ class TaskController extends Controller
 
     public function store(Request $request): JsonResponse
     {
+        if (! $request->user() || ! $request->user()->hasPermission('create_tasks')) {
+            return response()->json(['message' => 'No autorizado para crear tareas.'], 403);
+        }
+
         $data = $request->validate([
             'title'             => ['required', 'string', 'max:255'],
             'description'       => ['nullable', 'string'],
@@ -87,6 +100,10 @@ class TaskController extends Controller
 
     public function update(Request $request, Task $task): JsonResponse
     {
+        if (! $request->user() || ! $request->user()->hasPermission('edit_tasks')) {
+            return response()->json(['message' => 'No autorizado para editar tareas.'], 403);
+        }
+
         $data = $request->validate([
             'title'             => ['sometimes', 'required', 'string', 'max:255'],
             'description'       => ['nullable', 'string'],
