@@ -85,6 +85,9 @@ Route::middleware('auth')->group(function (): void {
     Route::get('/tareas', $spaUi);
     Route::get('/tareas/{any}', $spaUi)->where('any', '.*');
 
+    Route::get('/calendario', $spaUi);
+    Route::get('/calendario/{any}', $spaUi)->where('any', '.*');
+
     Route::get('/usuarios', $spaUi);
     Route::get('/usuarios/{any}', $spaUi)->where('any', '.*');
 
@@ -131,6 +134,8 @@ Route::middleware('auth')->group(function (): void {
         Route::post('tasks', [TaskController::class, 'store']);
         Route::get('tasks/{task}', [TaskController::class, 'show']);
         Route::put('tasks/{task}', [TaskController::class, 'update']);
+        Route::post('tasks/{task}/start', [TaskController::class, 'start']);
+        Route::post('tasks/{task}/finish', [TaskController::class, 'finish']);
         Route::delete('tasks/{task}', [TaskController::class, 'destroy']);
 
         Route::get('quotations', [QuotationController::class, 'index']);

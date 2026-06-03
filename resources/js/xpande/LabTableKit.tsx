@@ -4,10 +4,12 @@ import {
   ArrowUp,
   ArrowUpDown,
   Ban,
+  CheckCircle2,
   ExternalLink,
   Eye,
   FileText,
   Pencil,
+  PlayCircle,
   Printer,
   Trash2,
 } from "lucide-react";
@@ -17,7 +19,7 @@ const CIRCLE_BTN =
   "flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-white shadow-md transition-[transform,filter] hover:-translate-y-0.5 hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:translate-y-0";
 
 const VARIANT_META: Record<
-  "edit" | "delete" | "details" | "pdf" | "print" | "link" | "cancel",
+  "edit" | "delete" | "details" | "pdf" | "print" | "link" | "cancel" | "start" | "finish",
   { Icon: LucideIcon; className: string }
 > = {
   edit: {
@@ -49,6 +51,14 @@ const VARIANT_META: Record<
   cancel: {
     Icon: Ban,
     className: `${CIRCLE_BTN} bg-[#EA580C] shadow-[0_2px_10px_rgba(234,88,12,0.35)] hover:bg-[#C2410C]`,
+  },
+  start: {
+    Icon: PlayCircle,
+    className: `${CIRCLE_BTN} bg-[#16A34A] shadow-[0_2px_10px_rgba(22,163,74,0.40)] hover:bg-[#15803D]`,
+  },
+  finish: {
+    Icon: CheckCircle2,
+    className: `${CIRCLE_BTN} bg-[#0891B2] shadow-[0_2px_10px_rgba(8,145,178,0.40)] hover:bg-[#0E7490]`,
   },
 };
 
@@ -118,7 +128,7 @@ export function LabNoticeModal({
       ? "border-green-600/35 bg-green-600/15 text-green-600"
       : "border-red-600/35 bg-red-600/15 text-red-600";
   return (
-    <div className="fixed inset-0 z-[140] flex items-center justify-center p-4">
+    <div className="fixed inset-0 z-[160] flex items-center justify-center p-4">
       <button type="button" aria-label="Cerrar aviso" onClick={onClose} className="absolute inset-0 bg-black/55 backdrop-blur-[1px]" />
       <div
         role="alertdialog"

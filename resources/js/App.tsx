@@ -9,6 +9,7 @@ import { CatalogosAdminPage, DocumentsPage, FinanzasHubPage, TimeEntriesPage } f
 import { ProjectsPage } from "./pages/ProjectsPage";
 import { SaasProductsPage } from "./pages/SaasProductsPage";
 import { AreasPage, ClientDetailPage, ClientsPage, IntegracionesPage, RentabilidadPage, ReportesGerenciaPage } from "./pages/OperationalPages";
+import { CalendarPage } from "./pages/CalendarPage";
 import { TasksPage } from "./pages/TasksPage";
 import { UsersPage } from "./pages/UsersPage";
 
@@ -70,6 +71,9 @@ function App() {
 
           <Route path="/tareas" element={<TasksPage />} />
           <Route path="/tareas/*" element={<TasksPage />} />
+
+          <Route path="/calendario" element={<CalendarPage />} />
+          <Route path="/calendario/*" element={<CalendarPage />} />
 
           <Route
             path="/saas"

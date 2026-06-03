@@ -2,6 +2,7 @@ import {
   type LucideIcon,
   BarChart3,
   Briefcase,
+  CalendarDays,
   ClipboardList,
   FileText,
   FolderKanban,
@@ -82,6 +83,7 @@ export function Sidebar() {
   const ops: NavLink[] = [
     can("view_projects") ? { label: "Proyectos", to: "/proyectos", icon: FolderKanban } : null,
     { label: "Tareas", to: "/tareas", icon: ListTodo },
+    { label: "Calendario", to: "/calendario", icon: CalendarDays },
     can("manage_productivity") ? { label: "Tiempos", to: "/tiempos", icon: Radar } : null,
     { label: "Documentos", to: "/documentos", icon: FileText },
   ].filter(Boolean) as NavLink[];

@@ -123,6 +123,40 @@ class TaskController extends Controller
         return response()->json($task->fresh()->load(['project:id,name', 'assignedUser:id,name']));
     }
 
+    public function start(Request $request, Task $task): JsonResponse
+    {
+        $authUser = $request->user();
+        $isAssignee = $authUser && $task->assigned_user_id === $authUser->id;
+        if (! $authUser || (! $authUser->hasPermission('edit_tasks') && ! $isAssignee)) {
+            return response()->json(['message' => 'No autorizado para iniciar esta tarea.'], 403);
+        }
+
+        if ($task->status !== 'pending') {
+            return response()->json(['message' => 'Solo se pueden iniciar tareas en estado Pendiente.'], 422);
+        }
+
+        $task->update(['status' => 'in_progress', 'started_at' => now()]);
+
+        return response()->json($task->fresh()->load(['project:id,name', 'assignedUser:id,name']));
+    }
+
+    public function finish(Request $request, Task $task): JsonResponse
+    {
+        $authUser = $request->user();
+        $isAssignee = $authUser && $task->assigned_user_id === $authUser->id;
+        if (! $authUser || (! $authUser->hasPermission('edit_tasks') && ! $isAssignee)) {
+            return response()->json(['message' => 'No autorizado para finalizar esta tarea.'], 403);
+        }
+
+        if ($task->status !== 'in_progress') {
+            return response()->json(['message' => 'Solo se pueden finalizar tareas En proceso.'], 422);
+        }
+
+        $task->update(['status' => 'finished', 'finished_at' => now()]);
+
+        return response()->json($task->fresh()->load(['project:id,name', 'assignedUser:id,name']));
+    }
+
     public function destroy(Request $request, Task $task): JsonResponse
     {
         if (! $request->user() || ! $request->user()->hasPermission('delete_tasks')) {

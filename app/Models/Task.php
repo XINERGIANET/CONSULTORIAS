@@ -18,6 +18,8 @@ class Task extends Model
         'estimated_hours',
         'status',
         'priority',
+        'started_at',
+        'finished_at',
     ];
 
     protected $appends = ['is_overdue'];
@@ -25,9 +27,11 @@ class Task extends Model
     protected function casts(): array
     {
         return [
-            'start_date' => 'date',
-            'due_date' => 'date',
+            'start_date'    => 'date',
+            'due_date'      => 'date',
             'estimated_hours' => 'decimal:2',
+            'started_at'    => 'datetime',
+            'finished_at'   => 'datetime',
         ];
     }
 
