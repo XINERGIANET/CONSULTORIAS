@@ -32,6 +32,7 @@ use Illuminate\Support\Facades\Route;
 
 Route::middleware('guest')->group(function (): void {
     Route::get('/login', DashboardController::class)->name('login');
+    Route::get('/api/auth/login', fn () => redirect('/login'));
     Route::post('/api/auth/login', [AuthController::class, 'login']);
 });
 
