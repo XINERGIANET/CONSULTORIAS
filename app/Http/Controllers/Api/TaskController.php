@@ -100,7 +100,9 @@ class TaskController extends Controller
 
     public function update(Request $request, Task $task): JsonResponse
     {
-        if (! $request->user() || ! $request->user()->hasPermission('edit_tasks')) {
+        $authUser = $request->user();
+        $isAssignee = $authUser && $task->assigned_user_id === $authUser->id;
+        if (! $authUser || (! $authUser->hasPermission('edit_tasks') && ! $isAssignee)) {
             return response()->json(['message' => 'No autorizado para editar tareas.'], 403);
         }
 
@@ -121,8 +123,12 @@ class TaskController extends Controller
         return response()->json($task->fresh()->load(['project:id,name', 'assignedUser:id,name']));
     }
 
-    public function destroy(Task $task): JsonResponse
+    public function destroy(Request $request, Task $task): JsonResponse
     {
+        if (! $request->user() || ! $request->user()->hasPermission('delete_tasks')) {
+            return response()->json(['message' => 'No autorizado para eliminar tareas.'], 403);
+        }
+
         $task->delete();
 
         return response()->json(null, 204);

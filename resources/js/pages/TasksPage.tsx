@@ -304,10 +304,10 @@ export function TasksPage() {
 
   return (
     <main className={labCrudMainClass(isLight)}>
-      <LabBreadcrumbs items={[{ label: "Dashboard", to: "/" }, { label: "Mis tareas" }]} isLight={isLight} />
+      <LabBreadcrumbs items={[{ label: "Dashboard", to: "/" }, { label: isSuperadmin ? "Gestión de tareas" : "Mis tareas" }]} isLight={isLight} />
       <LabPageHeader
-        title="Mis tareas"
-        subtitle="Tus tareas asignadas: pendientes, en proceso y finalizadas con fechas límite y proyecto relacionado."
+        title={isSuperadmin ? "Gestión de tareas" : "Mis tareas"}
+        subtitle={isSuperadmin ? "Todas las tareas del sistema: asigna, prioriza y da seguimiento por proyecto y encargado." : "Tus tareas asignadas: pendientes, en proceso y finalizadas con fechas límite y proyecto relacionado."}
         isLight={isLight}
         action={
             (isSuperadmin || hasPermission('create_tasks')) ? (
@@ -386,8 +386,8 @@ export function TasksPage() {
                     </td>
                     <td className="py-2.5 text-right align-middle">
                       <div className="flex justify-end gap-2">
-                        <LabCircleIconAction variant="edit" tooltip="Editar" ariaLabel={`Editar ${t.title}`} onClick={() => void openEdit(t.id)} disabled={!isSuperadmin && !hasPermission('edit_tasks')} />
-                        <LabCircleIconAction variant="cancel" tooltip="Eliminar" ariaLabel={`Eliminar ${t.title}`} onClick={() => setPendingDelete(t)} />
+                        <LabCircleIconAction variant="edit" tooltip="Editar" ariaLabel={`Editar ${t.title}`} onClick={() => void openEdit(t.id)} disabled={!isSuperadmin && !hasPermission('edit_tasks') && t.assigned_user_id !== user?.id} />
+                        <LabCircleIconAction variant="cancel" tooltip="Eliminar" ariaLabel={`Eliminar ${t.title}`} onClick={() => setPendingDelete(t)} disabled={!isSuperadmin && !hasPermission('delete_tasks')} />
                       </div>
                     </td>
                   </tr>

@@ -20,6 +20,7 @@ class Permission extends Model
         'manage_productivity' => 'Gestionar productividad',
         'create_tasks' => 'Crear tareas',
         'edit_tasks' => 'Editar tareas',
+        'delete_tasks' => 'Eliminar tareas',
         'view_finances' => 'Ver finanzas',
         'register_payments' => 'Registrar pagos',
         'manage_users' => 'Gestionar usuarios',
