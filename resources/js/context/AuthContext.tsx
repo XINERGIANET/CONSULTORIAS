@@ -42,9 +42,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setLoading(true);
     try {
       await authLogout();
-      setUser(null);
+    } catch {
+      // Si el servidor falla (ej. CSRF expirado), igual cerramos la sesión local.
     } finally {
-      setLoading(false);
+      // Recarga completa para que Laravel emita una nueva cookie XSRF-TOKEN limpia.
+      // Sin esto, la SPA reutiliza el token viejo y el siguiente login falla con 419.
+      window.location.href = "/login";
     }
   };
 

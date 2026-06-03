@@ -13,6 +13,8 @@ return Application::configure(basePath: dirname(__DIR__))
     ->withMiddleware(function (Middleware $middleware): void {
         // Tras Nginx/Ingress HTTPS, sin esto Laravel puede ver HTTP y las cookies/session no encajan bien.
         $middleware->trustProxies(at: '*');
+        // Logout es seguro sin CSRF: el peor caso de un ataque CSRF-logout es cerrar la sesión del usuario (sin daño).
+        $middleware->validateCsrfTokens(except: ['api/auth/logout']);
         $middleware->alias([
             'superadmin' => \App\Http\Middleware\EnsureSuperadmin::class,
             'permission' => \App\Http\Middleware\EnsurePermission::class,
