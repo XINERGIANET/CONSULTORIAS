@@ -1,5 +1,6 @@
 import { FileSpreadsheet, FileText, Mail, MessageCircle } from "lucide-react";
 import { useEffect, useState } from "react";
+import { SmartSelect } from "../components/SmartSelect";
 import { FormModal } from "../xpande/FormModal";
 import { deleteJson, getJson, postJson, putJson, type LaravelPaginated } from "../xpande/http";
 import { LabBreadcrumbs, LabField, LabPageHeader, labCrudMainClass, labGhostBtn, labInputClass, labPanelClass, labPrimaryBtn } from "../xpande/XpandeUi";
@@ -275,31 +276,34 @@ export function QuotationsPage() {
       >
         <div className="grid gap-3 sm:grid-cols-2">
           <LabField label="Cliente *" isLight={isLight} className="sm:col-span-2">
-            <select
+            <SmartSelect
+              isLight={isLight}
               disabled={editId !== null}
-              className={labInputClass(isLight)}
               value={form.client_id === "" ? "" : String(form.client_id)}
-              onChange={(e) => setForm({ ...form, client_id: e.target.value ? Number(e.target.value) : "" })}
-            >
-              <option value="">Seleccionar…</option>
-              {clients.map((c) => (
-                <option key={c.id} value={c.id}>{c.legal_name}</option>
-              ))}
-            </select>
+              onChange={(v) => setForm({ ...form, client_id: v ? Number(v) : "" })}
+              options={clients.map((c) => ({ value: c.id, label: c.legal_name }))}
+              emptyLabel="Seleccionar…"
+            />
           </LabField>
           <LabField label="Estado" isLight={isLight}>
-            <select className={labInputClass(isLight)} value={form.status} onChange={(e) => setForm({ ...form, status: e.target.value })}>
-              <option value="draft">Borrador</option>
-              <option value="sent">Enviada</option>
-            </select>
+            <SmartSelect
+              isLight={isLight}
+              value={form.status}
+              onChange={(v) => setForm({ ...form, status: v })}
+              options={[
+                { value: "draft", label: "Borrador" },
+                { value: "sent", label: "Enviada" },
+              ]}
+            />
           </LabField>
           <LabField label="Moneda" isLight={isLight}>
-            <select className={labInputClass(isLight)} value={form.currency_id === "" ? "" : String(form.currency_id)} onChange={(e) => setForm({ ...form, currency_id: e.target.value ? Number(e.target.value) : "" })}>
-              <option value="">Sin moneda específica</option>
-              {currencies.map((c) => (
-                <option key={c.id} value={c.id}>{c.code}</option>
-              ))}
-            </select>
+            <SmartSelect
+              isLight={isLight}
+              value={form.currency_id === "" ? "" : String(form.currency_id)}
+              onChange={(v) => setForm({ ...form, currency_id: v ? Number(v) : "" })}
+              options={currencies.map((c) => ({ value: c.id, label: c.code }))}
+              emptyLabel="Sin moneda específica"
+            />
           </LabField>
           <LabField label="Válido hasta" isLight={isLight}>
             <input type="date" className={labInputClass(isLight)} value={form.valid_until} onChange={(e) => setForm({ ...form, valid_until: e.target.value })} />
@@ -546,38 +550,41 @@ export function OpportunitiesPage() {
       >
         <div className="grid gap-3 sm:grid-cols-2">
           <LabField label="Cliente *" isLight={isLight} className="sm:col-span-2">
-            <select
+            <SmartSelect
+              isLight={isLight}
               disabled={editId !== null}
-              className={labInputClass(isLight)}
               value={form.client_id === "" ? "" : String(form.client_id)}
-              onChange={(e) => setForm({ ...form, client_id: e.target.value ? Number(e.target.value) : "" })}
-            >
-              <option value="">Seleccionar…</option>
-              {clients.map((c) => (
-                <option key={c.id} value={c.id}>{c.legal_name}</option>
-              ))}
-            </select>
+              onChange={(v) => setForm({ ...form, client_id: v ? Number(v) : "" })}
+              options={clients.map((c) => ({ value: c.id, label: c.legal_name }))}
+              emptyLabel="Seleccionar…"
+            />
           </LabField>
           <LabField label="Título *" isLight={isLight} className="sm:col-span-2">
             <input className={labInputClass(isLight)} value={form.title} onChange={(e) => setForm({ ...form, title: e.target.value })} />
           </LabField>
           <LabField label="Responsable" isLight={isLight}>
-            <select className={labInputClass(isLight)} value={form.owner_user_id === "" ? "" : String(form.owner_user_id)} onChange={(e) => setForm({ ...form, owner_user_id: e.target.value ? Number(e.target.value) : "" })}>
-              <option value="">—</option>
-              {users.map((u) => (
-                <option key={u.id} value={u.id}>{u.name}</option>
-              ))}
-            </select>
+            <SmartSelect
+              isLight={isLight}
+              value={form.owner_user_id === "" ? "" : String(form.owner_user_id)}
+              onChange={(v) => setForm({ ...form, owner_user_id: v ? Number(v) : "" })}
+              options={users.map((u) => ({ value: u.id, label: u.name }))}
+              emptyLabel="—"
+            />
           </LabField>
           <LabField label="Etapa" isLight={isLight}>
-            <select className={labInputClass(isLight)} value={form.stage} onChange={(e) => setForm({ ...form, stage: e.target.value })}>
-              <option value="lead">Lead</option>
-              <option value="qualified">Calificado</option>
-              <option value="proposal">Propuesta</option>
-              <option value="negotiation">Negociación</option>
-              <option value="won">Ganada</option>
-              <option value="lost">Perdida</option>
-            </select>
+            <SmartSelect
+              isLight={isLight}
+              value={form.stage}
+              onChange={(v) => setForm({ ...form, stage: v })}
+              options={[
+                { value: "lead", label: "Lead" },
+                { value: "qualified", label: "Calificado" },
+                { value: "proposal", label: "Propuesta" },
+                { value: "negotiation", label: "Negociación" },
+                { value: "won", label: "Ganada" },
+                { value: "lost", label: "Perdida" },
+              ]}
+            />
           </LabField>
           <LabField label="Probabilidad %" isLight={isLight}>
             <input type="number" min={0} max={100} className={labInputClass(isLight)} value={form.probability} onChange={(e) => setForm({ ...form, probability: e.target.value })} />

@@ -2,6 +2,7 @@ import { Shield, UserPlus } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
 import { createUser, deleteUser, fetchUser, fetchUsersPage, updateUser, type ManagedUser } from "../users/api";
 import { ConfirmModal } from "../components/ConfirmModal";
+import { SmartSelect } from "../components/SmartSelect";
 import { FormModal } from "../xpande/FormModal";
 import { apiErrorMessage } from "../xpande/apiError";
 import { getJson, putJson } from "../xpande/http";
@@ -513,14 +514,13 @@ export function UsersPage() {
             <input className={labInputClass(isLight)} value={form.phone} onChange={(e) => setForm({ ...form, phone: e.target.value })} />
           </LabField>
           <LabField label="Rol" isLight={isLight}>
-            <select className={labInputClass(isLight)} value={form.role_id === "" ? "" : String(form.role_id)} onChange={(e) => setForm({ ...form, role_id: e.target.value ? Number(e.target.value) : "" })}>
-              <option value="">Seleccionar…</option>
-              {roles.map((r) => (
-                <option key={r.id} value={r.id}>
-                  {r.name}
-                </option>
-              ))}
-            </select>
+            <SmartSelect
+              isLight={isLight}
+              value={form.role_id === "" ? "" : String(form.role_id)}
+              onChange={(v) => setForm({ ...form, role_id: v ? Number(v) : "" })}
+              options={roles.map((r) => ({ value: r.id, label: r.name }))}
+              emptyLabel="Seleccionar…"
+            />
           </LabField>
           <LabField label="Contrato / tipo" isLight={isLight}>
             <input className={labInputClass(isLight)} value={form.contract_type} onChange={(e) => setForm({ ...form, contract_type: e.target.value })} />

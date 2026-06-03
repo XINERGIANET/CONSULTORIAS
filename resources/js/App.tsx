@@ -9,6 +9,7 @@ import { CatalogosAdminPage, DocumentsPage, FinanzasHubPage, TimeEntriesPage } f
 import { ProjectsPage } from "./pages/ProjectsPage";
 import { SaasProductsPage } from "./pages/SaasProductsPage";
 import { AreasPage, ClientDetailPage, ClientsPage, IntegracionesPage, RentabilidadPage, ReportesGerenciaPage } from "./pages/OperationalPages";
+import { TasksPage } from "./pages/TasksPage";
 import { UsersPage } from "./pages/UsersPage";
 
 function RequireAuth({ children }: { children: React.ReactElement }) {
@@ -66,6 +67,9 @@ function App() {
 
           <Route path="/proyectos" element={<ProjectsPage />} />
           <Route path="/proyectos/*" element={<ProjectsPage />} />
+
+          <Route path="/tareas" element={<TasksPage />} />
+          <Route path="/tareas/*" element={<TasksPage />} />
 
           <Route
             path="/saas"

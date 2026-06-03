@@ -1,6 +1,7 @@
 import { Briefcase, Layers, Radar, TrendingUp, Search } from "lucide-react";
 import { useEffect, useState } from "react";
 import { Link, useParams } from "react-router-dom";
+import { SmartSelect } from "../components/SmartSelect";
 import { FormModal } from "../xpande/FormModal";
 import { deleteJson, getJson, postJson, putJson, type LaravelPaginated } from "../xpande/http";
 import {
@@ -397,11 +398,16 @@ export function ClientsPage() {
             <input className={labInputClass(isLight)} value={form.address} onChange={(e) => setForm({ ...form, address: e.target.value })} />
           </LabField>
           <LabField label="Etapa CRM" isLight={isLight}>
-            <select className={labInputClass(isLight)} value={form.pipeline_stage} onChange={(e) => setForm({ ...form, pipeline_stage: e.target.value })}>
-              <option value="lead">Lead</option>
-              <option value="prospect">Prospecto</option>
-              <option value="active_client">Cliente activo</option>
-            </select>
+            <SmartSelect
+              isLight={isLight}
+              value={form.pipeline_stage}
+              onChange={(v) => setForm({ ...form, pipeline_stage: v })}
+              options={[
+                { value: "lead", label: "Lead" },
+                { value: "prospect", label: "Prospecto" },
+                { value: "active_client", label: "Cliente activo" },
+              ]}
+            />
           </LabField>
           <LabField label="Rubro" isLight={isLight}>
             <input className={labInputClass(isLight)} value={form.rubro} onChange={(e) => setForm({ ...form, rubro: e.target.value })} />
@@ -732,13 +738,18 @@ export function ClientDetailPage() {
       >
         <div className="grid gap-3 sm:grid-cols-2">
           <LabField label="Tipo *" isLight={isLight}>
-            <select className={labInputClass(isLight)} value={af.type} onChange={(e) => setAf({ ...af, type: e.target.value })}>
-              <option value="call">Llamada</option>
-              <option value="meeting">Reunión</option>
-              <option value="email">Email</option>
-              <option value="visit">Visita</option>
-              <option value="note">Nota</option>
-            </select>
+            <SmartSelect
+              isLight={isLight}
+              value={af.type}
+              onChange={(v) => setAf({ ...af, type: v })}
+              options={[
+                { value: "call", label: "Llamada" },
+                { value: "meeting", label: "Reunión" },
+                { value: "email", label: "Email" },
+                { value: "visit", label: "Visita" },
+                { value: "note", label: "Nota" },
+              ]}
+            />
           </LabField>
           <LabField label="Asunto" isLight={isLight}>
             <input className={labInputClass(isLight)} value={af.subject} onChange={(e) => setAf({ ...af, subject: e.target.value })} />

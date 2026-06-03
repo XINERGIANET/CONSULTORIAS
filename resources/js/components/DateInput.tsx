@@ -10,9 +10,10 @@ type DateInputProps = {
   className: string;
   isLight: boolean;
   required?: boolean;
+  minDate?: string;
 };
 
-export function DateInput({ value, onChange, className, isLight, required }: DateInputProps) {
+export function DateInput({ value, onChange, className, isLight, required, minDate }: DateInputProps) {
   const [open, setOpen] = useState(false);
   const wrapRef = useRef<HTMLDivElement>(null);
 
@@ -26,6 +27,15 @@ export function DateInput({ value, onChange, className, isLight, required }: Dat
       return undefined;
     }
   }, [value]);
+
+  const minDateObj = useMemo(() => {
+    if (!minDate) return undefined;
+    try {
+      return parseISO(minDate);
+    } catch {
+      return undefined;
+    }
+  }, [minDate]);
 
   const displayValue = selected ? format(selected, "dd/MM/yyyy", { locale: es }) : "";
 
@@ -82,6 +92,7 @@ export function DateInput({ value, onChange, className, isLight, required }: Dat
             mode="single"
             locale={es}
             selected={selected}
+            disabled={minDateObj ? { before: minDateObj } : undefined}
             onSelect={(date) => {
               if (!date) {
                 onChange("");

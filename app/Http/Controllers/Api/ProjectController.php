@@ -23,6 +23,14 @@ class ProjectController extends Controller
         if ($request->filled('status')) {
             $q->where('status', $request->input('status'));
         }
+        if ($request->filled('status_group')) {
+            $group = $request->input('status_group');
+            if ($group === 'active') {
+                $q->whereIn('status', ['pending', 'in_progress', 'paused']);
+            } elseif ($group === 'inactive') {
+                $q->whereIn('status', ['finished', 'cancelled']);
+            }
+        }
         if ($request->filled('engagement_type')) {
             $q->where('engagement_type', $request->input('engagement_type'));
         }

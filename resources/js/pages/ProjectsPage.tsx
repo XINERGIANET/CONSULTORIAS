@@ -2,6 +2,7 @@ import { ExternalLink, FolderKanban } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import { ConfirmModal } from "../components/ConfirmModal";
+import { SmartSelect } from "../components/SmartSelect";
 import { FormModal } from "../xpande/FormModal";
 import { apiErrorMessage } from "../xpande/apiError";
 import type { LaravelPaginated } from "../xpande/http";
@@ -59,6 +60,7 @@ export function ProjectsPage() {
   const navigate = useNavigate();
 
   const [data, setData] = useState<LaravelPaginated<ProjRow> | null>(null);
+  const [refreshing, setRefreshing] = useState(false);
   const [page, setPage] = useState(1);
   const [clients, setClients] = useState<ClientOpt[]>([]);
   const [areas, setAreas] = useState<AreaOpt[]>([]);
@@ -68,6 +70,7 @@ export function ProjectsPage() {
   const [editId, setEditId] = useState<number | null>(null);
   const [modalErr, setModalErr] = useState<string | null>(null);
   const [q, setQ] = useState("");
+  const [statusFilter, setStatusFilter] = useState<"all" | "active" | "inactive">("all");
   const [sortCol, setSortCol] = useState<ProjSortCol>("id");
   const [sortDir, setSortDir] = useState<"asc" | "desc">("desc");
   const [perPage, setPerPage] = useState(30);
@@ -97,17 +100,23 @@ export function ProjectsPage() {
   const fetchProjects = useCallback(
     async (targetPage: number, nextPer?: number) => {
       const pp = nextPer ?? perPage;
-      const res = await getJson<LaravelPaginated<ProjRow>>("/api/projects", {
-        page: targetPage,
-        q: q.trim() || undefined,
-        sort: sortCol,
-        dir: sortDir,
-        per_page: pp,
-      });
-      setData(res);
-      setPage(res.current_page);
+      setRefreshing(true);
+      try {
+        const res = await getJson<LaravelPaginated<ProjRow>>("/api/projects", {
+          page: targetPage,
+          q: q.trim() || undefined,
+          sort: sortCol,
+          dir: sortDir,
+          per_page: pp,
+          status_group: statusFilter !== "all" ? statusFilter : undefined,
+        });
+        setData(res);
+        setPage(res.current_page);
+      } finally {
+        setRefreshing(false);
+      }
     },
-    [q, sortCol, sortDir, perPage],
+    [q, sortCol, sortDir, perPage, statusFilter],
   );
 
   useEffect(() => {
@@ -293,13 +302,29 @@ export function ProjectsPage() {
           placeholder="Buscar por proyecto, cliente o tipo de servicio…"
           className={["w-full sm:max-w-md", labInputClass(isLight)].join(" ")}
         />
+        <div className={["flex overflow-hidden rounded-lg border text-xs font-medium", isLight ? "border-[#E5E7EB]" : "border-white/[0.08]"].join(" ")}>
+          {(["all", "active", "inactive"] as const).map((f) => {
+            const label = { all: "Todos", active: "Activos", inactive: "Inactivos" }[f];
+            const sel = statusFilter === f;
+            return (
+              <button
+                key={f}
+                type="button"
+                onClick={() => setStatusFilter(f)}
+                className={["px-3 py-1.5 transition-colors", sel ? "bg-[#007BFF] text-white" : isLight ? "bg-white text-[#6B7280] hover:bg-[#F3F4F6]" : "bg-transparent text-zinc-400 hover:bg-white/[0.05]"].join(" ")}
+              >
+                {label}
+              </button>
+            );
+          })}
+        </div>
       </div>
 
       <div className={labPanelClass(isLight)}>
         {!data ? (
           <p className="py-8 text-center text-sm text-zinc-500">Cargando…</p>
         ) : (
-          <div className={["overflow-x-auto", isLight ? "apex-table-scroll--light" : "apex-table-scroll--dark"].join(" ")}>
+          <div className={["overflow-x-auto transition-opacity duration-150", refreshing ? "pointer-events-none opacity-40" : "opacity-100", isLight ? "apex-table-scroll--light" : "apex-table-scroll--dark"].join(" ")}>
             <table
               className={[
                 "w-full min-w-[760px] text-left text-sm",
@@ -307,12 +332,12 @@ export function ProjectsPage() {
               ].join(" ")}
             >
               <thead>
-                <tr className={isLight ? "text-[#6B7280]" : "text-zinc-500"}>
+                <tr className={["align-middle", isLight ? "text-[#6B7280]" : "text-zinc-500"].join(" ")}>
                   <LabSortableTh label="Proyecto" sorted={sortState("name")} isLight={isLight} onToggle={() => onSortHeader("name")} />
                   <LabSortableTh label="Cliente" sorted={sortState("client")} isLight={isLight} onToggle={() => onSortHeader("client")} />
-                  <th className="pb-3 pr-3 text-left text-xs font-semibold uppercase tracking-wide">Tipo</th>
-                  <th className="pb-3 pr-3 text-left text-xs font-semibold uppercase tracking-wide">Productos</th>
-                  <th className="pb-3 pr-3 text-left text-xs font-semibold uppercase tracking-wide">Áreas</th>
+                  <th className="pr-3 text-left text-xs font-semibold uppercase tracking-wide">Tipo</th>
+                  <th className="pr-3 text-left text-xs font-semibold uppercase tracking-wide">Productos</th>
+                  <th className="pr-3 text-left text-xs font-semibold uppercase tracking-wide">Áreas</th>
                   <LabSortableTh label="Estado" sorted={sortState("status")} isLight={isLight} onToggle={() => onSortHeader("status")} />
                   <LabSortableTh
                     label="Inicio"
@@ -328,7 +353,7 @@ export function ProjectsPage() {
                     onToggle={() => onSortHeader("created_at")}
                     className="w-28 whitespace-nowrap"
                   />
-                  <th className="w-[6.5rem] pb-3 text-right text-xs font-semibold uppercase tracking-wide">Acciones</th>
+                  <th className="w-[6.5rem] text-right text-xs font-semibold uppercase tracking-wide">Acciones</th>
                 </tr>
               </thead>
               <tbody>
@@ -427,40 +452,45 @@ export function ProjectsPage() {
       >
         <div className="grid gap-3 sm:grid-cols-2">
           <LabField label="Cliente *" isLight={isLight} className="sm:col-span-2">
-            <select
-              className={labInputClass(isLight)}
+            <SmartSelect
+              isLight={isLight}
               value={form.client_id === "" ? "" : String(form.client_id)}
-              onChange={(e) => setForm({ ...form, client_id: e.target.value ? Number(e.target.value) : "" })}
-            >
-              <option value="">Seleccionar…</option>
-              {clients.map((c) => (
-                <option key={c.id} value={c.id}>
-                  {c.legal_name}
-                </option>
-              ))}
-            </select>
+              onChange={(v) => setForm({ ...form, client_id: v ? Number(v) : "" })}
+              options={clients.map((c) => ({ value: c.id, label: c.legal_name }))}
+              emptyLabel="Seleccionar…"
+            />
           </LabField>
           <LabField label="Nombre *" isLight={isLight} className="sm:col-span-2">
             <input className={labInputClass(isLight)} value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} />
           </LabField>
           <LabField label="Tipo de registro" isLight={isLight}>
-            <select className={labInputClass(isLight)} value={form.engagement_type} onChange={(e) => setForm({ ...form, engagement_type: e.target.value })}>
-              <option value="project">Proyecto / servicio</option>
-              <option value="saas">Afiliacion SaaS</option>
-              <option value="retainer">Bolsa recurrente</option>
-            </select>
+            <SmartSelect
+              isLight={isLight}
+              value={form.engagement_type}
+              onChange={(v) => setForm({ ...form, engagement_type: v })}
+              options={[
+                { value: "project", label: "Proyecto / servicio" },
+                { value: "saas", label: "Afiliacion SaaS" },
+                { value: "retainer", label: "Bolsa recurrente" },
+              ]}
+            />
           </LabField>
           <LabField label="Tipo de servicio" isLight={isLight}>
             <input className={labInputClass(isLight)} value={form.service_type} onChange={(e) => setForm({ ...form, service_type: e.target.value })} />
           </LabField>
           <LabField label="Estado" isLight={isLight}>
-            <select className={labInputClass(isLight)} value={form.status} onChange={(e) => setForm({ ...form, status: e.target.value })}>
-              <option value="pending">Pendiente</option>
-              <option value="in_progress">En proceso</option>
-              <option value="paused">Pausado</option>
-              <option value="finished">Finalizado</option>
-              <option value="cancelled">Cancelado</option>
-            </select>
+            <SmartSelect
+              isLight={isLight}
+              value={form.status}
+              onChange={(v) => setForm({ ...form, status: v })}
+              options={[
+                { value: "pending", label: "Pendiente" },
+                { value: "in_progress", label: "En proceso" },
+                { value: "paused", label: "Pausado" },
+                { value: "finished", label: "Finalizado" },
+                { value: "cancelled", label: "Cancelado" },
+              ]}
+            />
           </LabField>
           <LabField label="Inicio" isLight={isLight}>
             <input type="date" className={labInputClass(isLight)} value={form.start_date} onChange={(e) => setForm({ ...form, start_date: e.target.value })} />
@@ -471,12 +501,17 @@ export function ProjectsPage() {
           {form.engagement_type === "saas" ? (
             <>
               <LabField label="Estado SaaS" isLight={isLight}>
-                <select className={labInputClass(isLight)} value={form.subscription_status} onChange={(e) => setForm({ ...form, subscription_status: e.target.value })}>
-                  <option value="trial">Prueba</option>
-                  <option value="active">Activo</option>
-                  <option value="paused">Pausado</option>
-                  <option value="cancelled">Cancelado</option>
-                </select>
+                <SmartSelect
+                  isLight={isLight}
+                  value={form.subscription_status}
+                  onChange={(v) => setForm({ ...form, subscription_status: v })}
+                  options={[
+                    { value: "trial", label: "Prueba" },
+                    { value: "active", label: "Activo" },
+                    { value: "paused", label: "Pausado" },
+                    { value: "cancelled", label: "Cancelado" },
+                  ]}
+                />
               </LabField>
               <LabField label="Renovacion" isLight={isLight}>
                 <input type="date" className={labInputClass(isLight)} value={form.renewal_date} onChange={(e) => setForm({ ...form, renewal_date: e.target.value })} />
@@ -487,14 +522,13 @@ export function ProjectsPage() {
             <input type="number" step="0.01" className={labInputClass(isLight)} value={form.budget} onChange={(e) => setForm({ ...form, budget: e.target.value })} />
           </LabField>
           <LabField label="Responsable" isLight={isLight}>
-            <select className={labInputClass(isLight)} value={form.lead_user_id === "" ? "" : String(form.lead_user_id)} onChange={(e) => setForm({ ...form, lead_user_id: e.target.value ? Number(e.target.value) : "" })}>
-              <option value="">Sin asignar</option>
-              {users.map((u) => (
-                <option key={u.id} value={u.id}>
-                  {u.name}
-                </option>
-              ))}
-            </select>
+            <SmartSelect
+              isLight={isLight}
+              value={form.lead_user_id === "" ? "" : String(form.lead_user_id)}
+              onChange={(v) => setForm({ ...form, lead_user_id: v ? Number(v) : "" })}
+              options={users.map((u) => ({ value: u.id, label: u.name }))}
+              emptyLabel="Sin asignar"
+            />
           </LabField>
           <LabField label="Descripción" isLight={isLight} className="sm:col-span-2">
             <textarea rows={3} className={labInputClass(isLight)} value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} />

@@ -8,6 +8,7 @@ import {
   Landmark,
   LayoutDashboard,
   Layers,
+  ListTodo,
   LogOut,
   PackageOpen,
   Plug,
@@ -80,6 +81,7 @@ export function Sidebar() {
   ].filter(Boolean) as NavLink[];
   const ops: NavLink[] = [
     can("view_projects") ? { label: "Proyectos", to: "/proyectos", icon: FolderKanban } : null,
+    { label: "Tareas", to: "/tareas", icon: ListTodo },
     can("manage_productivity") ? { label: "Tiempos", to: "/tiempos", icon: Radar } : null,
     { label: "Documentos", to: "/documentos", icon: FileText },
   ].filter(Boolean) as NavLink[];

@@ -1,5 +1,6 @@
 import { Clock, Database, FileText, HandCoins, Landmark, Receipt, Trash2, Wallet } from "lucide-react";
 import { useEffect, useMemo, useState, type ReactNode } from "react";
+import { SmartSelect } from "../components/SmartSelect";
 import { useAuth } from "../context/AuthContext";
 import { FormModal } from "../xpande/FormModal";
 import { deleteJson, getJson, postJson, postFormData, putJson, type LaravelPaginated } from "../xpande/http";
@@ -411,12 +412,13 @@ export function FinanzasHubPage() {
       >
         <div className="grid gap-3 sm:grid-cols-2">
           <LabField label="Categoría (ingreso) *" isLight={isLight}>
-            <select className={labInputClass(isLight)} value={inForm.financial_category_id === "" ? "" : String(inForm.financial_category_id)} onChange={(e) => setInForm({ ...inForm, financial_category_id: e.target.value ? Number(e.target.value) : "" })}>
-              <option value="">—</option>
-              {catsIncome.map((c) => (
-                <option key={c.id} value={c.id}>{c.name}</option>
-              ))}
-            </select>
+            <SmartSelect
+              isLight={isLight}
+              value={inForm.financial_category_id === "" ? "" : String(inForm.financial_category_id)}
+              onChange={(v) => setInForm({ ...inForm, financial_category_id: v ? Number(v) : "" })}
+              options={catsIncome.map((c) => ({ value: c.id, label: c.name }))}
+              emptyLabel="—"
+            />
           </LabField>
           <LabField label="Monto *" isLight={isLight}>
             <input type="number" step="0.01" className={labInputClass(isLight)} value={inForm.amount} onChange={(e) => setInForm({ ...inForm, amount: e.target.value })} />
@@ -425,29 +427,36 @@ export function FinanzasHubPage() {
             <input type="date" className={labInputClass(isLight)} value={inForm.recorded_on} onChange={(e) => setInForm({ ...inForm, recorded_on: e.target.value })} />
           </LabField>
           <LabField label="Estado pago" isLight={isLight}>
-            <select className={labInputClass(isLight)} value={inForm.payment_status} onChange={(e) => setInForm({ ...inForm, payment_status: e.target.value })}>
-              <option value="pending">Pendiente</option>
-              <option value="paid">Pagado</option>
-              <option value="overdue">Vencido</option>
-              <option value="partial">Parcial</option>
-              <option value="annulled">Anulado</option>
-            </select>
+            <SmartSelect
+              isLight={isLight}
+              value={inForm.payment_status}
+              onChange={(v) => setInForm({ ...inForm, payment_status: v })}
+              options={[
+                { value: "pending", label: "Pendiente" },
+                { value: "paid", label: "Pagado" },
+                { value: "overdue", label: "Vencido" },
+                { value: "partial", label: "Parcial" },
+                { value: "annulled", label: "Anulado" },
+              ]}
+            />
           </LabField>
           <LabField label="Cliente (opc.)" isLight={isLight}>
-            <select className={labInputClass(isLight)} value={inForm.client_id === "" ? "" : String(inForm.client_id)} onChange={(e) => setInForm({ ...inForm, client_id: e.target.value ? Number(e.target.value) : "" })}>
-              <option value="">—</option>
-              {clients.map((c) => (
-                <option key={c.id} value={c.id}>{c.legal_name}</option>
-              ))}
-            </select>
+            <SmartSelect
+              isLight={isLight}
+              value={inForm.client_id === "" ? "" : String(inForm.client_id)}
+              onChange={(v) => setInForm({ ...inForm, client_id: v ? Number(v) : "" })}
+              options={clients.map((c) => ({ value: c.id, label: c.legal_name }))}
+              emptyLabel="—"
+            />
           </LabField>
           <LabField label="Proyecto (opc.)" isLight={isLight} className="sm:col-span-2">
-            <select className={labInputClass(isLight)} value={inForm.project_id === "" ? "" : String(inForm.project_id)} onChange={(e) => setInForm({ ...inForm, project_id: e.target.value ? Number(e.target.value) : "" })}>
-              <option value="">—</option>
-              {projects.map((p) => (
-                <option key={p.id} value={p.id}>{p.name}</option>
-              ))}
-            </select>
+            <SmartSelect
+              isLight={isLight}
+              value={inForm.project_id === "" ? "" : String(inForm.project_id)}
+              onChange={(v) => setInForm({ ...inForm, project_id: v ? Number(v) : "" })}
+              options={projects.map((p) => ({ value: p.id, label: p.name }))}
+              emptyLabel="—"
+            />
           </LabField>
           <LabField label="Descripción" isLight={isLight} className="sm:col-span-2">
             <textarea className={labInputClass(isLight)} rows={2} value={inForm.description} onChange={(e) => setInForm({ ...inForm, description: e.target.value })} />
@@ -471,12 +480,13 @@ export function FinanzasHubPage() {
       >
         <div className="grid gap-3 sm:grid-cols-2">
           <LabField label="Categoría (gasto) *" isLight={isLight}>
-            <select className={labInputClass(isLight)} value={outForm.financial_category_id === "" ? "" : String(outForm.financial_category_id)} onChange={(e) => setOutForm({ ...outForm, financial_category_id: e.target.value ? Number(e.target.value) : "" })}>
-              <option value="">—</option>
-              {catsExpense.map((c) => (
-                <option key={c.id} value={c.id}>{c.name}</option>
-              ))}
-            </select>
+            <SmartSelect
+              isLight={isLight}
+              value={outForm.financial_category_id === "" ? "" : String(outForm.financial_category_id)}
+              onChange={(v) => setOutForm({ ...outForm, financial_category_id: v ? Number(v) : "" })}
+              options={catsExpense.map((c) => ({ value: c.id, label: c.name }))}
+              emptyLabel="—"
+            />
           </LabField>
           <LabField label="Monto *" isLight={isLight}>
             <input type="number" step="0.01" className={labInputClass(isLight)} value={outForm.amount} onChange={(e) => setOutForm({ ...outForm, amount: e.target.value })} />
@@ -485,20 +495,22 @@ export function FinanzasHubPage() {
             <input type="date" className={labInputClass(isLight)} value={outForm.recorded_on} onChange={(e) => setOutForm({ ...outForm, recorded_on: e.target.value })} />
           </LabField>
           <LabField label="Cliente (opc.)" isLight={isLight}>
-            <select className={labInputClass(isLight)} value={outForm.client_id === "" ? "" : String(outForm.client_id)} onChange={(e) => setOutForm({ ...outForm, client_id: e.target.value ? Number(e.target.value) : "" })}>
-              <option value="">—</option>
-              {clients.map((c) => (
-                <option key={c.id} value={c.id}>{c.legal_name}</option>
-              ))}
-            </select>
+            <SmartSelect
+              isLight={isLight}
+              value={outForm.client_id === "" ? "" : String(outForm.client_id)}
+              onChange={(v) => setOutForm({ ...outForm, client_id: v ? Number(v) : "" })}
+              options={clients.map((c) => ({ value: c.id, label: c.legal_name }))}
+              emptyLabel="—"
+            />
           </LabField>
           <LabField label="Proyecto (opc.)" isLight={isLight}>
-            <select className={labInputClass(isLight)} value={outForm.project_id === "" ? "" : String(outForm.project_id)} onChange={(e) => setOutForm({ ...outForm, project_id: e.target.value ? Number(e.target.value) : "" })}>
-              <option value="">—</option>
-              {projects.map((p) => (
-                <option key={p.id} value={p.id}>{p.name}</option>
-              ))}
-            </select>
+            <SmartSelect
+              isLight={isLight}
+              value={outForm.project_id === "" ? "" : String(outForm.project_id)}
+              onChange={(v) => setOutForm({ ...outForm, project_id: v ? Number(v) : "" })}
+              options={projects.map((p) => ({ value: p.id, label: p.name }))}
+              emptyLabel="—"
+            />
           </LabField>
           <LabField label="Observación" isLight={isLight} className="sm:col-span-2">
             <textarea className={labInputClass(isLight)} rows={2} value={outForm.observation} onChange={(e) => setOutForm({ ...outForm, observation: e.target.value })} />
@@ -712,22 +724,24 @@ export function TimeEntriesPage() {
         <div className="grid gap-3 sm:grid-cols-2">
           {!editId && canReview ? (
             <LabField label="Usuario (solo gestores)" isLight={isLight} className="sm:col-span-2">
-              <select className={labInputClass(isLight)} value={form.user_id === "" ? "" : String(form.user_id)} onChange={(e) => setForm({ ...form, user_id: e.target.value ? Number(e.target.value) : "" })}>
-                <option value="">Yo mismo</option>
-                {users.map((u) => (
-                  <option key={u.id} value={u.id}>{u.name}</option>
-                ))}
-              </select>
+              <SmartSelect
+                isLight={isLight}
+                value={form.user_id === "" ? "" : String(form.user_id)}
+                onChange={(v) => setForm({ ...form, user_id: v ? Number(v) : "" })}
+                options={users.map((u) => ({ value: u.id, label: u.name }))}
+                emptyLabel="Yo mismo"
+              />
             </LabField>
           ) : null}
           {!editId ? (
             <LabField label="Proyecto *" isLight={isLight} className="sm:col-span-2">
-              <select className={labInputClass(isLight)} value={form.project_id === "" ? "" : String(form.project_id)} onChange={(e) => setForm({ ...form, project_id: e.target.value ? Number(e.target.value) : "" })}>
-                <option value="">—</option>
-                {projects.map((p) => (
-                  <option key={p.id} value={p.id}>{p.name}</option>
-                ))}
-              </select>
+              <SmartSelect
+                isLight={isLight}
+                value={form.project_id === "" ? "" : String(form.project_id)}
+                onChange={(v) => setForm({ ...form, project_id: v ? Number(v) : "" })}
+                options={projects.map((p) => ({ value: p.id, label: p.name }))}
+                emptyLabel="—"
+              />
             </LabField>
           ) : (
             <p className={"sm:col-span-2 text-xs " + (isLight ? "text-[#6B7280]" : "text-zinc-500")}>El proyecto no se altera desde esta edición.</p>
@@ -891,36 +905,44 @@ export function DocumentsPage() {
             <input className={labInputClass(isLight)} value={meta.title} onChange={(e) => setMeta({ ...meta, title: e.target.value })} />
           </LabField>
           <LabField label="Tipo" isLight={isLight} className="sm:col-span-2">
-            <select className={labInputClass(isLight)} value={meta.doc_type} onChange={(e) => setMeta({ ...meta, doc_type: e.target.value })}>
-              <option value="contract">Contrato</option>
-              <option value="quotation">Cotización</option>
-              <option value="voucher">Comprobante</option>
-              <option value="other">Otro</option>
-            </select>
+            <SmartSelect
+              isLight={isLight}
+              value={meta.doc_type}
+              onChange={(v) => setMeta({ ...meta, doc_type: v })}
+              options={[
+                { value: "contract", label: "Contrato" },
+                { value: "quotation", label: "Cotización" },
+                { value: "voucher", label: "Comprobante" },
+                { value: "other", label: "Otro" },
+              ]}
+            />
           </LabField>
           <LabField label="Cliente" isLight={isLight}>
-            <select className={labInputClass(isLight)} value={meta.client_id === "" ? "" : String(meta.client_id)} onChange={(e) => setMeta({ ...meta, client_id: e.target.value ? Number(e.target.value) : "" })}>
-              <option value="">—</option>
-              {clients.map((c) => (
-                <option key={c.id} value={c.id}>{c.legal_name}</option>
-              ))}
-            </select>
+            <SmartSelect
+              isLight={isLight}
+              value={meta.client_id === "" ? "" : String(meta.client_id)}
+              onChange={(v) => setMeta({ ...meta, client_id: v ? Number(v) : "" })}
+              options={clients.map((c) => ({ value: c.id, label: c.legal_name }))}
+              emptyLabel="—"
+            />
           </LabField>
           <LabField label="Proyecto" isLight={isLight}>
-            <select className={labInputClass(isLight)} value={meta.project_id === "" ? "" : String(meta.project_id)} onChange={(e) => setMeta({ ...meta, project_id: e.target.value ? Number(e.target.value) : "" })}>
-              <option value="">—</option>
-              {projects.map((p) => (
-                <option key={p.id} value={p.id}>{p.name}</option>
-              ))}
-            </select>
+            <SmartSelect
+              isLight={isLight}
+              value={meta.project_id === "" ? "" : String(meta.project_id)}
+              onChange={(v) => setMeta({ ...meta, project_id: v ? Number(v) : "" })}
+              options={projects.map((p) => ({ value: p.id, label: p.name }))}
+              emptyLabel="—"
+            />
           </LabField>
           <LabField label="Área" isLight={isLight} className="sm:col-span-2">
-            <select className={labInputClass(isLight)} value={meta.area_id === "" ? "" : String(meta.area_id)} onChange={(e) => setMeta({ ...meta, area_id: e.target.value ? Number(e.target.value) : "" })}>
-              <option value="">—</option>
-              {areas.map((a) => (
-                <option key={a.id} value={a.id}>{a.name}</option>
-              ))}
-            </select>
+            <SmartSelect
+              isLight={isLight}
+              value={meta.area_id === "" ? "" : String(meta.area_id)}
+              onChange={(v) => setMeta({ ...meta, area_id: v ? Number(v) : "" })}
+              options={areas.map((a) => ({ value: a.id, label: a.name }))}
+              emptyLabel="—"
+            />
           </LabField>
           {meta.doc_type === "contract" ? (
             <>
@@ -1290,10 +1312,15 @@ export function CatalogosAdminPage() {
                 <input className={labInputClass(isLight)} value={formFin.name} onChange={(e) => setFormFin({ ...formFin, name: e.target.value })} />
               </LabField>
               <LabField label="Tipo" isLight={isLight} className="sm:col-span-2">
-                <select className={labInputClass(isLight)} value={formFin.type} onChange={(e) => setFormFin({ ...formFin, type: e.target.value as "income" | "expense" })}>
-                  <option value="income">Ingreso</option>
-                  <option value="expense">Gasto</option>
-                </select>
+                <SmartSelect
+                  isLight={isLight}
+                  value={formFin.type}
+                  onChange={(v) => setFormFin({ ...formFin, type: v as "income" | "expense" })}
+                  options={[
+                    { value: "income", label: "Ingreso" },
+                    { value: "expense", label: "Gasto" },
+                  ]}
+                />
               </LabField>
             </>
           ) : null}
@@ -1308,31 +1335,42 @@ export function CatalogosAdminPage() {
             <>
               <LabField label="Nombre" isLight={isLight} className="sm:col-span-2"><input className={labInputClass(isLight)} value={formSvc.name} onChange={(e) => setFormSvc({ ...formSvc, name: e.target.value })} /></LabField>
               <LabField label="Tipo" isLight={isLight}>
-                <select className={labInputClass(isLight)} value={formSvc.kind} onChange={(e) => setFormSvc({ ...formSvc, kind: e.target.value })}>
-                  <option value="service">Servicio</option>
-                  <option value="saas">SaaS</option>
-                  <option value="product">Producto</option>
-                </select>
+                <SmartSelect
+                  isLight={isLight}
+                  value={formSvc.kind}
+                  onChange={(v) => setFormSvc({ ...formSvc, kind: v })}
+                  options={[
+                    { value: "service", label: "Servicio" },
+                    { value: "saas", label: "SaaS" },
+                    { value: "product", label: "Producto" },
+                  ]}
+                />
               </LabField>
               <LabField label="Ciclo de cobro" isLight={isLight}>
-                <select className={labInputClass(isLight)} value={formSvc.billing_cycle} onChange={(e) => setFormSvc({ ...formSvc, billing_cycle: e.target.value })}>
-                  <option value="">Sin ciclo</option>
-                  <option value="monthly">Mensual</option>
-                  <option value="quarterly">Trimestral</option>
-                  <option value="annual">Anual</option>
-                  <option value="one_time">Unico</option>
-                </select>
+                <SmartSelect
+                  isLight={isLight}
+                  value={formSvc.billing_cycle}
+                  onChange={(v) => setFormSvc({ ...formSvc, billing_cycle: v })}
+                  options={[
+                    { value: "monthly", label: "Mensual" },
+                    { value: "quarterly", label: "Trimestral" },
+                    { value: "annual", label: "Anual" },
+                    { value: "one_time", label: "Unico" },
+                  ]}
+                  emptyLabel="Sin ciclo"
+                />
               </LabField>
               <LabField label="Precio base" isLight={isLight} className="sm:col-span-2">
                 <input type="number" step="0.01" className={labInputClass(isLight)} value={formSvc.base_price} onChange={(e) => setFormSvc({ ...formSvc, base_price: e.target.value })} />
               </LabField>
               <LabField label="Área" isLight={isLight} className="sm:col-span-2">
-                <select className={labInputClass(isLight)} value={formSvc.area_id} onChange={(e) => setFormSvc({ ...formSvc, area_id: e.target.value })}>
-                  <option value="">—</option>
-                  {areas.map((a) => (
-                    <option key={a.id} value={a.id}>{a.name}</option>
-                  ))}
-                </select>
+                <SmartSelect
+                  isLight={isLight}
+                  value={formSvc.area_id}
+                  onChange={(v) => setFormSvc({ ...formSvc, area_id: v })}
+                  options={areas.map((a) => ({ value: a.id, label: a.name }))}
+                  emptyLabel="—"
+                />
               </LabField>
               <LabField label="Descripcion" isLight={isLight} className="sm:col-span-2">
                 <textarea rows={2} className={labInputClass(isLight)} value={formSvc.description} onChange={(e) => setFormSvc({ ...formSvc, description: e.target.value })} />
@@ -1354,20 +1392,22 @@ export function CatalogosAdminPage() {
               <LabField label="Tipo tarifa" isLight={isLight}><input className={labInputClass(isLight)} value={formTf.rate_type} onChange={(e) => setFormTf({ ...formTf, rate_type: e.target.value })} /></LabField>
               <LabField label="Monto" isLight={isLight}><input type="number" step="0.01" className={labInputClass(isLight)} value={formTf.amount} onChange={(e) => setFormTf({ ...formTf, amount: e.target.value })} /></LabField>
               <LabField label="Moneda" isLight={isLight}>
-                <select className={labInputClass(isLight)} value={formTf.currency_id} onChange={(e) => setFormTf({ ...formTf, currency_id: e.target.value })}>
-                  <option value="">—</option>
-                  {curr.map((c) => (
-                    <option key={c.id} value={c.id}>{c.code}</option>
-                  ))}
-                </select>
+                <SmartSelect
+                  isLight={isLight}
+                  value={formTf.currency_id}
+                  onChange={(v) => setFormTf({ ...formTf, currency_id: v })}
+                  options={curr.map((c) => ({ value: c.id, label: c.code }))}
+                  emptyLabel="—"
+                />
               </LabField>
               <LabField label="Área" isLight={isLight}>
-                <select className={labInputClass(isLight)} value={formTf.area_id} onChange={(e) => setFormTf({ ...formTf, area_id: e.target.value })}>
-                  <option value="">—</option>
-                  {areas.map((a) => (
-                    <option key={a.id} value={a.id}>{a.name}</option>
-                  ))}
-                </select>
+                <SmartSelect
+                  isLight={isLight}
+                  value={formTf.area_id}
+                  onChange={(v) => setFormTf({ ...formTf, area_id: v })}
+                  options={areas.map((a) => ({ value: a.id, label: a.name }))}
+                  emptyLabel="—"
+                />
               </LabField>
             </>
           ) : null}

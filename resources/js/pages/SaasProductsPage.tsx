@@ -1,5 +1,6 @@
 import { Boxes, Pencil, Plus, Power, RefreshCw } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
+import { SmartSelect } from "../components/SmartSelect";
 import { FormModal } from "../xpande/FormModal";
 import { apiErrorMessage } from "../xpande/apiError";
 import { deleteJson, getJson, postJson, putJson } from "../xpande/http";
@@ -246,20 +247,26 @@ export function SaasProductsPage() {
             <input className={labInputClass(isLight)} value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} />
           </LabField>
           <LabField label="Area" isLight={isLight}>
-            <select className={labInputClass(isLight)} value={form.area_id === "" ? "" : String(form.area_id)} onChange={(e) => setForm({ ...form, area_id: e.target.value ? Number(e.target.value) : "" })}>
-              <option value="">Sin area</option>
-              {areas.map((area) => (
-                <option key={area.id} value={area.id}>{area.name}</option>
-              ))}
-            </select>
+            <SmartSelect
+              isLight={isLight}
+              value={form.area_id === "" ? "" : String(form.area_id)}
+              onChange={(v) => setForm({ ...form, area_id: v ? Number(v) : "" })}
+              options={areas.map((area) => ({ value: area.id, label: area.name }))}
+              emptyLabel="Sin area"
+            />
           </LabField>
           <LabField label="Ciclo de cobro" isLight={isLight}>
-            <select className={labInputClass(isLight)} value={form.billing_cycle} onChange={(e) => setForm({ ...form, billing_cycle: e.target.value })}>
-              <option value="monthly">Mensual</option>
-              <option value="quarterly">Trimestral</option>
-              <option value="annual">Anual</option>
-              <option value="one_time">Unico</option>
-            </select>
+            <SmartSelect
+              isLight={isLight}
+              value={form.billing_cycle}
+              onChange={(v) => setForm({ ...form, billing_cycle: v })}
+              options={[
+                { value: "monthly", label: "Mensual" },
+                { value: "quarterly", label: "Trimestral" },
+                { value: "annual", label: "Anual" },
+                { value: "one_time", label: "Unico" },
+              ]}
+            />
           </LabField>
           <LabField label="Precio base" isLight={isLight}>
             <input type="number" min="0" step="0.01" className={labInputClass(isLight)} value={form.base_price} onChange={(e) => setForm({ ...form, base_price: e.target.value })} />
