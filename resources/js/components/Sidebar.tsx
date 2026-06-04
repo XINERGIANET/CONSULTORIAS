@@ -6,6 +6,7 @@ import {
   ClipboardList,
   FileText,
   FolderKanban,
+  HandCoins,
   Landmark,
   LayoutDashboard,
   Layers,
@@ -84,10 +85,15 @@ export function Sidebar() {
     can("view_projects") ? { label: "Proyectos", to: "/proyectos", icon: FolderKanban } : null,
     { label: "Tareas", to: "/tareas", icon: ListTodo },
     { label: "Calendario", to: "/calendario", icon: CalendarDays },
-    can("manage_productivity") ? { label: "Tiempos", to: "/tiempos", icon: Radar } : null,
+    can("manage_productivity") ? { label: "Productividad", to: "/tiempos", icon: Radar } : null,
     { label: "Documentos", to: "/documentos", icon: FileText },
   ].filter(Boolean) as NavLink[];
-  const finances: NavLink[] = can("view_finances") ? [{ label: "Finanzas", to: "/finanzas", icon: Landmark }] : [];
+  const finances: NavLink[] = can("view_finances")
+    ? [
+        { label: "Finanzas", to: "/finanzas", icon: Landmark },
+        { label: "Cuentas por cobrar", to: "/cuentas-por-cobrar", icon: HandCoins },
+      ]
+    : [];
   const analytic: NavLink[] = [
     { label: "Rentabilidad", to: "/rentabilidad", icon: Receipt },
     { label: "Reportes gerenciales", to: "/reportes", icon: BarChart3 },

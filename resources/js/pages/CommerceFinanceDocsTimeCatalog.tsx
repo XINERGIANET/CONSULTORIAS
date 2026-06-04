@@ -1,4 +1,4 @@
-import { Clock, Database, FileText, HandCoins, Landmark, Receipt, Trash2, Wallet } from "lucide-react";
+import { Clock, Database, FileText, Landmark, Receipt, Trash2, Wallet } from "lucide-react";
 import { useEffect, useMemo, useState, type ReactNode } from "react";
 import { SmartSelect } from "../components/SmartSelect";
 import { useAuth } from "../context/AuthContext";
@@ -22,10 +22,9 @@ function canApproveTimes(user: { is_superadmin?: boolean; role_slug?: string | n
 
 export function FinanzasHubPage() {
   const { isLight } = useApexTheme();
-  const [tab, setTab] = useState<"in" | "out" | "receivable" | "flow">("in");
+  const [tab, setTab] = useState<"in" | "out" | "flow">("in");
   const [incomes, setIncomes] = useState<LaravelPaginated<Record<string, unknown>> | null>(null);
   const [expenses, setExpenses] = useState<LaravelPaginated<Record<string, unknown>> | null>(null);
-  const [receivables, setReceivables] = useState<LaravelPaginated<Record<string, unknown>> | null>(null);
   const [cash, setCash] = useState<Record<string, unknown> | null>(null);
   const [clients, setClients] = useState<ClientOpt[]>([]);
   const [projects, setProjects] = useState<ProjOpt[]>([]);
@@ -33,8 +32,6 @@ export function FinanzasHubPage() {
   const [catsExpense, setCatsExpense] = useState<FinCat[]>([]);
   const [inModal, setInModal] = useState(false);
   const [outModal, setOutModal] = useState(false);
-  const [payModal, setPayModal] = useState(false);
-  const [payAccount, setPayAccount] = useState<Record<string, unknown> | null>(null);
   const [editInId, setEditInId] = useState<number | null>(null);
   const [editOutId, setEditOutId] = useState<number | null>(null);
   const [err, setErr] = useState<string | null>(null);
@@ -74,7 +71,6 @@ export function FinanzasHubPage() {
   useEffect(() => {
     if (tab === "in") void getJson<LaravelPaginated<Record<string, unknown>>>("/api/incomes").then(setIncomes);
     if (tab === "out") void getJson<LaravelPaginated<Record<string, unknown>>>("/api/expenses").then(setExpenses);
-    if (tab === "receivable") void getJson<LaravelPaginated<Record<string, unknown>>>("/api/accounts-receivable").then(setReceivables);
     if (tab === "flow") void getJson<Record<string, unknown>>("/api/reports/cash-flow").then(setCash);
   }, [tab]);
 
@@ -218,41 +214,6 @@ export function FinanzasHubPage() {
     }
   };
 
-  const openPayment = (r: Record<string, unknown>) => {
-    setPayAccount(r);
-    setPayForm({
-      amount: String(r.balance_amount ?? ""),
-      paid_on: new Date().toISOString().slice(0, 10),
-      method: "",
-      reference: "",
-      notes: "",
-    });
-    setErr(null);
-    setPayModal(true);
-  };
-
-  const savePayment = async () => {
-    if (!payAccount || !payForm.amount) {
-      setErr("Monto requerido.");
-      return;
-    }
-    try {
-      await postJson(`/api/accounts-receivable/${Number(payAccount.id)}/payments`, {
-        amount: Number(payForm.amount),
-        paid_on: payForm.paid_on,
-        method: payForm.method || null,
-        reference: payForm.reference || null,
-        notes: payForm.notes || null,
-      });
-      setPayModal(false);
-      setPayAccount(null);
-      void getJson<LaravelPaginated<Record<string, unknown>>>("/api/accounts-receivable").then(setReceivables);
-      void getJson<LaravelPaginated<Record<string, unknown>>>("/api/incomes").then(setIncomes);
-    } catch {
-      setErr("No se pudo registrar el pago.");
-    }
-  };
-
   return (
     <main className={labCrudMainClass(isLight)}>
       <LabBreadcrumbs items={[{ label: "Dashboard", to: "/" }, { label: "Finanzas" }]} isLight={isLight} />
@@ -268,9 +229,6 @@ export function FinanzasHubPage() {
         <button type="button" className={tab === "out" ? labPrimaryBtn(isLight) : labGhostBtn(isLight)} onClick={() => setTab("out")}>
           <Receipt className="h-4 w-4" /> Gastos
         </button>
-        <button type="button" className={tab === "receivable" ? labPrimaryBtn(isLight) : labGhostBtn(isLight)} onClick={() => setTab("receivable")}>
-          <HandCoins className="h-4 w-4" /> Cuentas por cobrar
-        </button>
         <button type="button" className={tab === "flow" ? labPrimaryBtn(isLight) : labGhostBtn(isLight)} onClick={() => setTab("flow")}>
           <Landmark className="h-4 w-4" /> Flujo
         </button>
@@ -285,7 +243,7 @@ export function FinanzasHubPage() {
           </button>
         ) : null}
       </div>
-      {err && !(inModal || outModal || payModal) ? <p className="mb-4 text-sm text-red-600">{err}</p> : null}
+      {err && !(inModal || outModal) ? <p className="mb-4 text-sm text-red-600">{err}</p> : null}
 
       <div className={labPanelClass(isLight)}>
         {tab === "flow" && cash ? (
@@ -355,46 +313,7 @@ export function FinanzasHubPage() {
             </table>
           </div>
         ) : null}
-        {tab === "receivable" && receivables ? (
-          <div className={["overflow-x-auto", isLight ? "apex-table-scroll--light" : "apex-table-scroll--dark"].join(" ")}>
-            <table className="w-full min-w-[860px] text-left text-xs">
-              <thead>
-                <tr className={isLight ? "text-[#6B7280]" : "text-zinc-500"}>
-                  <th className="pb-2 uppercase">Cliente</th>
-                  <th className="pb-2 uppercase">Contrato</th>
-                  <th className="pb-2 text-right uppercase">Total</th>
-                  <th className="pb-2 text-right uppercase">Pagado</th>
-                  <th className="pb-2 text-right uppercase">Saldo</th>
-                  <th className="pb-2 uppercase">Emision</th>
-                  <th className="pb-2 uppercase">Vencimiento</th>
-                  <th className="pb-2 uppercase">Estado</th>
-                  <th className="pb-2 text-right uppercase"></th>
-                </tr>
-              </thead>
-              <tbody>
-                {receivables.data.map((r) => {
-                  const client = r.client as { legal_name?: string } | undefined;
-                  const document = r.document as { title?: string } | undefined;
-                  const status = String(r.status ?? "");
-                  return (
-                    <tr key={Number(r.id)} className={"border-t " + (isLight ? "border-[#F3F4F6]" : "border-white/[0.06]")}>
-                      <td className="py-2 pr-3">{client?.legal_name ?? "-"}</td>
-                      <td className="py-2 pr-3">{document?.title ?? "-"}</td>
-                      <td className="py-2 pr-3 text-right">S/. {String(r.total_amount ?? "")}</td>
-                      <td className="py-2 pr-3 text-right">S/. {String(r.paid_amount ?? "")}</td>
-                      <td className="py-2 pr-3 text-right">S/. {String(r.balance_amount ?? "")}</td>
-                      <td className="py-2 pr-3">{String(r.issued_on ?? "")}</td>
-                      <td className="py-2 pr-3">{String(r.due_on ?? "-")}</td>
-                      <td className="py-2 pr-3"><span className={labStatusPill(status === "paid" ? "ok" : status === "overdue" ? "warn" : "neutral", isLight)}>{status}</span></td>
-                      <td className="py-2 text-right">{status !== "paid" ? <button type="button" className={labGhostBtn(isLight)} onClick={() => openPayment(r)}>Registrar pago</button> : null}</td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
-          </div>
-        ) : null}
-        {(tab === "in" && !incomes) || (tab === "out" && !expenses) || (tab === "receivable" && !receivables) ? <p className="text-sm text-zinc-500">Cargando...</p> : null}
+        {(tab === "in" && !incomes) || (tab === "out" && !expenses) ? <p className="text-sm text-zinc-500">Cargando...</p> : null}
       </div>
 
       <FormModal
@@ -519,38 +438,6 @@ export function FinanzasHubPage() {
         </div>
       </FormModal>
 
-      <FormModal
-        open={payModal}
-        title="Registrar pago"
-        isLight={isLight}
-        wide
-        onClose={() => {setPayModal(false); setPayAccount(null);}}
-        footer={
-          <div className="flex justify-end gap-2">
-            <button type="button" className={labGhostBtn(isLight)} onClick={() => {setPayModal(false); setPayAccount(null);}}>Cerrar</button>
-            <button type="button" className={labPrimaryBtn(isLight)} onClick={() => void savePayment()}>Guardar pago</button>
-          </div>
-        }
-      >
-        <div className="grid gap-3 sm:grid-cols-2">
-          <LabField label="Monto" isLight={isLight}>
-            <input type="number" step="0.01" className={labInputClass(isLight)} value={payForm.amount} onChange={(e) => setPayForm({ ...payForm, amount: e.target.value })} />
-          </LabField>
-          <LabField label="Fecha de pago" isLight={isLight}>
-            <input type="date" className={labInputClass(isLight)} value={payForm.paid_on} onChange={(e) => setPayForm({ ...payForm, paid_on: e.target.value })} />
-          </LabField>
-          <LabField label="Metodo" isLight={isLight}>
-            <input className={labInputClass(isLight)} value={payForm.method} onChange={(e) => setPayForm({ ...payForm, method: e.target.value })} />
-          </LabField>
-          <LabField label="Referencia" isLight={isLight}>
-            <input className={labInputClass(isLight)} value={payForm.reference} onChange={(e) => setPayForm({ ...payForm, reference: e.target.value })} />
-          </LabField>
-          <LabField label="Notas" isLight={isLight} className="sm:col-span-2">
-            <textarea rows={2} className={labInputClass(isLight)} value={payForm.notes} onChange={(e) => setPayForm({ ...payForm, notes: e.target.value })} />
-          </LabField>
-          {err ? <p className="sm:col-span-2 text-sm text-red-600">{err}</p> : null}
-        </div>
-      </FormModal>
     </main>
   );
 }

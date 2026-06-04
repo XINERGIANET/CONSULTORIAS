@@ -3,8 +3,10 @@
 namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
+use App\Models\AccountReceivable;
 use App\Models\Client;
 use App\Models\Project;
+use App\Services\AccountsReceivableService;
 use App\Models\Quotation;
 use App\Models\QuotationLine;
 use App\Support\AreaVisibility;
@@ -119,39 +121,81 @@ class QuotationController extends Controller
     {
         $this->assertQuotation($request, $quotation);
         $data = $request->validate([
-            'project_name' => ['nullable', 'string', 'max:255'],
-            'service_type' => ['nullable', 'string', 'max:255'],
-            'lead_user_id' => ['nullable', 'integer', 'exists:users,id'],
+            'project_name'     => ['nullable', 'string', 'max:255'],
+            'service_type'     => ['nullable', 'string', 'max:255'],
+            'lead_user_id'     => ['nullable', 'integer', 'exists:users,id'],
+            'due_on'           => ['nullable', 'date'],
+            'ar_notes'         => ['nullable', 'string'],
+            'immediate_payment'   => ['nullable', 'boolean'],
+            'payment_amount'      => ['nullable', 'numeric', 'min:0.01'],
+            'payment_paid_on'     => ['nullable', 'date'],
+            'payment_method'      => ['nullable', 'string', 'max:64'],
+            'payment_reference'   => ['nullable', 'string', 'max:255'],
+            'payment_notes'       => ['nullable', 'string'],
         ]);
 
-        $project = DB::transaction(function () use ($quotation, $request, $data) {
+        $areaId = $request->user()?->areas()->first()?->id;
+
+        if (!empty($data['immediate_payment']) && $areaId === null) {
+            abort(422, 'Tu usuario no tiene área asignada. No se puede registrar el pago inmediato en finanzas.');
+        }
+
+        $result = DB::transaction(function () use ($quotation, $request, $data, $areaId) {
             $quotation->update([
-                'status' => 'accepted',
+                'status'      => 'accepted',
                 'accepted_at' => now(),
             ]);
 
             $name = $data['project_name'] ?? ('Proyecto — ' . $quotation->number);
 
             $p = Project::query()->create([
-                'client_id' => $quotation->client_id,
-                'name' => $name,
+                'client_id'    => $quotation->client_id,
+                'name'         => $name,
                 'service_type' => $data['service_type'] ?? null,
-                'status' => 'pending',
-                'budget' => $quotation->total,
+                'status'       => 'pending',
+                'budget'       => $quotation->total,
                 'lead_user_id' => $data['lead_user_id'] ?? $request->user()?->id,
-                'description' => $quotation->notes,
+                'description'  => $quotation->notes,
             ]);
 
             $p->areas()->sync($quotation->areas()->pluck('areas.id')->all());
-
             $quotation->update(['accepted_project_id' => $p->id]);
 
-            return $p->load(['areas']);
+            $account = AccountReceivable::query()->create([
+                'client_id'    => $quotation->client_id,
+                'project_id'   => $p->id,
+                'area_id'      => $areaId,
+                'total_amount' => $quotation->total,
+                'paid_amount'  => 0,
+                'balance_amount' => $quotation->total,
+                'issued_on'    => now()->toDateString(),
+                'due_on'       => $data['due_on'] ?? null,
+                'status'       => 'pending',
+                'notes'        => $data['ar_notes'] ?? null,
+            ]);
+
+            if (!empty($data['immediate_payment'])) {
+                $svc = new AccountsReceivableService();
+                $svc->registerPayment($account, [
+                    'amount'    => $data['payment_amount'] ?? (float) $quotation->total,
+                    'paid_on'   => $data['payment_paid_on'] ?? now()->toDateString(),
+                    'method'    => $data['payment_method'] ?? null,
+                    'reference' => $data['payment_reference'] ?? null,
+                    'notes'     => $data['payment_notes'] ?? null,
+                ], $request->user()?->id ?? 0);
+                $account = $account->fresh();
+            }
+
+            return [
+                'project'            => $p->load(['areas']),
+                'account_receivable' => $account->fresh()->load(['client', 'project']),
+            ];
         });
 
         return response()->json([
-            'quotation' => $quotation->fresh()->load(['lines', 'areas']),
-            'project' => $project,
+            'quotation'          => $quotation->fresh()->load(['lines', 'areas']),
+            'project'            => $result['project'],
+            'account_receivable' => $result['account_receivable'],
         ]);
     }
 

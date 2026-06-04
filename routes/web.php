@@ -88,6 +88,9 @@ Route::middleware('auth')->group(function (): void {
     Route::get('/calendario', $spaUi);
     Route::get('/calendario/{any}', $spaUi)->where('any', '.*');
 
+    Route::get('/cuentas-por-cobrar', $spaUi);
+    Route::get('/cuentas-por-cobrar/{any}', $spaUi)->where('any', '.*');
+
     Route::get('/usuarios', $spaUi);
     Route::get('/usuarios/{any}', $spaUi)->where('any', '.*');
 

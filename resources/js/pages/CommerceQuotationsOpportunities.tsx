@@ -31,7 +31,18 @@ export function QuotationsPage() {
     notes: "",
     lines: [{ description: "", quantity: "1", unit_price: "" }] as QLineUI[],
   });
-  const [acceptForm, setAcceptForm] = useState({ project_name: "", service_type: "" });
+  const [acceptForm, setAcceptForm] = useState({
+    project_name: "",
+    service_type: "",
+    due_on: "",
+    ar_notes: "",
+    immediate_payment: false,
+    payment_amount: "",
+    payment_paid_on: new Date().toISOString().slice(0, 10),
+    payment_method: "",
+    payment_reference: "",
+    payment_notes: "",
+  });
 
   const load = () =>
     void getJson<LaravelPaginated<Record<string, unknown>>>("/api/quotations").then(setRows);
@@ -145,6 +156,14 @@ export function QuotationsPage() {
       await postJson(`/api/quotations/${acceptId}/accept`, {
         project_name: acceptForm.project_name || undefined,
         service_type: acceptForm.service_type || undefined,
+        due_on: acceptForm.due_on || undefined,
+        ar_notes: acceptForm.ar_notes || undefined,
+        immediate_payment: acceptForm.immediate_payment || undefined,
+        payment_amount: acceptForm.immediate_payment && acceptForm.payment_amount ? Number(acceptForm.payment_amount) : undefined,
+        payment_paid_on: acceptForm.immediate_payment && acceptForm.payment_paid_on ? acceptForm.payment_paid_on : undefined,
+        payment_method: acceptForm.immediate_payment && acceptForm.payment_method ? acceptForm.payment_method : undefined,
+        payment_reference: acceptForm.immediate_payment && acceptForm.payment_reference ? acceptForm.payment_reference : undefined,
+        payment_notes: acceptForm.immediate_payment && acceptForm.payment_notes ? acceptForm.payment_notes : undefined,
       });
       setAcceptId(null);
       load();
@@ -236,7 +255,7 @@ export function QuotationsPage() {
                               className={labGhostBtn(isLight)}
                               onClick={() => {
                                 setAcceptId(Number(q.id));
-                                setAcceptForm({ project_name: "", service_type: "" });
+                                setAcceptForm({ project_name: "", service_type: "", due_on: "", ar_notes: "", immediate_payment: false, payment_amount: "", payment_paid_on: new Date().toISOString().slice(0, 10), payment_method: "", payment_reference: "", payment_notes: "" });
                                 setErr(null);
                               }}
                             >
@@ -358,6 +377,7 @@ export function QuotationsPage() {
         open={acceptId !== null}
         title="Convertir cotización en proyecto"
         isLight={isLight}
+        wide
         onClose={() => setAcceptId(null)}
         footer={
           <div className="flex justify-end gap-2">
@@ -366,14 +386,52 @@ export function QuotationsPage() {
           </div>
         }
       >
-        <div className="grid gap-3">
+        <div className="grid gap-3 sm:grid-cols-2">
           <LabField label="Nombre del proyecto (opcional)" isLight={isLight}>
             <input className={labInputClass(isLight)} value={acceptForm.project_name} onChange={(e) => setAcceptForm({ ...acceptForm, project_name: e.target.value })} />
           </LabField>
           <LabField label="Tipo de servicio (opcional)" isLight={isLight}>
             <input className={labInputClass(isLight)} value={acceptForm.service_type} onChange={(e) => setAcceptForm({ ...acceptForm, service_type: e.target.value })} />
           </LabField>
-          {err ? <p className="text-sm text-red-600">{err}</p> : null}
+
+          <div className={"sm:col-span-2 border-t pt-3 " + (isLight ? "border-[#F3F4F6]" : "border-white/[0.06]")}>
+            <p className={"text-[10px] font-semibold uppercase tracking-wide " + (isLight ? "text-[#6B7280]" : "text-zinc-500")}>
+              Cuenta por cobrar (se genera automáticamente)
+            </p>
+          </div>
+
+          <LabField label="Fecha de vencimiento" isLight={isLight}>
+            <input type="date" className={labInputClass(isLight)} value={acceptForm.due_on} onChange={(e) => setAcceptForm({ ...acceptForm, due_on: e.target.value })} />
+          </LabField>
+          <LabField label="Notas de la cuenta" isLight={isLight}>
+            <input className={labInputClass(isLight)} value={acceptForm.ar_notes} onChange={(e) => setAcceptForm({ ...acceptForm, ar_notes: e.target.value })} />
+          </LabField>
+
+          <div className="sm:col-span-2">
+            <label className={"flex items-center gap-2 text-sm cursor-pointer " + (isLight ? "text-[#374151]" : "text-zinc-200")}>
+              <input type="checkbox" checked={acceptForm.immediate_payment} onChange={(e) => setAcceptForm({ ...acceptForm, immediate_payment: e.target.checked })} />
+              Registrar pago inmediato
+            </label>
+          </div>
+
+          {acceptForm.immediate_payment ? (
+            <>
+              <LabField label="Monto pagado" isLight={isLight}>
+                <input type="number" step="0.01" className={labInputClass(isLight)} value={acceptForm.payment_amount} onChange={(e) => setAcceptForm({ ...acceptForm, payment_amount: e.target.value })} />
+              </LabField>
+              <LabField label="Fecha de pago" isLight={isLight}>
+                <input type="date" className={labInputClass(isLight)} value={acceptForm.payment_paid_on} onChange={(e) => setAcceptForm({ ...acceptForm, payment_paid_on: e.target.value })} />
+              </LabField>
+              <LabField label="Método de pago" isLight={isLight}>
+                <input className={labInputClass(isLight)} placeholder="Transferencia, efectivo…" value={acceptForm.payment_method} onChange={(e) => setAcceptForm({ ...acceptForm, payment_method: e.target.value })} />
+              </LabField>
+              <LabField label="Referencia / Nro. operación" isLight={isLight}>
+                <input className={labInputClass(isLight)} value={acceptForm.payment_reference} onChange={(e) => setAcceptForm({ ...acceptForm, payment_reference: e.target.value })} />
+              </LabField>
+            </>
+          ) : null}
+
+          {err ? <p className="sm:col-span-2 text-sm text-red-600">{err}</p> : null}
         </div>
       </FormModal>
     </main>
