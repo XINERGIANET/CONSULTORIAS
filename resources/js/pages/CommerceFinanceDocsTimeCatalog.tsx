@@ -569,7 +569,6 @@ export function TimeEntriesPage() {
     work_date: new Date().toISOString().slice(0, 10),
     hours: "1",
     description: "",
-    billable: true,
     user_id: "" as "" | number,
   });
   const canReview = useMemo(() => canApproveTimes(user), [user]);
@@ -589,7 +588,6 @@ export function TimeEntriesPage() {
       work_date: new Date().toISOString().slice(0, 10),
       hours: "1",
       description: "",
-      billable: true,
       user_id: "",
     });
     setErr(null);
@@ -603,7 +601,6 @@ export function TimeEntriesPage() {
       work_date: typeof r.work_date === "string" ? r.work_date.slice(0, 10) : "",
       hours: String(r.hours ?? "1"),
       description: String(r.description ?? ""),
-      billable: Boolean(r.billable),
       user_id: "",
     });
     setOpen(true);
@@ -621,7 +618,6 @@ export function TimeEntriesPage() {
           work_date: form.work_date,
           hours: Number(form.hours),
           description: form.description || null,
-          billable: form.billable,
         });
       } else {
         const body: Record<string, unknown> = {
@@ -629,7 +625,6 @@ export function TimeEntriesPage() {
           work_date: form.work_date,
           hours: Number(form.hours),
           description: form.description || null,
-          billable: form.billable,
         };
         if (canReview && form.user_id !== "") body.user_id = form.user_id;
         await postJson("/api/time-entries", body);
@@ -751,11 +746,6 @@ export function TimeEntriesPage() {
           </LabField>
           <LabField label="Horas *" isLight={isLight}>
             <input type="number" step="0.25" min="0.01" className={labInputClass(isLight)} value={form.hours} onChange={(e) => setForm({ ...form, hours: e.target.value })} />
-          </LabField>
-          <LabField label="Facturable" isLight={isLight} className="sm:col-span-2">
-            <label className={(isLight ? "text-[#374151]" : "text-zinc-200") + " flex gap-2 text-sm"}>
-              <input type="checkbox" checked={form.billable} onChange={(e) => setForm({ ...form, billable: e.target.checked })} /> Marcar como facturable
-            </label>
           </LabField>
           <LabField label="Descripción" isLight={isLight} className="sm:col-span-2">
             <textarea className={labInputClass(isLight)} rows={2} value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} />

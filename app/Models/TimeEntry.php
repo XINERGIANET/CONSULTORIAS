@@ -17,7 +17,6 @@ class TimeEntry extends Model
         'ended_at',
         'hours',
         'description',
-        'billable',
         'status',
     ];
 
@@ -26,7 +25,6 @@ class TimeEntry extends Model
         return [
             'work_date' => 'date',
             'hours' => 'decimal:3',
-            'billable' => 'boolean',
         ];
     }
 

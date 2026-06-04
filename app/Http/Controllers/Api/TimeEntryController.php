@@ -38,7 +38,6 @@ class TimeEntryController extends Controller
             'ended_at' => ['nullable', 'date_format:H:i'],
             'hours' => ['required', 'numeric', 'min:0.01', 'max:24'],
             'description' => ['nullable', 'string'],
-            'billable' => ['sometimes', 'boolean'],
             'user_id' => ['sometimes', 'integer', 'exists:users,id'],
         ]);
 
@@ -73,7 +72,6 @@ class TimeEntryController extends Controller
             'ended_at' => ['nullable', 'date_format:H:i'],
             'hours' => ['sometimes', 'numeric', 'min:0.01', 'max:24'],
             'description' => ['nullable', 'string'],
-            'billable' => ['sometimes', 'boolean'],
         ]);
         $currentUserId = $request->user() !== null ? $request->user()->id : null;
         if ($timeEntry->user_id !== $currentUserId && ! AreaVisibility::canSeeAll($request->user())) {
