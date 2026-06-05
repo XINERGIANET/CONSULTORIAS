@@ -1,4 +1,4 @@
-import { ExternalLink, FolderKanban } from "lucide-react";
+import { ExternalLink, FolderKanban, Search, UserPlus } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import { ConfirmModal } from "../components/ConfirmModal";
@@ -280,6 +280,126 @@ export function ProjectsPage() {
   const total = data?.total ?? 0;
   const lastPg = Math.max(1, data?.last_page ?? 1);
 
+  // --- Modal nuevo cliente ---
+  const emptyClientForm = () => ({
+    legal_name: "",
+    trade_name: "",
+    ruc: "",
+    dni: "",
+    address: "",
+    rubro: "",
+    pipeline_stage: "lead",
+    representative_name: "",
+    representative_phone: "",
+    representative_position: "",
+    representative_email: "",
+    representative_observations: "",
+  });
+
+  const [clientModal, setClientModal] = useState(false);
+  const [clientForm, setClientForm] = useState(emptyClientForm());
+  const [clientErr, setClientErr] = useState<string | null>(null);
+  const [searchingRuc, setSearchingRuc] = useState(false);
+  const [searchingDni, setSearchingDni] = useState(false);
+
+  const openClientModal = () => {
+    setClientForm(emptyClientForm());
+    setClientErr(null);
+    setClientModal(true);
+  };
+
+  const performRucSearch = async () => {
+    if (!clientForm.ruc || clientForm.ruc.length !== 11) {
+      setClientErr("Ingrese un RUC válido de 11 dígitos.");
+      return;
+    }
+    setSearchingRuc(true);
+    setClientErr(null);
+    try {
+      const res = await getJson<Record<string, unknown>>(`/api/clients/search-ruc/${clientForm.ruc}`);
+      const info = (res?.resultado ?? res?.data ?? res) as Record<string, unknown>;
+      if (info?.razon_social) {
+        setClientForm((f) => ({
+          ...f,
+          legal_name: String(info.razon_social),
+          trade_name: info.nombre_comercial && String(info.nombre_comercial) !== "-" ? String(info.nombre_comercial) : String(info.razon_social),
+          address: info.direccion ? String(info.direccion) : f.address,
+        }));
+      } else {
+        setClientErr("No se encontraron datos para ese RUC.");
+      }
+    } catch {
+      setClientErr("Error al consultar el RUC.");
+    } finally {
+      setSearchingRuc(false);
+    }
+  };
+
+  const performDniSearch = async () => {
+    if (!clientForm.dni || clientForm.dni.length !== 8) {
+      setClientErr("Ingrese un DNI válido de 8 dígitos.");
+      return;
+    }
+    setSearchingDni(true);
+    setClientErr(null);
+    try {
+      const res = await getJson<Record<string, unknown>>(`/api/clients/search-dni/${clientForm.dni}`);
+      const info = (res?.resultado ?? res?.data ?? res) as Record<string, unknown>;
+      if (info?.nombres || info?.apellido_paterno) {
+        const nombres = [info.nombres, info.apellido_paterno, info.apellido_materno].filter(Boolean).join(" ");
+        setClientForm((f) => ({
+          ...f,
+          legal_name: nombres,
+          trade_name: f.trade_name || nombres,
+        }));
+      } else if (info?.nombre_completo) {
+        setClientForm((f) => ({
+          ...f,
+          legal_name: String(info.nombre_completo),
+          trade_name: f.trade_name || String(info.nombre_completo),
+        }));
+      } else {
+        setClientErr("No se encontraron datos para ese DNI.");
+      }
+    } catch {
+      setClientErr("Error al consultar el DNI.");
+    } finally {
+      setSearchingDni(false);
+    }
+  };
+
+  const saveNewClient = async () => {
+    setClientErr(null);
+    if (!clientForm.legal_name.trim()) {
+      setClientErr("La razón social es obligatoria.");
+      return;
+    }
+    try {
+      const saved = await postJson<{ id: number; legal_name: string }>("/api/clients", {
+        legal_name: clientForm.legal_name,
+        trade_name: clientForm.trade_name || null,
+        ruc: clientForm.ruc || null,
+        address: clientForm.address || null,
+        rubro: clientForm.rubro || null,
+        pipeline_stage: clientForm.pipeline_stage,
+      });
+      if (clientForm.representative_name.trim()) {
+        await postJson(`/api/clients/${saved.id}/contacts`, {
+          name: clientForm.representative_name.trim(),
+          position: clientForm.representative_position.trim() || null,
+          phone: clientForm.representative_phone.trim() || null,
+          email: clientForm.representative_email.trim() || null,
+          observations: clientForm.representative_observations.trim() || null,
+        });
+      }
+      setClients((prev) => [{ id: saved.id, legal_name: saved.legal_name }, ...prev]);
+      setForm((f) => ({ ...f, client_id: saved.id }));
+      setClientModal(false);
+    } catch {
+      setClientErr("No se pudo guardar el cliente.");
+    }
+  };
+
   return (
     <main className={labCrudMainClass(isLight)}>
       <LabBreadcrumbs items={[{ label: "Dashboard", to: "/" }, { label: "Proyectos" }]} isLight={isLight} />
@@ -452,13 +572,26 @@ export function ProjectsPage() {
       >
         <div className="grid gap-3 sm:grid-cols-2">
           <LabField label="Cliente *" isLight={isLight} className="sm:col-span-2">
-            <SmartSelect
-              isLight={isLight}
-              value={form.client_id === "" ? "" : String(form.client_id)}
-              onChange={(v) => setForm({ ...form, client_id: v ? Number(v) : "" })}
-              options={clients.map((c) => ({ value: c.id, label: c.legal_name }))}
-              emptyLabel="Seleccionar…"
-            />
+            <div className="flex gap-2">
+              <div className="flex-1">
+                <SmartSelect
+                  isLight={isLight}
+                  value={form.client_id === "" ? "" : String(form.client_id)}
+                  onChange={(v) => setForm({ ...form, client_id: v ? Number(v) : "" })}
+                  options={clients.map((c) => ({ value: c.id, label: c.legal_name }))}
+                  emptyLabel="Seleccionar…"
+                />
+              </div>
+              <button
+                type="button"
+                onClick={openClientModal}
+                className={labPrimaryBtn(isLight) + " flex items-center gap-1 whitespace-nowrap px-3"}
+                title="Buscar o agregar nuevo cliente"
+              >
+                <UserPlus className="h-4 w-4" />
+                <span className="hidden sm:inline">Nuevo</span>
+              </button>
+            </div>
           </LabField>
           <LabField label="Nombre *" isLight={isLight} className="sm:col-span-2">
             <input className={labInputClass(isLight)} value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} />
@@ -569,6 +702,116 @@ export function ProjectsPage() {
             </div>
           </LabField>
           {modalErr ? <p className="sm:col-span-2 text-sm text-red-600">{modalErr}</p> : null}
+        </div>
+      </FormModal>
+
+      <FormModal
+        open={clientModal}
+        title="Registrar cliente"
+        isLight={isLight}
+        wide
+        onClose={() => { setClientModal(false); setClientErr(null); }}
+        footer={
+          <div className="flex justify-end gap-2">
+            <button type="button" className={labGhostBtn(isLight)} onClick={() => setClientModal(false)}>
+              Cerrar
+            </button>
+            <button type="button" className={labPrimaryBtn(isLight)} onClick={() => void saveNewClient()}>
+              Guardar cliente
+            </button>
+          </div>
+        }
+      >
+        <div className="grid gap-3 sm:grid-cols-2">
+          <LabField label="RUC" isLight={isLight}>
+            <div className="flex gap-2">
+              <input
+                className={labInputClass(isLight) + " flex-1"}
+                value={clientForm.ruc}
+                placeholder="11 dígitos"
+                onChange={(e) => setClientForm({ ...clientForm, ruc: e.target.value })}
+              />
+              <button
+                type="button"
+                onClick={() => void performRucSearch()}
+                disabled={searchingRuc}
+                className={labPrimaryBtn(isLight) + " flex items-center justify-center px-3"}
+                title="Buscar RUC"
+              >
+                {searchingRuc ? (
+                  <span className="block h-4 w-4 animate-spin rounded-full border-2 border-current border-t-transparent opacity-70" />
+                ) : (
+                  <Search className="h-4 w-4" />
+                )}
+              </button>
+            </div>
+          </LabField>
+          <LabField label="DNI" isLight={isLight}>
+            <div className="flex gap-2">
+              <input
+                className={labInputClass(isLight) + " flex-1"}
+                value={clientForm.dni}
+                placeholder="8 dígitos"
+                onChange={(e) => setClientForm({ ...clientForm, dni: e.target.value })}
+              />
+              <button
+                type="button"
+                onClick={() => void performDniSearch()}
+                disabled={searchingDni}
+                className={labPrimaryBtn(isLight) + " flex items-center justify-center px-3"}
+                title="Buscar DNI"
+              >
+                {searchingDni ? (
+                  <span className="block h-4 w-4 animate-spin rounded-full border-2 border-current border-t-transparent opacity-70" />
+                ) : (
+                  <Search className="h-4 w-4" />
+                )}
+              </button>
+            </div>
+          </LabField>
+          <LabField label="Razón social *" isLight={isLight}>
+            <input className={labInputClass(isLight)} value={clientForm.legal_name} onChange={(e) => setClientForm({ ...clientForm, legal_name: e.target.value })} />
+          </LabField>
+          <LabField label="Nombre comercial" isLight={isLight}>
+            <input className={labInputClass(isLight)} value={clientForm.trade_name} onChange={(e) => setClientForm({ ...clientForm, trade_name: e.target.value })} />
+          </LabField>
+          <LabField label="Dirección" isLight={isLight}>
+            <input className={labInputClass(isLight)} value={clientForm.address} onChange={(e) => setClientForm({ ...clientForm, address: e.target.value })} />
+          </LabField>
+          <LabField label="Rubro" isLight={isLight}>
+            <input className={labInputClass(isLight)} value={clientForm.rubro} onChange={(e) => setClientForm({ ...clientForm, rubro: e.target.value })} />
+          </LabField>
+          <LabField label="Etapa CRM" isLight={isLight}>
+            <SmartSelect
+              isLight={isLight}
+              value={clientForm.pipeline_stage}
+              onChange={(v) => setClientForm({ ...clientForm, pipeline_stage: v })}
+              options={[
+                { value: "lead", label: "Lead" },
+                { value: "prospect", label: "Prospecto" },
+                { value: "active_client", label: "Cliente activo" },
+              ]}
+            />
+          </LabField>
+          <div className="sm:col-span-2">
+            <h3 className={"mb-1 text-sm font-semibold " + (isLight ? "text-[#111827]" : "text-zinc-100")}>Representante del cliente</h3>
+          </div>
+          <LabField label="Nombre completo" isLight={isLight}>
+            <input className={labInputClass(isLight)} value={clientForm.representative_name} onChange={(e) => setClientForm({ ...clientForm, representative_name: e.target.value })} />
+          </LabField>
+          <LabField label="Número telefónico" isLight={isLight}>
+            <input className={labInputClass(isLight)} value={clientForm.representative_phone} onChange={(e) => setClientForm({ ...clientForm, representative_phone: e.target.value })} />
+          </LabField>
+          <LabField label="Cargo o puesto" isLight={isLight}>
+            <input className={labInputClass(isLight)} value={clientForm.representative_position} onChange={(e) => setClientForm({ ...clientForm, representative_position: e.target.value })} />
+          </LabField>
+          <LabField label="Correo electrónico" isLight={isLight}>
+            <input type="email" className={labInputClass(isLight)} value={clientForm.representative_email} onChange={(e) => setClientForm({ ...clientForm, representative_email: e.target.value })} />
+          </LabField>
+          <LabField label="Observaciones" isLight={isLight} className="sm:col-span-2">
+            <textarea className={labInputClass(isLight)} rows={2} value={clientForm.representative_observations} onChange={(e) => setClientForm({ ...clientForm, representative_observations: e.target.value })} />
+          </LabField>
+          {clientErr ? <p className="sm:col-span-2 text-sm text-red-600">{clientErr}</p> : null}
         </div>
       </FormModal>
     </main>

@@ -105,6 +105,7 @@ Route::middleware('auth')->group(function (): void {
 
         Route::get('clients', [ClientController::class, 'index']);
         Route::get('clients/search-ruc/{ruc}', [ClientController::class, 'searchRuc']);
+        Route::get('clients/search-dni/{dni}', [ClientController::class, 'searchDni']);
         Route::post('clients', [ClientController::class, 'store']);
         Route::get('clients/{client}', [ClientController::class, 'show']);
         Route::put('clients/{client}', [ClientController::class, 'update']);

@@ -1,4 +1,4 @@
-import { Shield, UserPlus } from "lucide-react";
+import { Search, Shield, UserPlus } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
 import { createUser, deleteUser, fetchUser, fetchUsersPage, updateUser, type ManagedUser } from "../users/api";
 import { ConfirmModal } from "../components/ConfirmModal";
@@ -106,6 +106,34 @@ export function UsersPage() {
     permissions: {} as Record<string, boolean | null>,
   });
   const [inheritedPermissions, setInheritedPermissions] = useState<Record<string, boolean>>({});
+  const [dniInput, setDniInput] = useState("");
+  const [searchingDni, setSearchingDni] = useState(false);
+  const [dniErr, setDniErr] = useState<string | null>(null);
+
+  const performDniSearch = async () => {
+    if (!dniInput || dniInput.length !== 8) {
+      setDniErr("Ingrese un DNI válido de 8 dígitos.");
+      return;
+    }
+    setSearchingDni(true);
+    setDniErr(null);
+    try {
+      const res = await getJson<Record<string, unknown>>(`/api/clients/search-dni/${dniInput}`);
+      const info = (res?.resultado ?? res?.data ?? res) as Record<string, unknown>;
+      if (info?.nombres || info?.apellido_paterno) {
+        const fullName = [info.nombres, info.apellido_paterno, info.apellido_materno].filter(Boolean).join(" ");
+        setForm((f) => ({ ...f, name: fullName }));
+      } else if (info?.nombre_completo) {
+        setForm((f) => ({ ...f, name: String(info.nombre_completo) }));
+      } else {
+        setDniErr("No se encontraron datos para ese DNI.");
+      }
+    } catch {
+      setDniErr("Error al consultar el DNI.");
+    } finally {
+      setSearchingDni(false);
+    }
+  };
 
   const scopeFromTab = (t: TabKey): "all" | "admins" | "users" => {
     if (t === "admins") return "admins";
@@ -211,6 +239,8 @@ export function UsersPage() {
 
   const openCreate = () => {
     setModalFormErr(null);
+    setDniInput("");
+    setDniErr(null);
     setEditingId(null);
     setForm({
       name: "",
@@ -233,6 +263,8 @@ export function UsersPage() {
 
   const openEdit = async (id: number) => {
     setModalFormErr(null);
+    setDniInput("");
+    setDniErr(null);
     try {
       const u = await fetchUser(id);
       setEditingId(u.id);
@@ -523,6 +555,32 @@ export function UsersPage() {
         }
       >
         <div className="grid gap-4 sm:grid-cols-2">
+          <LabField label="DNI (buscar nombre)" isLight={isLight}>
+            <div className="flex gap-2">
+              <input
+                className={labInputClass(isLight) + " flex-1"}
+                value={dniInput}
+                placeholder="8 dígitos"
+                maxLength={8}
+                onChange={(e) => setDniInput(e.target.value.replace(/\D/g, ""))}
+                onKeyDown={(e) => { if (e.key === "Enter") void performDniSearch(); }}
+              />
+              <button
+                type="button"
+                onClick={() => void performDniSearch()}
+                disabled={searchingDni}
+                className={labPrimaryBtn(isLight) + " flex items-center justify-center px-3"}
+                title="Consultar DNI en RENIEC"
+              >
+                {searchingDni ? (
+                  <span className="block h-4 w-4 animate-spin rounded-full border-2 border-current border-t-transparent opacity-70" />
+                ) : (
+                  <Search className="h-4 w-4" />
+                )}
+              </button>
+            </div>
+            {dniErr ? <p className="mt-1 text-xs text-red-500">{dniErr}</p> : null}
+          </LabField>
           <LabField label="Nombre completo" isLight={isLight}>
             <input className={labInputClass(isLight)} value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} />
           </LabField>

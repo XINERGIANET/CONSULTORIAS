@@ -135,6 +135,26 @@ class ClientController extends Controller
         ], $response->status());
     }
 
+    public function searchDni(string $dni): JsonResponse
+    {
+        $url = env('APIRENIEC_URL');
+        $token = env('APIRENIEC_KEY');
+
+        $response = \Illuminate\Support\Facades\Http::get($url, [
+            'document' => $dni,
+            'key' => $token,
+        ]);
+
+        if ($response->successful()) {
+            return response()->json($response->json());
+        }
+
+        return response()->json([
+            'error' => 'No se pudo consultar el DNI',
+            'details' => $response->json(),
+        ], $response->status());
+    }
+
     private function assertClientScope(Request $request, Client $client): void
     {
         $q = Client::query()->whereKey($client->id);
