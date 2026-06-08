@@ -74,6 +74,9 @@ class AccountsReceivableService
             'paid_amount' => $paid,
             'balance_amount' => $balance,
             'status' => $status,
+            'collected_on' => $status === 'paid'
+                ? ($account->payments()->orderByDesc('paid_on')->value('paid_on') ?? now()->toDateString())
+                : null,
         ]);
 
         return $account->fresh();

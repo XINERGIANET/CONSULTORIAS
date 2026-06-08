@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
+use App\Models\AccountPayable;
 use App\Models\Expense;
 use App\Support\AreaVisibility;
 use Illuminate\Http\JsonResponse;
@@ -48,11 +49,49 @@ class ExpenseController extends Controller
             'recorded_on' => ['required', 'date'],
             'responsible_user_id' => ['nullable', 'integer', 'exists:users,id'],
             'observation' => ['nullable', 'string'],
+            'schedule_payable' => ['sometimes', 'boolean'],
+            'payable_type' => ['nullable', 'string', 'in:supplier,payroll,other'],
+            'vendor_name' => ['nullable', 'string', 'max:255'],
+            'projected_due_on' => ['nullable', 'date'],
+            'requires_invoice' => ['sometimes', 'boolean'],
+            'payable_description' => ['nullable', 'string', 'max:500'],
         ]);
-        
+
         $data['area_id'] = $request->user()->areas()->first()?->id;
 
-        return response()->json(Expense::query()->create($data), 201);
+        $schedule = $request->boolean('schedule_payable');
+        $payableMeta = [
+            'payable_type' => $request->input('payable_type', 'supplier'),
+            'vendor_name' => $request->input('vendor_name'),
+            'projected_due_on' => $request->input('projected_due_on') ?? $data['recorded_on'],
+            'requires_invoice' => $request->boolean('requires_invoice'),
+            'description' => $request->input('payable_description') ?? ($data['observation'] ?? 'Cuenta por pagar programada'),
+        ];
+        unset($data['schedule_payable'], $data['payable_type'], $data['vendor_name'], $data['projected_due_on'], $data['requires_invoice'], $data['payable_description']);
+
+        if ($schedule && $data['area_id']) {
+            $payable = AccountPayable::query()->create([
+                'payable_type' => $payableMeta['payable_type'],
+                'vendor_name' => $payableMeta['vendor_name'],
+                'user_id' => $data['responsible_user_id'] ?? null,
+                'area_id' => $data['area_id'],
+                'project_id' => $data['project_id'] ?? null,
+                'total_amount' => $data['amount'],
+                'paid_amount' => 0,
+                'balance_amount' => $data['amount'],
+                'projected_due_on' => $payableMeta['projected_due_on'],
+                'requires_invoice' => $payableMeta['requires_invoice'],
+                'status' => 'pending',
+                'description' => $payableMeta['description'],
+                'notes' => 'Programada desde movimiento (sin egreso inmediato).',
+            ]);
+
+            return response()->json(['scheduled_payable' => $payable], 201);
+        }
+
+        $expense = Expense::query()->create($data);
+
+        return response()->json($expense, 201);
     }
 
     public function update(Request $request, Expense $expense): JsonResponse

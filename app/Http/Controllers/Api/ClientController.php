@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
 use App\Models\Client;
+use App\Services\ContractBillingService;
 use App\Support\AreaVisibility;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -50,7 +51,7 @@ class ClientController extends Controller
         ]));
     }
 
-    public function store(Request $request): JsonResponse
+    public function store(Request $request, ContractBillingService $billing): JsonResponse
     {
         $data = $request->validate([
             'legal_name' => ['required', 'string', 'max:255'],
@@ -67,20 +68,47 @@ class ClientController extends Controller
             'pipeline_stage' => ['nullable', 'string', 'in:lead,prospect,active_client'],
             'is_active' => ['sometimes', 'boolean'],
             'notes' => ['nullable', 'string'],
+            'billing' => ['sometimes', 'array'],
+            'billing.activate' => ['sometimes', 'boolean'],
+            'billing.total_amount' => ['required_with:billing.activate', 'numeric', 'min:0.01'],
+            'billing.installments_count' => ['required_with:billing.activate', 'integer', 'min:1', 'max:360'],
+            'billing.start_date' => ['required_with:billing.activate', 'date'],
+            'billing.first_due_on' => ['required_with:billing.activate', 'date'],
+            'billing.area_id' => ['required_with:billing.activate', 'integer', 'exists:areas,id'],
+            'billing.project_id' => ['nullable', 'integer', 'exists:projects,id'],
+            'billing.title' => ['nullable', 'string', 'max:255'],
+            'billing.notes' => ['nullable', 'string'],
         ]);
 
-        $client = DB::transaction(function () use ($data, $request) {
+        $billingPayload = $data['billing'] ?? null;
+        unset($data['billing']);
+
+        $client = DB::transaction(function () use ($data, $request, $billing, $billingPayload) {
             $areaIds = $request->user()->areas()->pluck('areas.id')->toArray();
             $c = Client::query()->create($data);
             $c->areas()->sync($areaIds);
 
+            if (! empty($billingPayload['activate'])) {
+                $billing->createContractAndSchedule($c, [
+                    'client_id' => $c->id,
+                    'area_id' => (int) $billingPayload['area_id'],
+                    'project_id' => $billingPayload['project_id'] ?? null,
+                    'title' => $billingPayload['title'] ?? null,
+                    'total_amount' => $billingPayload['total_amount'],
+                    'installments_count' => (int) $billingPayload['installments_count'],
+                    'start_date' => $billingPayload['start_date'],
+                    'first_due_on' => $billingPayload['first_due_on'],
+                    'notes' => $billingPayload['notes'] ?? null,
+                ], $request->user()?->id);
+            }
+
             return $c;
         });
 
-        return response()->json($client->load('areas'), 201);
+        return response()->json($client->load(['areas', 'contracts.receivables']), 201);
     }
 
-    public function update(Request $request, Client $client): JsonResponse
+    public function update(Request $request, Client $client, ContractBillingService $billing): JsonResponse
     {
         $this->assertClientScope($request, $client);
         $data = $request->validate([
@@ -98,13 +126,43 @@ class ClientController extends Controller
             'pipeline_stage' => ['nullable', 'string', 'in:lead,prospect,active_client'],
             'is_active' => ['sometimes', 'boolean'],
             'notes' => ['nullable', 'string'],
+            'billing' => ['sometimes', 'array'],
+            'billing.activate' => ['sometimes', 'boolean'],
+            'billing.total_amount' => ['required_with:billing.activate', 'numeric', 'min:0.01'],
+            'billing.installments_count' => ['required_with:billing.activate', 'integer', 'min:1', 'max:360'],
+            'billing.start_date' => ['required_with:billing.activate', 'date'],
+            'billing.first_due_on' => ['required_with:billing.activate', 'date'],
+            'billing.area_id' => ['required_with:billing.activate', 'integer', 'exists:areas,id'],
+            'billing.project_id' => ['nullable', 'integer', 'exists:projects,id'],
+            'billing.title' => ['nullable', 'string', 'max:255'],
+            'billing.notes' => ['nullable', 'string'],
         ]);
 
-        DB::transaction(function () use ($client, $data) {
+        $billingPayload = $data['billing'] ?? null;
+        unset($data['billing']);
+
+        DB::transaction(function () use ($client, $data, $request, $billing, $billingPayload) {
             $client->update($data);
+
+            $shouldBill = ! empty($billingPayload['activate']);
+            $isActive = ($data['pipeline_stage'] ?? $client->pipeline_stage) === 'active_client';
+
+            if ($shouldBill && $isActive && ! $client->contracts()->where('status', 'active')->exists()) {
+                $billing->createContractAndSchedule($client, [
+                    'client_id' => $client->id,
+                    'area_id' => (int) $billingPayload['area_id'],
+                    'project_id' => $billingPayload['project_id'] ?? null,
+                    'title' => $billingPayload['title'] ?? null,
+                    'total_amount' => $billingPayload['total_amount'],
+                    'installments_count' => (int) $billingPayload['installments_count'],
+                    'start_date' => $billingPayload['start_date'],
+                    'first_due_on' => $billingPayload['first_due_on'],
+                    'notes' => $billingPayload['notes'] ?? null,
+                ], $request->user()?->id);
+            }
         });
 
-        return response()->json($client->fresh()->load('areas'));
+        return response()->json($client->fresh()->load(['areas', 'contracts.receivables']));
     }
 
     public function destroy(Request $request, Client $client): JsonResponse

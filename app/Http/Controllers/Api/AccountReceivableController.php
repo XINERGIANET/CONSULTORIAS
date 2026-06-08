@@ -20,7 +20,7 @@ class AccountReceivableController extends Controller
             ->update(['status' => 'overdue']);
 
         $q = AccountReceivable::query()
-            ->with(['client:id,legal_name', 'document:id,title,doc_type', 'project:id,name', 'area:id,name'])
+            ->with(['client:id,legal_name', 'document:id,title,doc_type', 'project:id,name', 'area:id,name', 'clientContract:id,title,installments_count'])
             ->withSum('payments as payments_total', 'amount');
 
         $this->applyScope($q, $request);

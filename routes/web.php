@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Controllers\Api\AreaController;
+use App\Http\Controllers\Api\AccountPayableController;
 use App\Http\Controllers\Api\AccountReceivableController;
 use App\Http\Controllers\Api\AuthController;
 use App\Http\Controllers\Api\CollaboratorsController;
@@ -91,6 +92,9 @@ Route::middleware('auth')->group(function (): void {
     Route::get('/cuentas-por-cobrar', $spaUi);
     Route::get('/cuentas-por-cobrar/{any}', $spaUi)->where('any', '.*');
 
+    Route::get('/cuentas-por-pagar', $spaUi);
+    Route::get('/cuentas-por-pagar/{any}', $spaUi)->where('any', '.*');
+
     Route::get('/usuarios', $spaUi);
     Route::get('/usuarios/{any}', $spaUi)->where('any', '.*');
 
@@ -163,6 +167,13 @@ Route::middleware('auth')->group(function (): void {
         Route::post('accounts-receivable', [AccountReceivableController::class, 'store'])->middleware('permission:register_payments');
         Route::get('accounts-receivable/{accountReceivable}', [AccountReceivableController::class, 'show'])->middleware('permission:view_finances');
         Route::post('accounts-receivable/{accountReceivable}/payments', [AccountReceivableController::class, 'registerPayment'])->middleware('permission:register_payments');
+
+        Route::get('accounts-payable', [AccountPayableController::class, 'index'])->middleware('permission:view_finances');
+        Route::post('accounts-payable', [AccountPayableController::class, 'store'])->middleware('permission:register_payments');
+        Route::post('accounts-payable/generate-payroll', [AccountPayableController::class, 'generatePayroll'])->middleware('permission:register_payments');
+        Route::get('accounts-payable/{accountPayable}', [AccountPayableController::class, 'show'])->middleware('permission:view_finances');
+        Route::post('accounts-payable/{accountPayable}/payments', [AccountPayableController::class, 'registerPayment'])->middleware('permission:register_payments');
+        Route::post('accounts-payable/{accountPayable}/invoice', [AccountPayableController::class, 'markInvoiced'])->middleware('permission:register_payments');
 
         Route::get('expenses', [ExpenseController::class, 'index']);
         Route::post('expenses', [ExpenseController::class, 'store']);

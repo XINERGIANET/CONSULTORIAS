@@ -166,11 +166,19 @@ const emptyClientForm = () => ({
   representative_position: "",
   representative_email: "",
   representative_observations: "",
+  billing_activate: false,
+  billing_total: "",
+  billing_installments: "12",
+  billing_start: new Date().toISOString().slice(0, 10),
+  billing_first_due: new Date(new Date().setMonth(new Date().getMonth() + 1)).toISOString().slice(0, 10),
+  billing_area_id: "" as "" | number,
+  billing_title: "",
 });
 
 export function ClientsPage() {
   const { isLight } = useApexTheme();
   const [data, setData] = useState<LaravelPaginated<ClientLite> | null>(null);
+  const [areas, setAreas] = useState<AreaRow[]>([]);
   const [modal, setModal] = useState(false);
   const [editId, setEditId] = useState<number | null>(null);
   const [searchingRuc, setSearchingRuc] = useState(false);
@@ -184,6 +192,7 @@ export function ClientsPage() {
 
   useEffect(() => {
     void load();
+    void getJson<AreaRow[]>("/api/areas", { active_only: false }).then(setAreas);
   }, []);
 
   const openCreate = () => {
@@ -211,6 +220,13 @@ export function ClientsPage() {
         representative_position: representative?.position ?? "",
         representative_email: representative?.email ?? "",
         representative_observations: representative?.observations ?? "",
+        billing_activate: false,
+        billing_total: "",
+        billing_installments: "12",
+        billing_start: new Date().toISOString().slice(0, 10),
+        billing_first_due: new Date(new Date().setMonth(new Date().getMonth() + 1)).toISOString().slice(0, 10),
+        billing_area_id: "",
+        billing_title: "",
       });
       setEditId(c.id);
       setModal(true);
@@ -232,14 +248,26 @@ export function ClientsPage() {
   const save = async () => {
     setErr(null);
     try {
-      const clientBody = {
+      const clientBody: Record<string, unknown> = {
         legal_name: form.legal_name,
         trade_name: form.trade_name,
         ruc: form.ruc,
         address: form.address,
         rubro: form.rubro,
         pipeline_stage: form.pipeline_stage,
+        is_active: form.pipeline_stage === "active_client",
       };
+      if (form.billing_activate && form.pipeline_stage === "active_client" && form.billing_area_id !== "" && form.billing_total) {
+        clientBody.billing = {
+          activate: true,
+          total_amount: Number(form.billing_total),
+          installments_count: Number(form.billing_installments) || 12,
+          start_date: form.billing_start,
+          first_due_on: form.billing_first_due,
+          area_id: form.billing_area_id,
+          title: form.billing_title.trim() || undefined,
+        };
+      }
       let clientId = editId;
       if (editId) {
         await putJson(`/api/clients/${editId}`, clientBody);
@@ -412,6 +440,46 @@ export function ClientsPage() {
           <LabField label="Rubro" isLight={isLight}>
             <input className={labInputClass(isLight)} value={form.rubro} onChange={(e) => setForm({ ...form, rubro: e.target.value })} />
           </LabField>
+          {form.pipeline_stage === "active_client" ? (
+            <div className={"sm:col-span-2 rounded-xl border p-4 " + (isLight ? "border-[#E5E7EB] bg-[#F9FAFB]" : "border-white/[0.06] bg-[#0a0a0a]/50")}>
+              <label className={["mb-3 flex items-center gap-2 text-sm font-semibold", isLight ? "text-[#111827]" : "text-zinc-100"].join(" ")}>
+                <input type="checkbox" checked={form.billing_activate} onChange={(e) => setForm({ ...form, billing_activate: e.target.checked })} />
+                Generar contrato y cuotas mensuales (cuentas por cobrar)
+              </label>
+              {form.billing_activate ? (
+                <div className="grid gap-3 sm:grid-cols-2">
+                  <LabField label="Monto total del contrato (S/.)" isLight={isLight}>
+                    <input type="number" step="0.01" className={labInputClass(isLight)} value={form.billing_total} onChange={(e) => setForm({ ...form, billing_total: e.target.value })} placeholder="Ej. 1200" />
+                  </LabField>
+                  <LabField label="Número de cuotas (meses)" isLight={isLight}>
+                    <input type="number" min={1} className={labInputClass(isLight)} value={form.billing_installments} onChange={(e) => setForm({ ...form, billing_installments: e.target.value })} />
+                  </LabField>
+                  <LabField label="Inicio contrato" isLight={isLight}>
+                    <input type="date" className={labInputClass(isLight)} value={form.billing_start} onChange={(e) => setForm({ ...form, billing_start: e.target.value })} />
+                  </LabField>
+                  <LabField label="Primer vencimiento" isLight={isLight}>
+                    <input type="date" className={labInputClass(isLight)} value={form.billing_first_due} onChange={(e) => setForm({ ...form, billing_first_due: e.target.value })} />
+                  </LabField>
+                  <LabField label="Área facturación" isLight={isLight}>
+                    <select className={labInputClass(isLight)} value={form.billing_area_id === "" ? "" : String(form.billing_area_id)} onChange={(e) => setForm({ ...form, billing_area_id: e.target.value ? Number(e.target.value) : "" })}>
+                      <option value="">Seleccionar…</option>
+                      {areas.map((a) => (
+                        <option key={a.id} value={a.id}>{a.name}</option>
+                      ))}
+                    </select>
+                  </LabField>
+                  <LabField label="Título contrato (opcional)" isLight={isLight}>
+                    <input className={labInputClass(isLight)} value={form.billing_title} onChange={(e) => setForm({ ...form, billing_title: e.target.value })} />
+                  </LabField>
+                  {form.billing_total && form.billing_installments ? (
+                    <p className={"sm:col-span-2 text-xs " + (isLight ? "text-[#6B7280]" : "text-zinc-400")}>
+                      Cuota estimada: S/. {(Number(form.billing_total) / Math.max(1, Number(form.billing_installments))).toFixed(2)} mensual · se crearán {form.billing_installments} cuentas por cobrar con fechas proyectadas.
+                    </p>
+                  ) : null}
+                </div>
+              ) : null}
+            </div>
+          ) : null}
           <div className="sm:col-span-2">
             <h3 className={"mb-2 text-sm font-semibold " + (isLight ? "text-[#111827]" : "text-zinc-100")}>Representante del cliente</h3>
           </div>

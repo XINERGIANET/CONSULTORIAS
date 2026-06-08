@@ -52,13 +52,12 @@ export function FinanzasHubPage() {
     project_id: "" as "" | number,
     responsible_user_id: "" as "" | number,
     observation: "",
-  });
-  const [payForm, setPayForm] = useState({
-    amount: "",
-    paid_on: new Date().toISOString().slice(0, 10),
-    method: "",
-    reference: "",
-    notes: "",
+    schedule_payable: false,
+    payable_type: "supplier",
+    vendor_name: "",
+    projected_due_on: new Date().toISOString().slice(0, 10),
+    requires_invoice: true,
+    payable_description: "",
   });
 
   useEffect(() => {
@@ -98,6 +97,12 @@ export function FinanzasHubPage() {
       project_id: "",
       responsible_user_id: "",
       observation: "",
+      schedule_payable: false,
+      payable_type: "supplier",
+      vendor_name: "",
+      projected_due_on: new Date().toISOString().slice(0, 10),
+      requires_invoice: true,
+      payable_description: "",
     });
     setErr(null);
   };
@@ -171,6 +176,12 @@ export function FinanzasHubPage() {
         project_id: typeof r.project_id === "number" ? r.project_id : "",
         responsible_user_id: typeof r.responsible_user_id === "number" ? r.responsible_user_id : "",
         observation: String(r.observation ?? ""),
+        schedule_payable: false,
+        payable_type: "supplier",
+        vendor_name: "",
+        projected_due_on: new Date().toISOString().slice(0, 10),
+        requires_invoice: true,
+        payable_description: "",
       });
       setOutModal(true);
     } catch {
@@ -193,6 +204,14 @@ export function FinanzasHubPage() {
       responsible_user_id: outForm.responsible_user_id === "" ? null : outForm.responsible_user_id,
       observation: outForm.observation || null,
     };
+    if (!editOutId && outForm.schedule_payable) {
+      body.schedule_payable = true;
+      body.payable_type = outForm.payable_type;
+      body.vendor_name = outForm.vendor_name || null;
+      body.projected_due_on = outForm.projected_due_on;
+      body.requires_invoice = outForm.requires_invoice;
+      body.payable_description = outForm.payable_description || outForm.observation || "Cuenta por pagar";
+    }
     try {
       if (editOutId) await putJson(`/api/expenses/${editOutId}`, body);
       else await postJson("/api/expenses", body);
@@ -434,6 +453,38 @@ export function FinanzasHubPage() {
           <LabField label="Observación" isLight={isLight} className="sm:col-span-2">
             <textarea className={labInputClass(isLight)} rows={2} value={outForm.observation} onChange={(e) => setOutForm({ ...outForm, observation: e.target.value })} />
           </LabField>
+          {!editOutId ? (
+            <div className={"sm:col-span-2 rounded-lg border p-3 " + (isLight ? "border-[#E5E7EB] bg-[#F9FAFB]" : "border-white/[0.06] bg-[#0a0a0a]/40")}>
+              <label className={["mb-2 flex items-center gap-2 text-sm font-medium", isLight ? "text-[#374151]" : "text-zinc-200"].join(" ")}>
+                <input type="checkbox" checked={outForm.schedule_payable} onChange={(e) => setOutForm({ ...outForm, schedule_payable: e.target.checked })} />
+                Programar como cuenta por pagar (sin egreso inmediato)
+              </label>
+              {outForm.schedule_payable ? (
+                <div className="mt-2 grid gap-2 sm:grid-cols-2">
+                  <LabField label="Tipo" isLight={isLight}>
+                    <select className={labInputClass(isLight)} value={outForm.payable_type} onChange={(e) => setOutForm({ ...outForm, payable_type: e.target.value })}>
+                      <option value="supplier">Proveedor</option>
+                      <option value="payroll">Planilla</option>
+                      <option value="other">Otro</option>
+                    </select>
+                  </LabField>
+                  <LabField label="Proveedor / referencia" isLight={isLight}>
+                    <input className={labInputClass(isLight)} value={outForm.vendor_name} onChange={(e) => setOutForm({ ...outForm, vendor_name: e.target.value })} />
+                  </LabField>
+                  <LabField label="Vencimiento proyectado" isLight={isLight}>
+                    <input type="date" className={labInputClass(isLight)} value={outForm.projected_due_on} onChange={(e) => setOutForm({ ...outForm, projected_due_on: e.target.value })} />
+                  </LabField>
+                  <LabField label="Descripción CxP" isLight={isLight}>
+                    <input className={labInputClass(isLight)} value={outForm.payable_description} onChange={(e) => setOutForm({ ...outForm, payable_description: e.target.value })} />
+                  </LabField>
+                  <label className={["flex items-center gap-2 text-xs sm:col-span-2", isLight ? "text-[#6B7280]" : "text-zinc-400"].join(" ")}>
+                    <input type="checkbox" checked={outForm.requires_invoice} onChange={(e) => setOutForm({ ...outForm, requires_invoice: e.target.checked })} />
+                    Esperar factura del proveedor
+                  </label>
+                </div>
+              ) : null}
+            </div>
+          ) : null}
           {err ? <p className="sm:col-span-2 text-sm text-red-600">{err}</p> : null}
         </div>
       </FormModal>

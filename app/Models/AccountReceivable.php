@@ -13,6 +13,8 @@ class AccountReceivable extends Model
     protected $fillable = [
         'client_id',
         'document_id',
+        'client_contract_id',
+        'installment_number',
         'project_id',
         'area_id',
         'total_amount',
@@ -20,6 +22,8 @@ class AccountReceivable extends Model
         'balance_amount',
         'issued_on',
         'due_on',
+        'projected_due_on',
+        'collected_on',
         'status',
         'notes',
     ];
@@ -32,6 +36,8 @@ class AccountReceivable extends Model
             'balance_amount' => 'decimal:2',
             'issued_on' => 'date',
             'due_on' => 'date',
+            'projected_due_on' => 'date',
+            'collected_on' => 'date',
         ];
     }
 
@@ -57,6 +63,12 @@ class AccountReceivable extends Model
     public function area(): BelongsTo
     {
         return $this->belongsTo(Area::class);
+    }
+
+    /** @return BelongsTo<ClientContract, AccountReceivable> */
+    public function clientContract(): BelongsTo
+    {
+        return $this->belongsTo(ClientContract::class);
     }
 
     /** @return HasMany<AccountReceivablePayment> */

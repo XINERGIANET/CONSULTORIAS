@@ -19,11 +19,15 @@ type AccountRow = {
   client?: { legal_name?: string };
   project?: { name?: string };
   document?: { title?: string };
+  installment_number?: number | null;
+  client_contract?: { title?: string; installments_count?: number };
   total_amount: string | number;
   paid_amount: string | number;
   balance_amount: string | number;
   issued_on?: string;
   due_on?: string | null;
+  projected_due_on?: string | null;
+  collected_on?: string | null;
   status: string;
   notes?: string | null;
 };
@@ -140,11 +144,12 @@ export function CuentasPorCobrarPage() {
                 <tr>
                   <th className={th}>Cliente</th>
                   <th className={th}>Proyecto / Contrato</th>
+                  <th className={th}>Cuota</th>
                   <th className={th + " text-right"}>Total</th>
                   <th className={th + " text-right"}>Pagado</th>
                   <th className={th + " text-right"}>Saldo</th>
-                  <th className={th}>Emisión</th>
-                  <th className={th}>Vencimiento</th>
+                  <th className={th}>Venc. proyectado</th>
+                  <th className={th}>Cobro real</th>
                   <th className={th}>Estado</th>
                   <th className={th + " text-right"} />
                 </tr>
@@ -154,6 +159,11 @@ export function CuentasPorCobrarPage() {
                   <tr key={r.id} className={"border-t " + (isLight ? "border-[#F3F4F6]" : "border-white/[0.06]")}>
                     <td className={td}>{r.client?.legal_name ?? "—"}</td>
                     <td className={td}>{r.project?.name ?? r.document?.title ?? "—"}</td>
+                    <td className={td}>
+                      {r.installment_number
+                        ? `Cuota ${r.installment_number}${r.client_contract?.installments_count ? ` / ${r.client_contract.installments_count}` : ""}`
+                        : "—"}
+                    </td>
                     <td className={td + " text-right"}>S/. {String(r.total_amount)}</td>
                     <td className={td + " text-right"}>S/. {String(r.paid_amount)}</td>
                     <td className={
@@ -162,8 +172,8 @@ export function CuentasPorCobrarPage() {
                     }>
                       S/. {String(r.balance_amount)}
                     </td>
-                    <td className={td}>{r.issued_on ? String(r.issued_on).slice(0, 10) : "—"}</td>
-                    <td className={td}>{r.due_on ? String(r.due_on).slice(0, 10) : "—"}</td>
+                    <td className={td}>{(r.projected_due_on ?? r.due_on) ? String(r.projected_due_on ?? r.due_on).slice(0, 10) : "—"}</td>
+                    <td className={td}>{r.collected_on ? String(r.collected_on).slice(0, 10) : "—"}</td>
                     <td className="py-2.5 pr-3">
                       <span className={statusPill(r.status, isLight)}>
                         {STATUS_LABELS[r.status] ?? r.status}

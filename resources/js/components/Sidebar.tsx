@@ -19,6 +19,7 @@ import {
   Settings2,
   Target,
   Users,
+  Wallet,
   Zap,
 } from "lucide-react";
 import { Link, useLocation } from "react-router-dom";
@@ -92,6 +93,7 @@ export function Sidebar() {
     ? [
         { label: "Finanzas", to: "/finanzas", icon: Landmark },
         { label: "Cuentas por cobrar", to: "/cuentas-por-cobrar", icon: HandCoins },
+        { label: "Cuentas por pagar", to: "/cuentas-por-pagar", icon: Wallet },
       ]
     : [];
   const analytic: NavLink[] = [

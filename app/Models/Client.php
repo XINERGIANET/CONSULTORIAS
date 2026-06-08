@@ -78,4 +78,10 @@ class Client extends Model
     {
         return $this->hasMany(Quotation::class);
     }
+
+    /** @return HasMany<ClientContract, Client> */
+    public function contracts(): HasMany
+    {
+        return $this->hasMany(ClientContract::class);
+    }
 }
