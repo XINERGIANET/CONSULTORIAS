@@ -62,4 +62,10 @@ class AccountPayable extends Model
     {
         return $this->hasMany(AccountPayablePayment::class);
     }
+
+    /** @return BelongsTo<Project, AccountPayable> */
+    public function project(): BelongsTo
+    {
+        return $this->belongsTo(Project::class);
+    }
 }

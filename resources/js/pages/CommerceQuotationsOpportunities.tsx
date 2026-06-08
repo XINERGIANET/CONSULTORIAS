@@ -9,6 +9,7 @@ import { useApexTheme } from "../context/ThemeContext";
 type ClientOpt = { id: number; legal_name: string };
 type CurrOpt = { id: number; code: string };
 type CollabOpt = { id: number; name: string };
+type PayAccOpt = { id: number; name: string };
 
 type QLineUI = { description: string; quantity: string; unit_price: string };
 
@@ -17,6 +18,7 @@ export function QuotationsPage() {
   const [rows, setRows] = useState<LaravelPaginated<Record<string, unknown>> | null>(null);
   const [clients, setClients] = useState<ClientOpt[]>([]);
   const [currencies, setCurrencies] = useState<CurrOpt[]>([]);
+  const [payAccs, setPayAccs] = useState<PayAccOpt[]>([]);
   const [open, setOpen] = useState(false);
   const [acceptId, setAcceptId] = useState<number | null>(null);
   const [editId, setEditId] = useState<number | null>(null);
@@ -51,6 +53,7 @@ export function QuotationsPage() {
     load();
     void getJson<LaravelPaginated<ClientOpt>>("/api/clients", { per_page: 120 }).then((r) => setClients(r.data));
     void getJson<CurrOpt[]>("/api/catalog/currencies").then(setCurrencies);
+    void getJson<PayAccOpt[]>("/api/catalog/payment-accounts?active_only=1").then(setPayAccs);
   }, []);
 
   const resetForm = () => {
@@ -423,7 +426,12 @@ export function QuotationsPage() {
                 <input type="date" className={labInputClass(isLight)} value={acceptForm.payment_paid_on} onChange={(e) => setAcceptForm({ ...acceptForm, payment_paid_on: e.target.value })} />
               </LabField>
               <LabField label="Método de pago" isLight={isLight}>
-                <input className={labInputClass(isLight)} placeholder="Transferencia, efectivo…" value={acceptForm.payment_method} onChange={(e) => setAcceptForm({ ...acceptForm, payment_method: e.target.value })} />
+                <select className={labInputClass(isLight)} value={acceptForm.payment_method} onChange={(e) => setAcceptForm({ ...acceptForm, payment_method: e.target.value })}>
+                  <option value="">Seleccionar método…</option>
+                  {payAccs.map((pa) => (
+                    <option key={pa.id} value={pa.name}>{pa.name}</option>
+                  ))}
+                </select>
               </LabField>
               <LabField label="Referencia / Nro. operación" isLight={isLight}>
                 <input className={labInputClass(isLight)} value={acceptForm.payment_reference} onChange={(e) => setAcceptForm({ ...acceptForm, payment_reference: e.target.value })} />

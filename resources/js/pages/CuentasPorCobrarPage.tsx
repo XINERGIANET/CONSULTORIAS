@@ -32,6 +32,8 @@ type AccountRow = {
   notes?: string | null;
 };
 
+type PayAccOpt = { id: number; name: string };
+
 const STATUS_LABELS: Record<string, string> = {
   pending: "Pendiente",
   partial: "Pago parcial",
@@ -65,6 +67,7 @@ function statusPill(status: string, isLight: boolean): string {
 export function CuentasPorCobrarPage() {
   const { isLight } = useApexTheme();
   const [rows, setRows] = useState<LaravelPaginated<AccountRow> | null>(null);
+  const [payAccs, setPayAccs] = useState<PayAccOpt[]>([]);
   const [payModal, setPayModal] = useState(false);
   const [payAccount, setPayAccount] = useState<AccountRow | null>(null);
   const [err, setErr] = useState<string | null>(null);
@@ -79,7 +82,10 @@ export function CuentasPorCobrarPage() {
   const load = () =>
     void getJson<LaravelPaginated<AccountRow>>("/api/accounts-receivable").then(setRows);
 
-  useEffect(() => { load(); }, []);
+  useEffect(() => { 
+    load(); 
+    void getJson<PayAccOpt[]>("/api/catalog/payment-accounts?active_only=1").then(setPayAccs);
+  }, []);
 
   const openPayment = (r: AccountRow) => {
     setPayAccount(r);
@@ -240,12 +246,16 @@ export function CuentasPorCobrarPage() {
             />
           </LabField>
           <LabField label="Método de pago" isLight={isLight}>
-            <input
+            <select
               className={labInputClass(isLight)}
-              placeholder="Transferencia, efectivo…"
               value={payForm.method}
               onChange={(e) => setPayForm({ ...payForm, method: e.target.value })}
-            />
+            >
+              <option value="">Seleccionar método…</option>
+              {payAccs.map((pa) => (
+                <option key={pa.id} value={pa.name}>{pa.name}</option>
+              ))}
+            </select>
           </LabField>
           <LabField label="Referencia / Nro. operación" isLight={isLight}>
             <input

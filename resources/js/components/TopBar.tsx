@@ -1,9 +1,9 @@
-import { Bell, Moon, Palette, Search, Sun } from "lucide-react";
+import { Bell, Menu, Moon, Palette, Search, Sun } from "lucide-react";
 import { Link } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
 import { useApexTheme } from "../context/ThemeContext";
 
-export function TopBar() {
+export function TopBar({ setMobileMenuOpen }: { setMobileMenuOpen?: (v: boolean) => void }) {
   const { isLight, setMode } = useApexTheme();
   const { user } = useAuth();
 
@@ -16,6 +16,13 @@ export function TopBar() {
           : "border-b border-white/[0.04] bg-[#000000]",
       ].join(" ")}
     >
+      <button 
+        className={["md:hidden p-2 -ml-2 rounded-lg transition-colors", isLight ? "text-zinc-500 hover:bg-zinc-100" : "text-zinc-500 hover:bg-white/5"].join(" ")}
+        onClick={() => setMobileMenuOpen?.(true)}
+      >
+        <Menu className="h-5 w-5" />
+      </button>
+
       <div className="relative min-w-0 max-w-md flex-1">
         <Search
           className={[

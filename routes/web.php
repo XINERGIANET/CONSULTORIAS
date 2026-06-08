@@ -234,6 +234,11 @@ Route::middleware('auth')->group(function (): void {
         Route::put('catalog/statuses/{statusCatalog}', [StatusCatalogController::class, 'update']);
         Route::delete('catalog/statuses/{statusCatalog}', [StatusCatalogController::class, 'destroy']);
 
+        Route::get('catalog/payment-accounts', [\App\Http\Controllers\Api\PaymentAccountController::class, 'index']);
+        Route::post('catalog/payment-accounts', [\App\Http\Controllers\Api\PaymentAccountController::class, 'store']);
+        Route::put('catalog/payment-accounts/{paymentAccount}', [\App\Http\Controllers\Api\PaymentAccountController::class, 'update']);
+        Route::delete('catalog/payment-accounts/{paymentAccount}', [\App\Http\Controllers\Api\PaymentAccountController::class, 'destroy']);
+
         Route::get('performance-reviews', [PerformanceReviewController::class, 'index']);
         Route::post('performance-reviews', [PerformanceReviewController::class, 'store']);
         Route::put('performance-reviews/{performanceReview}', [PerformanceReviewController::class, 'update']);

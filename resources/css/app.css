@@ -102,20 +102,20 @@ html[data-apex-theme="light"] body {
 
 /* Scroll vertical: sidebar */
 .apex-sidebar-scroll--light {
-  scrollbar-color: #475569 #0f172a;
+  scrollbar-color: #cbd5e1 #ffffff;
 }
 .apex-sidebar-scroll--light::-webkit-scrollbar {
   width: 8px;
 }
 .apex-sidebar-scroll--light::-webkit-scrollbar-track {
-  background: #0f172a;
+  background: #ffffff;
 }
 .apex-sidebar-scroll--light::-webkit-scrollbar-thumb {
-  background: #475569;
+  background: #cbd5e1;
   border-radius: 9999px;
 }
 .apex-sidebar-scroll--light::-webkit-scrollbar-thumb:hover {
-  background: #64748b;
+  background: #94a3b8;
 }
 
 /* Sidebar oscuro: barra casi invisible, thumb fino estilo mockup */

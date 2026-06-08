@@ -37,7 +37,7 @@ function linkClass(loc: ReturnType<typeof useLocation>, path: string, isLight: b
         ? "bg-[#007BFF]/12 text-[#007BFF]"
         : "bg-[#0a2744] text-[#7AB8FF] shadow-[0_0_20px_rgba(0,123,255,0.18)]"
       : isLight
-        ? "text-[#94A3B8] hover:bg-white/5 hover:text-[#E2E8F0]"
+        ? "text-slate-600 hover:bg-slate-100 hover:text-slate-900"
         : "text-zinc-400 hover:bg-white/5 hover:text-zinc-200",
   ].join(" ");
 }
@@ -71,7 +71,7 @@ function NavSection({ title, items, isLight }: { title: string; items: NavLink[]
   );
 }
 
-export function Sidebar() {
+export function Sidebar({ mobileMenuOpen, setMobileMenuOpen }: { mobileMenuOpen?: boolean; setMobileMenuOpen?: (v: boolean) => void }) {
   const { isLight } = useApexTheme();
   const { user, isSuperadmin, logout } = useAuth();
   const loc = useLocation();
@@ -112,8 +112,22 @@ export function Sidebar() {
   const dashActive = loc.pathname === "/";
 
   return (
-    <aside className={"flex h-full w-[260px] shrink-0 flex-col border-r border-white/[0.04] bg-[#000000]"}>
-      <div className={"flex h-16 items-center gap-2 border-b px-4 border-white/[0.04]"}>
+    <>
+      {mobileMenuOpen && (
+        <div 
+          className="fixed inset-0 z-40 bg-black/50 md:hidden" 
+          onClick={() => setMobileMenuOpen?.(false)}
+        />
+      )}
+      <aside 
+        className={[
+          "flex h-full w-[260px] shrink-0 flex-col border-r",
+          isLight ? "bg-white border-[#E5E7EB]" : "bg-[#000000] border-white/[0.04]",
+          "fixed inset-y-0 left-0 z-50 transform transition-transform duration-300 md:relative md:translate-x-0",
+          mobileMenuOpen ? "translate-x-0" : "-translate-x-full"
+        ].join(" ")}
+      >
+      <div className={["flex h-16 items-center gap-2 border-b px-4", isLight ? "border-[#E5E7EB]" : "border-white/[0.04]"].join(" ")}>
         <div
           className={[
             "flex h-9 w-9 items-center justify-center rounded-lg",
@@ -124,7 +138,7 @@ export function Sidebar() {
         </div>
         <div className="leading-tight">
           <p className={["text-[10px] font-medium uppercase tracking-[0.2em]", isLight ? "text-[#64748B]" : "text-zinc-500"].join(" ")}>Xpande Corp</p>
-          <p className={["text-sm font-bold tracking-wide", isLight ? "text-white" : "text-zinc-100"].join(" ")}>Intranet</p>
+          <p className={["text-sm font-bold tracking-wide", isLight ? "text-slate-800" : "text-zinc-100"].join(" ")}>Intranet</p>
         </div>
       </div>
 
@@ -141,7 +155,7 @@ export function Sidebar() {
                     ? "bg-[#007BFF]/12 text-[#007BFF]"
                     : "bg-[#0a2744] text-[#7AB8FF] shadow-[0_0_20px_rgba(0,123,255,0.18)]"
                   : isLight
-                    ? "text-[#94A3B8] hover:bg-white/5 hover:text-[#E2E8F0]"
+                    ? "text-slate-600 hover:bg-slate-100 hover:text-slate-900"
                     : "text-zinc-400 hover:bg-white/5 hover:text-zinc-200",
               ].join(" ")}
             >
@@ -158,8 +172,8 @@ export function Sidebar() {
         {isSuperadmin ? <NavSection title="Administración" items={admin} isLight={isLight} /> : null}
       </div>
 
-      <div className={"border-t border-white/[0.04] p-3"}>
-        <div className={["flex items-center gap-3 rounded-xl p-2", isLight ? "bg-[#1E293B]/60" : "bg-white/[0.03]"].join(" ")}>
+      <div className={["border-t p-3", isLight ? "border-[#E5E7EB]" : "border-white/[0.04]"].join(" ")}>
+        <div className={["flex items-center gap-3 rounded-xl p-2", isLight ? "bg-slate-50" : "bg-white/[0.03]"].join(" ")}>
           <div
             className={[
               "flex h-10 w-10 items-center justify-center rounded-full text-sm font-semibold",
@@ -174,7 +188,7 @@ export function Sidebar() {
               .join("")}
           </div>
           <div className="min-w-0 flex-1">
-            <p className={["truncate text-sm font-medium", isLight ? "text-[#F1F5F9]" : "text-zinc-200"].join(" ")}>
+            <p className={["truncate text-sm font-medium", isLight ? "text-slate-800" : "text-zinc-200"].join(" ")}>
               {user?.name ?? "Usuario"}
             </p>
             <p className={["text-xs", isLight ? "text-[#94A3B8]" : "text-zinc-500"].join(" ")}>
@@ -186,7 +200,7 @@ export function Sidebar() {
             onClick={() => void logout()}
             className={[
               "rounded-lg p-2 transition-colors",
-              isLight ? "text-[#94A3B8] hover:bg-white/10 hover:text-[#E2E8F0]" : "text-zinc-500 hover:bg-white/5 hover:text-zinc-300",
+              isLight ? "text-slate-500 hover:bg-slate-200 hover:text-slate-800" : "text-zinc-500 hover:bg-white/5 hover:text-zinc-300",
             ].join(" ")}
             aria-label="Cerrar sesión"
           >
@@ -195,5 +209,6 @@ export function Sidebar() {
         </div>
       </div>
     </aside>
+    </>
   );
 }

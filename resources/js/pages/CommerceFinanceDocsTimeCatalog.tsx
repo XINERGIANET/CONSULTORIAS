@@ -910,7 +910,7 @@ export function DocumentsPage() {
   );
 }
 
-type CatSlug = "financial-categories" | "currencies" | "services" | "tax-rates" | "cargos" | "tariffs" | "statuses";
+type CatSlug = "financial-categories" | "currencies" | "services" | "tax-rates" | "cargos" | "tariffs" | "statuses" | "payment-accounts";
 
 function catalogColumnTitles(cat: CatSlug): string[] {
   switch (cat) {
@@ -928,6 +928,8 @@ function catalogColumnTitles(cat: CatSlug): string[] {
       return ["ID", "Nombre", "Tipo", "Monto", "Moneda", "Área"];
     case "statuses":
       return ["ID", "Categoría", "Código", "Etiqueta", "Orden"];
+    case "payment-accounts":
+      return ["ID", "Nombre", "Tipo", "Banco", "Nro. Cuenta", "CCI", "Icono"];
     default:
       return ["ID"];
   }
@@ -996,6 +998,16 @@ function catalogRowCells(cat: CatSlug, r: Record<string, unknown>, td: string, i
         <td key="l" className={td + " font-medium"}>{String(r.label ?? "")}</td>,
         <td key="o" className={td}>{String(r.sort_order ?? "")}</td>,
       ];
+    case "payment-accounts":
+      return [
+        <td key="i" className={td + " " + mono}>{id}</td>,
+        <td key="n" className={td + " font-medium"}>{String(r.name ?? "")}</td>,
+        <td key="t" className={td}>{String(r.type ?? "")}</td>,
+        <td key="b" className={td}>{String(r.bank_name ?? "—")}</td>,
+        <td key="a" className={td}>{String(r.account_number ?? "—")}</td>,
+        <td key="cci" className={td}>{String(r.cci ?? "—")}</td>,
+        <td key="ic" className={td}>{String(r.icon ?? "—")}</td>,
+      ];
     default:
       return [<td key="x" className={td}>{id}</td>];
   }
@@ -1017,6 +1029,7 @@ export function CatalogosAdminPage() {
   interface CgRow { name: string }
   interface TfRow { name: string; rate_type: string; amount: string; currency_id: string; area_id: string }
   interface StRow { category: string; code: string; label: string; sort_order: string }
+  interface PaRow { name: string; type: string; bank_name: string; account_number: string; cci: string; currency: string; holder_name: string; icon: string; is_active: boolean }
 
   const [formFin, setFormFin] = useState<FiRow>({ name: "", type: "income" });
   const [formCur, setFormCur] = useState<CurRow>({ code: "", name: "", symbol: "" });
@@ -1025,6 +1038,7 @@ export function CatalogosAdminPage() {
   const [formCg, setFormCg] = useState<CgRow>({ name: "" });
   const [formTf, setFormTf] = useState<TfRow>({ name: "", rate_type: "hourly", amount: "", currency_id: "", area_id: "" });
   const [formSt, setFormSt] = useState<StRow>({ category: "pipeline", code: "", label: "", sort_order: "0" });
+  const [formPa, setFormPa] = useState<PaRow>({ name: "", type: "bank", bank_name: "", account_number: "", cci: "", currency: "PEN", holder_name: "", icon: "", is_active: true });
 
   const catalogUrl = (slug: CatSlug) => `/api/catalog/${slug === "statuses" ? "statuses" : slug}`;
 
@@ -1056,6 +1070,7 @@ export function CatalogosAdminPage() {
     setFormCg({ name: "" });
     setFormTf({ name: "", rate_type: "hourly", amount: "", currency_id: "", area_id: "" });
     setFormSt({ category: "pipeline", code: "", label: "", sort_order: "0" });
+    setFormPa({ name: "", type: "bank", bank_name: "", account_number: "", cci: "", currency: "PEN", holder_name: "", icon: "", is_active: true });
   };
 
   const parseId = (r: Record<string, unknown>): number => Number(r.id);
@@ -1069,6 +1084,7 @@ export function CatalogosAdminPage() {
     if (cat === "cargos") setFormCg({ name: String(r.name ?? "") });
     if (cat === "tariffs") setFormTf({ name: String(r.name ?? ""), rate_type: String(r.rate_type ?? "hourly"), amount: String(r.amount ?? ""), currency_id: r.currency_id != null ? String(r.currency_id) : "", area_id: r.area_id != null ? String(r.area_id) : "" });
     if (cat === "statuses") setFormSt({ category: String(r.category ?? "pipeline"), code: String(r.code ?? ""), label: String(r.label ?? ""), sort_order: String(r.sort_order ?? "0") });
+    if (cat === "payment-accounts") setFormPa({ name: String(r.name ?? ""), type: String(r.type ?? "bank"), bank_name: String(r.bank_name ?? ""), account_number: String(r.account_number ?? ""), cci: String(r.cci ?? ""), currency: String(r.currency ?? "PEN"), holder_name: String(r.holder_name ?? ""), icon: String(r.icon ?? ""), is_active: Boolean(r.is_active ?? true) });
     setErr(null);
     setOpen(true);
   };
@@ -1118,6 +1134,11 @@ export function CatalogosAdminPage() {
         if (!body.code || !body.label) throw new Error("Campos incompletos");
         if (editRow) await putJson(`/api/catalog/statuses/${parseId(editRow)}`, body);
         else await postJson("/api/catalog/statuses", body);
+      } else if (cat === "payment-accounts") {
+        const body = { name: formPa.name.trim(), type: formPa.type, bank_name: formPa.bank_name.trim() || null, account_number: formPa.account_number.trim() || null, cci: formPa.cci.trim() || null, currency: formPa.currency || null, holder_name: formPa.holder_name.trim() || null, icon: formPa.icon.trim() || null, is_active: formPa.is_active };
+        if (!body.name) throw new Error("Nombre");
+        if (editRow) await putJson(`/api/catalog/payment-accounts/${parseId(editRow)}`, body);
+        else await postJson("/api/catalog/payment-accounts", body);
       }
       closeModal();
       loadCatalog();
@@ -1137,6 +1158,7 @@ export function CatalogosAdminPage() {
       else if (cat === "cargos") await deleteJson(`/api/catalog/cargos/${id}`);
       else if (cat === "tariffs") await deleteJson(`/api/catalog/tariffs/${id}`);
       else if (cat === "statuses") await deleteJson(`/api/catalog/statuses/${id}`);
+      else if (cat === "payment-accounts") await deleteJson(`/api/catalog/payment-accounts/${id}`);
       loadCatalog();
     } catch {
       setErr("No se pudo actualizar.");
@@ -1151,6 +1173,7 @@ export function CatalogosAdminPage() {
     ["cargos", "Cargos"],
     ["tariffs", "Tarifas"],
     ["statuses", "Estados"],
+    ["payment-accounts", "Cuentas de pago"],
   ];
 
   return (
@@ -1345,6 +1368,57 @@ export function CatalogosAdminPage() {
               <LabField label="Código" isLight={isLight}><input className={labInputClass(isLight)} value={formSt.code} onChange={(e) => setFormSt({ ...formSt, code: e.target.value })} disabled={editRow !== null} /></LabField>
               <LabField label="Etiqueta" isLight={isLight} className="sm:col-span-2"><input className={labInputClass(isLight)} value={formSt.label} onChange={(e) => setFormSt({ ...formSt, label: e.target.value })} /></LabField>
               <LabField label="Orden" isLight={isLight} className="sm:col-span-2"><input type="number" className={labInputClass(isLight)} value={formSt.sort_order} onChange={(e) => setFormSt({ ...formSt, sort_order: e.target.value })} /></LabField>
+            </>
+          ) : null}
+          {cat === "payment-accounts" ? (
+            <>
+              <LabField label="Nombre descriptivo *" isLight={isLight} className="sm:col-span-2">
+                <input className={labInputClass(isLight)} placeholder="Ej: BCP Soles Corp" value={formPa.name} onChange={(e) => setFormPa({ ...formPa, name: e.target.value })} />
+              </LabField>
+              <LabField label="Tipo *" isLight={isLight}>
+                <SmartSelect
+                  isLight={isLight}
+                  value={formPa.type}
+                  onChange={(v) => setFormPa({ ...formPa, type: v })}
+                  options={[
+                    { value: "bank", label: "Cuenta Bancaria" },
+                    { value: "digital_wallet", label: "Billetera Digital (Yape/Plin)" },
+                    { value: "cash", label: "Efectivo" },
+                    { value: "other", label: "Otro" },
+                  ]}
+                />
+              </LabField>
+              <LabField label="Moneda" isLight={isLight}>
+                <SmartSelect
+                  isLight={isLight}
+                  value={formPa.currency}
+                  onChange={(v) => setFormPa({ ...formPa, currency: v })}
+                  options={[
+                    { value: "PEN", label: "Soles (PEN)" },
+                    { value: "USD", label: "Dólares (USD)" },
+                  ]}
+                  emptyLabel="—"
+                />
+              </LabField>
+              <LabField label="Banco / Billetera" isLight={isLight}>
+                <input className={labInputClass(isLight)} placeholder="Ej: BCP, Interbank, Yape" value={formPa.bank_name} onChange={(e) => setFormPa({ ...formPa, bank_name: e.target.value })} />
+              </LabField>
+              <LabField label="Número de Cuenta" isLight={isLight}>
+                <input className={labInputClass(isLight)} value={formPa.account_number} onChange={(e) => setFormPa({ ...formPa, account_number: e.target.value })} />
+              </LabField>
+              <LabField label="CCI" isLight={isLight}>
+                <input className={labInputClass(isLight)} value={formPa.cci} onChange={(e) => setFormPa({ ...formPa, cci: e.target.value })} />
+              </LabField>
+              <LabField label="Titular" isLight={isLight}>
+                <input className={labInputClass(isLight)} value={formPa.holder_name} onChange={(e) => setFormPa({ ...formPa, holder_name: e.target.value })} />
+              </LabField>
+              <LabField label="Icono (Lucide o texto)" isLight={isLight} className="sm:col-span-2">
+                <input className={labInputClass(isLight)} placeholder="Ej: Wallet, Landmark, Smartphone, 💰" value={formPa.icon} onChange={(e) => setFormPa({ ...formPa, icon: e.target.value })} />
+              </LabField>
+              <label className={["flex items-center gap-2 text-sm sm:col-span-2", isLight ? "text-[#374151]" : "text-zinc-200"].join(" ")}>
+                <input type="checkbox" checked={formPa.is_active} onChange={(e) => setFormPa({ ...formPa, is_active: e.target.checked })} />
+                Cuenta activa
+              </label>
             </>
           ) : null}
           {err ? <p className="sm:col-span-2 text-sm text-red-600">{err}</p> : null}

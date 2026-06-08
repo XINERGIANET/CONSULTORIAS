@@ -32,6 +32,7 @@ type PayableRow = {
 };
 
 type AreaOpt = { id: number; name: string };
+type PayAccOpt = { id: number; name: string };
 
 const TYPE_LABELS: Record<string, string> = {
   supplier: "Proveedor",
@@ -43,6 +44,7 @@ export function CuentasPorPagarPage() {
   const { isLight } = useApexTheme();
   const [rows, setRows] = useState<LaravelPaginated<PayableRow> | null>(null);
   const [areas, setAreas] = useState<AreaOpt[]>([]);
+  const [payAccs, setPayAccs] = useState<PayAccOpt[]>([]);
   const [payModal, setPayModal] = useState(false);
   const [createModal, setCreateModal] = useState(false);
   const [payRow, setPayRow] = useState<PayableRow | null>(null);
@@ -74,6 +76,7 @@ export function CuentasPorPagarPage() {
   useEffect(() => {
     load();
     void getJson<AreaOpt[]>("/api/areas", { active_only: false }).then(setAreas);
+    void getJson<PayAccOpt[]>("/api/catalog/payment-accounts?active_only=1").then(setPayAccs);
   }, []);
 
   const openPay = (r: PayableRow) => {
@@ -242,7 +245,14 @@ export function CuentasPorPagarPage() {
         <div className="grid gap-3">
           <LabField label="Monto" isLight={isLight}><input className={labInputClass(isLight)} value={payForm.amount} onChange={(e) => setPayForm({ ...payForm, amount: e.target.value })} /></LabField>
           <LabField label="Fecha real de pago" isLight={isLight}><input type="date" className={labInputClass(isLight)} value={payForm.paid_on} onChange={(e) => setPayForm({ ...payForm, paid_on: e.target.value })} /></LabField>
-          <LabField label="Método" isLight={isLight}><input className={labInputClass(isLight)} value={payForm.method} onChange={(e) => setPayForm({ ...payForm, method: e.target.value })} /></LabField>
+          <LabField label="Método" isLight={isLight}>
+            <select className={labInputClass(isLight)} value={payForm.method} onChange={(e) => setPayForm({ ...payForm, method: e.target.value })}>
+              <option value="">Seleccionar método…</option>
+              {payAccs.map((pa) => (
+                <option key={pa.id} value={pa.name}>{pa.name}</option>
+              ))}
+            </select>
+          </LabField>
           <LabField label="Referencia" isLight={isLight}><input className={labInputClass(isLight)} value={payForm.reference} onChange={(e) => setPayForm({ ...payForm, reference: e.target.value })} /></LabField>
         </div>
       </FormModal>
