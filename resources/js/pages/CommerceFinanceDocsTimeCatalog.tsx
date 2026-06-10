@@ -1,4 +1,5 @@
 import { Clock, Database, FileText, Landmark, Receipt, Trash2, Wallet } from "lucide-react";
+import { LabCircleIconAction } from "../xpande/LabTableKit";
 import { useEffect, useMemo, useState, type ReactNode } from "react";
 import { SmartSelect } from "../components/SmartSelect";
 import { useAuth } from "../context/AuthContext";
@@ -12,6 +13,33 @@ type ClientOpt = { id: number; legal_name: string };
 type ProjOpt = { id: number; name: string };
 type FinCat = { id: number; name: string; type: string };
 type CurrOpt = { id: number; code: string };
+
+const TIME_STATUS_LABELS: Record<string, string> = {
+  pending: "Pendiente",
+  approved: "Aprobado",
+  rejected: "Rechazado",
+};
+
+const DOC_TYPE_LABELS: Record<string, string> = {
+  contract: "Contrato",
+  quotation: "Cotización",
+  voucher: "Comprobante",
+  other: "Otro",
+};
+
+const BILLING_CYCLE_LABELS: Record<string, string> = {
+  monthly: "Mensual",
+  quarterly: "Trimestral",
+  annual: "Anual",
+  one_time: "Único",
+};
+
+const PAYMENT_ACCOUNT_TYPE_LABELS: Record<string, string> = {
+  bank: "Cuenta bancaria",
+  digital_wallet: "Billetera digital",
+  cash: "Efectivo",
+  other: "Otro",
+};
 
 function canApproveTimes(user: { is_superadmin?: boolean; role_slug?: string | null } | null): boolean {
   if (!user) return false;
@@ -295,9 +323,11 @@ export function FinanzasHubPage() {
                     <td className="py-2">{String(r.recorded_on ?? "")}</td>
                     <td className="py-2">{String(r.description ?? "—")}</td>
                     <td className="py-2 text-right">S/. {String(r.amount ?? "")}</td>
-                    <td className="py-2 text-right whitespace-nowrap">
-                      <button type="button" className={labGhostBtn(isLight)} onClick={() => void fillInEdit(Number(r.id))}>Editar</button>{" "}
-                      <button type="button" className={labGhostBtn(isLight)} onClick={() => void annulIn(Number(r.id))}>Anular</button>
+                    <td className="py-2 text-right align-middle">
+                      <div className="flex justify-end gap-2">
+                        <LabCircleIconAction variant="edit" tooltip="Editar" ariaLabel="Editar ingreso" onClick={() => void fillInEdit(Number(r.id))} />
+                        <LabCircleIconAction variant="cancel" tooltip="Anular" ariaLabel="Anular ingreso" onClick={() => void annulIn(Number(r.id))} />
+                      </div>
                     </td>
                   </tr>
                 ))}
@@ -322,9 +352,11 @@ export function FinanzasHubPage() {
                     <td className="py-2">{String(r.recorded_on ?? "")}</td>
                     <td className="py-2">{String(r.observation ?? "—")}</td>
                     <td className="py-2 text-right">S/. {String(r.amount ?? "")}</td>
-                    <td className="py-2 text-right whitespace-nowrap">
-                      <button type="button" className={labGhostBtn(isLight)} onClick={() => void fillOutEdit(Number(r.id))}>Editar</button>{" "}
-                      <button type="button" className={labGhostBtn(isLight)} onClick={() => void delOut(Number(r.id))}>Eliminar</button>
+                    <td className="py-2 text-right align-middle">
+                      <div className="flex justify-end gap-2">
+                        <LabCircleIconAction variant="edit" tooltip="Editar" ariaLabel="Editar gasto" onClick={() => void fillOutEdit(Number(r.id))} />
+                        <LabCircleIconAction variant="delete" tooltip="Eliminar" ariaLabel="Eliminar gasto" onClick={() => void delOut(Number(r.id))} />
+                      </div>
                     </td>
                   </tr>
                 ))}
@@ -622,16 +654,16 @@ export function TimeEntriesPage() {
                   <div className={"font-medium " + (isLight ? "text-[#111827]" : "text-white")}>{pj?.name ?? "Proyecto"}</div>
                   <div>{String(r.work_date ?? "")}</div>
                   <div>{String(r.hours ?? "")} h</div>
-                  <span className={labStatusPill(st === "approved" ? "ok" : "neutral", isLight)}>{st}</span>
-                  <div className="flex flex-wrap gap-1">
-                    <button type="button" className={labGhostBtn(isLight)} onClick={() => startEdit(r)}>Editar</button>
+                  <span className={labStatusPill(st === "approved" ? "ok" : "neutral", isLight)}>{TIME_STATUS_LABELS[st] ?? st}</span>
+                  <div className="flex flex-wrap gap-2">
+                    <LabCircleIconAction variant="edit" tooltip="Editar" ariaLabel="Editar registro" onClick={() => startEdit(r)} />
                     {canReview && st === "pending" ? (
                       <>
-                        <button type="button" className={labGhostBtn(isLight)} onClick={() => void review(Number(r.id), "approved")}>Aprobar</button>
-                        <button type="button" className={labGhostBtn(isLight)} onClick={() => void review(Number(r.id), "rejected")}>Rechazar</button>
+                        <LabCircleIconAction variant="finish" tooltip="Aprobar" ariaLabel="Aprobar registro" onClick={() => void review(Number(r.id), "approved")} />
+                        <LabCircleIconAction variant="cancel" tooltip="Rechazar" ariaLabel="Rechazar registro" onClick={() => void review(Number(r.id), "rejected")} />
                       </>
                     ) : null}
-                    <button type="button" className={labGhostBtn(isLight)} onClick={() => void del(Number(r.id))}>Borrar</button>
+                    <LabCircleIconAction variant="delete" tooltip="Borrar" ariaLabel="Borrar registro" onClick={() => void del(Number(r.id))} />
                   </div>
                 </div>
               );
@@ -799,7 +831,7 @@ export function DocumentsPage() {
                   <FileText className="h-4 w-4 shrink-0" />
                   <div>
                     <p className="font-medium">{String(d.title)}</p>
-                    <p className={isLight ? "text-[10px] text-[#6B7280]" : "text-[10px] text-zinc-500"}>{String(d.doc_type)} · v{String(d.version ?? 1)}</p>
+                    <p className={isLight ? "text-[10px] text-[#6B7280]" : "text-[10px] text-zinc-500"}>{DOC_TYPE_LABELS[String(d.doc_type)] ?? String(d.doc_type)} · v{String(d.version ?? 1)}</p>
                   </div>
                 </div>
                 <button type="button" className={labGhostBtn(isLight)} onClick={() => void remove(Number(d.id))}>
@@ -960,7 +992,7 @@ function catalogRowCells(cat: CatSlug, r: Record<string, unknown>, td: string, i
         <td key="i" className={td + " " + mono}>{id}</td>,
         <td key="n" className={td + " font-medium"}>{String(r.name ?? "")}</td>,
         <td key="k" className={td}>{r.kind === "saas" ? "SaaS" : r.kind === "product" ? "Producto" : "Servicio"}</td>,
-        <td key="bc" className={td}>{String(r.billing_cycle ?? "Sin ciclo")}</td>,
+        <td key="bc" className={td}>{BILLING_CYCLE_LABELS[String(r.billing_cycle ?? "")] ?? String(r.billing_cycle ?? "Sin ciclo")}</td>,
         <td key="bp" className={td}>{String(r.base_price ?? "Sin precio")}</td>,
         <td key="a" className={td + " text-[11px]"}>{arTxt}</td>,
       ];
@@ -1002,7 +1034,7 @@ function catalogRowCells(cat: CatSlug, r: Record<string, unknown>, td: string, i
       return [
         <td key="i" className={td + " " + mono}>{id}</td>,
         <td key="n" className={td + " font-medium"}>{String(r.name ?? "")}</td>,
-        <td key="t" className={td}>{String(r.type ?? "")}</td>,
+        <td key="t" className={td}>{PAYMENT_ACCOUNT_TYPE_LABELS[String(r.type ?? "")] ?? String(r.type ?? "")}</td>,
         <td key="b" className={td}>{String(r.bank_name ?? "—")}</td>,
         <td key="a" className={td}>{String(r.account_number ?? "—")}</td>,
         <td key="cci" className={td}>{String(r.cci ?? "—")}</td>,
@@ -1231,9 +1263,11 @@ export function CatalogosAdminPage() {
               {rows.map((r) => (
                 <tr key={parseId(r)} className={"border-t " + (isLight ? "border-[#F3F4F6]" : "border-white/[0.06]")}>
                   {catalogRowCells(cat, r, "py-2 pr-2 align-middle " + (isLight ? "text-[#111827]" : "text-zinc-200"), isLight)}
-                  <td className="py-2 text-right align-middle whitespace-nowrap">
-                    <button type="button" className={labGhostBtn(isLight)} onClick={() => startEdit(r)}>Editar</button>{" "}
-                    <button type="button" className={labGhostBtn(isLight)} onClick={() => void softDelete(r)}>Baja</button>
+                  <td className="py-2 text-right align-middle">
+                    <div className="flex justify-end gap-2">
+                      <LabCircleIconAction variant="edit" tooltip="Editar" ariaLabel="Editar ítem" onClick={() => startEdit(r)} />
+                      <LabCircleIconAction variant="cancel" tooltip="Dar de baja" ariaLabel="Dar de baja ítem" onClick={() => void softDelete(r)} />
+                    </div>
                   </td>
                 </tr>
               ))}

@@ -1,4 +1,4 @@
-import { Briefcase, Layers, Radar, TrendingUp, Search } from "lucide-react";
+import { Briefcase, ExternalLink, Layers, Radar, Search, TrendingUp } from "lucide-react";
 import { useEffect, useState } from "react";
 import { Link, useParams } from "react-router-dom";
 import { SmartSelect } from "../components/SmartSelect";
@@ -15,9 +15,33 @@ import {
   labPrimaryBtn,
   labStatusPill,
 } from "../xpande/XpandeUi";
+import { LabCircleIconAction, circleRowActionClass } from "../xpande/LabTableKit";
 import { useApexTheme } from "../context/ThemeContext";
 
 type AreaRow = { id: number; name: string; slug: string; is_active?: boolean };
+
+const PIPELINE_LABELS: Record<string, string> = {
+  lead: "Lead",
+  prospect: "Prospecto",
+  client: "Cliente",
+  active_client: "Cliente activo",
+};
+
+const ACTIVITY_TYPE_LABELS: Record<string, string> = {
+  call: "Llamada",
+  meeting: "Reunión",
+  email: "Correo",
+  visit: "Visita",
+  note: "Nota",
+};
+
+const PROJECT_ITEM_STATUS_LABELS: Record<string, string> = {
+  pending: "Pendiente",
+  active: "Activo",
+  on_hold: "En espera",
+  completed: "Completado",
+  cancelled: "Cancelado",
+};
 
 export function AreasPage() {
   const { isLight } = useApexTheme();
@@ -359,18 +383,26 @@ export function ClientsPage() {
                 {data.data.map((c) => (
                   <tr key={c.id} className={isLight ? "border-t border-[#F3F4F6]" : "border-t border-white/[0.06]"}>
                     <td className={"py-2 pr-3 font-medium " + (isLight ? "text-[#111827]" : "text-white")}>{c.legal_name}</td>
-                    <td className="py-2 pr-3">{c.pipeline_stage}</td>
+                    <td className="py-2 pr-3">{PIPELINE_LABELS[c.pipeline_stage] ?? c.pipeline_stage}</td>
                     <td className="py-2 pr-3 text-xs">{(c.areas ?? []).map((a) => a.name).join(", ")}</td>
-                    <td className="py-2 text-right whitespace-nowrap">
-                      <button type="button" className={labGhostBtn(isLight)} onClick={() => void openEditClient(c)}>
-                        Editar
-                      </button>{" "}
-                      <Link to={`/clientes/${c.id}`} className={labGhostBtn(isLight)}>
-                        CRM
-                      </Link>{" "}
-                      <button type="button" className={labGhostBtn(isLight)} onClick={() => void deactivateClient(c)}>
-                        Baja
-                      </button>
+                    <td className="py-2 text-right align-middle">
+                      <div className="flex justify-end gap-2">
+                        <LabCircleIconAction variant="edit" tooltip="Editar" ariaLabel={`Editar ${c.legal_name}`} onClick={() => void openEditClient(c)} />
+                        <span className="group relative inline-flex">
+                          <Link
+                            to={`/clientes/${c.id}`}
+                            className={[circleRowActionClass("link"), "inline-flex items-center justify-center"].join(" ")}
+                            title="Ver CRM"
+                            aria-label={`CRM ${c.legal_name}`}
+                          >
+                            <ExternalLink className="h-3.5 w-3.5 text-white" strokeWidth={2.25} aria-hidden />
+                          </Link>
+                          <span className="pointer-events-none absolute bottom-[calc(100%+6px)] left-1/2 z-40 hidden -translate-x-1/2 whitespace-nowrap rounded-md bg-neutral-900 px-2 py-1 text-[11px] font-medium leading-tight text-white shadow-lg ring-1 ring-black/40 group-hover:block">
+                            CRM
+                          </span>
+                        </span>
+                        <LabCircleIconAction variant="cancel" tooltip="Dar de baja" ariaLabel={`Dar de baja ${c.legal_name}`} onClick={() => void deactivateClient(c)} />
+                      </div>
                     </td>
                   </tr>
                 ))}
@@ -699,7 +731,7 @@ export function ClientDetailPage() {
                 <div className="flex flex-wrap items-center gap-2">
                   <span className="font-medium">{item.name ?? "Registro"}</span>
                   <span className={labStatusPill("neutral", isLight)}>{item.engagement_type === "saas" ? "SaaS" : "Proyecto"}</span>
-                  <span className="text-[11px] uppercase text-zinc-500">{item.status ?? ""}</span>
+                  <span className="text-[11px] text-zinc-500">{PROJECT_ITEM_STATUS_LABELS[item.status ?? ""] ?? item.status ?? ""}</span>
                 </div>
                 <div className="mt-1 text-[11px] text-zinc-500">
                   {(item.services ?? []).map((s) => s.name).join(", ") || "Sin productos seleccionados"}
@@ -732,7 +764,7 @@ export function ClientDetailPage() {
             {activities.slice(0, 20).map((a) => (
               <li key={a.id} className={(isLight ? "text-[#374151]" : "text-zinc-300") + " flex flex-wrap items-center justify-between gap-2"}>
                 <span>
-                  <span className={labStatusPill("neutral", isLight)}>{a.type}</span> {a.subject ?? ""}
+                  <span className={labStatusPill("neutral", isLight)}>{ACTIVITY_TYPE_LABELS[a.type] ?? a.type}</span> {a.subject ?? ""}
                 </span>
                 <button type="button" className={labGhostBtn(isLight)} onClick={() => void delActivity(a.id)}>
                   Eliminar

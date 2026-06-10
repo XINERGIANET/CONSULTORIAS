@@ -187,13 +187,20 @@ export function CuentasPorCobrarPage() {
                     </td>
                     <td className="py-2.5 text-right">
                       {r.status !== "paid" ? (
-                        <button
-                          type="button"
-                          className={labGhostBtn(isLight)}
-                          onClick={() => openPayment(r)}
-                        >
-                          <HandCoins className="h-3.5 w-3.5" /> Registrar pago
-                        </button>
+                        <span className="group relative inline-flex">
+                          <button
+                            type="button"
+                            className={["flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-white shadow-md transition-[transform,filter] hover:-translate-y-0.5 hover:brightness-110",
+                              "bg-[#16A34A] shadow-[0_2px_10px_rgba(22,163,74,0.40)] hover:bg-[#15803D]"].join(" ")}
+                            onClick={() => openPayment(r)}
+                            aria-label="Registrar pago"
+                          >
+                            <HandCoins className="h-3.5 w-3.5" strokeWidth={2.25} />
+                          </button>
+                          <span className="pointer-events-none absolute bottom-[calc(100%+6px)] left-1/2 z-40 hidden -translate-x-1/2 whitespace-nowrap rounded-md bg-neutral-900 px-2 py-1 text-[11px] font-medium leading-tight text-white shadow-lg ring-1 ring-black/40 group-hover:block">
+                            Registrar pago
+                          </span>
+                        </span>
                       ) : null}
                     </td>
                   </tr>

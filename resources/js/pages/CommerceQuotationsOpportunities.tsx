@@ -1,4 +1,5 @@
 import { FileSpreadsheet, FileText, Mail, MessageCircle } from "lucide-react";
+import { LabCircleIconAction, circleRowActionClass } from "../xpande/LabTableKit";
 import { useEffect, useState } from "react";
 import { SmartSelect } from "../components/SmartSelect";
 import { FormModal } from "../xpande/FormModal";
@@ -7,6 +8,23 @@ import { LabBreadcrumbs, LabField, LabPageHeader, labCrudMainClass, labGhostBtn,
 import { useApexTheme } from "../context/ThemeContext";
 
 type ClientOpt = { id: number; legal_name: string };
+
+const QUOTATION_STATUS_LABELS: Record<string, string> = {
+  draft: "Borrador",
+  sent: "Enviada",
+  accepted: "Aceptada",
+  rejected: "Rechazada",
+};
+
+const OPPORTUNITY_STAGE_LABELS: Record<string, string> = {
+  lead: "Lead",
+  qualified: "Calificado",
+  proposal: "Propuesta",
+  negotiation: "Negociación",
+  won: "Ganada",
+  lost: "Perdida",
+  client: "Cliente",
+};
 type CurrOpt = { id: number; code: string };
 type CollabOpt = { id: number; name: string };
 type PayAccOpt = { id: number; name: string };
@@ -233,42 +251,51 @@ export function QuotationsPage() {
                     <tr key={Number(q.id)} className={"border-t " + (isLight ? "border-[#F3F4F6]" : "border-white/[0.06]")}>
                       <td className="py-2 pr-3 font-mono text-xs">{String(q.number)}</td>
                       <td className="py-2 pr-3 text-xs">{c?.legal_name ?? "—"}</td>
-                      <td className="py-2 pr-3 text-xs capitalize">{st}</td>
+                      <td className="py-2 pr-3 text-xs">{QUOTATION_STATUS_LABELS[st] ?? st}</td>
                       <td className="py-2 pr-3 text-right text-xs">S/. {String(q.total ?? "")}</td>
-                      <td className="py-2 text-right whitespace-nowrap">
-                        <button type="button" className={labGhostBtn(isLight)} onClick={() => void loadEdit(Number(q.id))}>
-                          Editar
-                        </button>{" "}
-                        <a href={`/api/quotations/${Number(q.id)}/pdf`} target="_blank" rel="noreferrer" className={labGhostBtn(isLight)}>
-                          <FileText className="h-4 w-4" /> PDF
-                        </a>{" "}
-                        <a href={`/api/quotations/${Number(q.id)}/excel`} target="_blank" rel="noreferrer" className={labGhostBtn(isLight)}>
-                          <FileSpreadsheet className="h-4 w-4" /> Excel
-                        </a>{" "}
-                        <button type="button" className={labGhostBtn(isLight)} onClick={() => void sendWhatsapp(Number(q.id))}>
-                          <MessageCircle className="h-4 w-4" /> WhatsApp
-                        </button>{" "}
-                        <button type="button" className={labGhostBtn(isLight)} onClick={() => void sendEmail(Number(q.id))}>
-                          <Mail className="h-4 w-4" /> Correo
-                        </button>{" "}
-                        {st !== "accepted" && st !== "rejected" ? (
-                          <>
-                            <button
-                              type="button"
-                              className={labGhostBtn(isLight)}
-                              onClick={() => {
-                                setAcceptId(Number(q.id));
-                                setAcceptForm({ project_name: "", service_type: "", due_on: "", ar_notes: "", immediate_payment: false, payment_amount: "", payment_paid_on: new Date().toISOString().slice(0, 10), payment_method: "", payment_reference: "", payment_notes: "" });
-                                setErr(null);
-                              }}
-                            >
-                              Aceptar
-                            </button>{" "}
-                            <button type="button" className={labGhostBtn(isLight)} onClick={() => void rejectQuote(Number(q.id))}>
-                              Rechazar
+                      <td className="py-2 text-right align-middle">
+                        <div className="flex flex-wrap justify-end gap-2">
+                          <LabCircleIconAction variant="edit" tooltip="Editar" ariaLabel={`Editar cotización ${String(q.number)}`} onClick={() => void loadEdit(Number(q.id))} />
+                          <span className="group relative inline-flex">
+                            <a href={`/api/quotations/${Number(q.id)}/pdf`} target="_blank" rel="noreferrer" className={[circleRowActionClass("pdf"), "inline-flex items-center justify-center"].join(" ")} title="PDF" aria-label="Descargar PDF">
+                              <FileText className="h-3.5 w-3.5 text-white" strokeWidth={2.25} aria-hidden />
+                            </a>
+                            <span className="pointer-events-none absolute bottom-[calc(100%+6px)] left-1/2 z-40 hidden -translate-x-1/2 whitespace-nowrap rounded-md bg-neutral-900 px-2 py-1 text-[11px] font-medium leading-tight text-white shadow-lg ring-1 ring-black/40 group-hover:block">PDF</span>
+                          </span>
+                          <span className="group relative inline-flex">
+                            <a href={`/api/quotations/${Number(q.id)}/excel`} target="_blank" rel="noreferrer" className={[circleRowActionClass("print"), "inline-flex items-center justify-center"].join(" ")} title="Excel" aria-label="Descargar Excel">
+                              <FileSpreadsheet className="h-3.5 w-3.5 text-white" strokeWidth={2.25} aria-hidden />
+                            </a>
+                            <span className="pointer-events-none absolute bottom-[calc(100%+6px)] left-1/2 z-40 hidden -translate-x-1/2 whitespace-nowrap rounded-md bg-neutral-900 px-2 py-1 text-[11px] font-medium leading-tight text-white shadow-lg ring-1 ring-black/40 group-hover:block">Excel</span>
+                          </span>
+                          <span className="group relative inline-flex">
+                            <button type="button" className={circleRowActionClass("link")} onClick={() => void sendWhatsapp(Number(q.id))} title="WhatsApp" aria-label="Enviar WhatsApp">
+                              <MessageCircle className="h-3.5 w-3.5 text-white" strokeWidth={2.25} aria-hidden />
                             </button>
-                          </>
-                        ) : null}
+                            <span className="pointer-events-none absolute bottom-[calc(100%+6px)] left-1/2 z-40 hidden -translate-x-1/2 whitespace-nowrap rounded-md bg-neutral-900 px-2 py-1 text-[11px] font-medium leading-tight text-white shadow-lg ring-1 ring-black/40 group-hover:block">WhatsApp</span>
+                          </span>
+                          <span className="group relative inline-flex">
+                            <button type="button" className={circleRowActionClass("details")} onClick={() => void sendEmail(Number(q.id))} title="Enviar correo" aria-label="Enviar correo">
+                              <Mail className="h-3.5 w-3.5 text-white" strokeWidth={2.25} aria-hidden />
+                            </button>
+                            <span className="pointer-events-none absolute bottom-[calc(100%+6px)] left-1/2 z-40 hidden -translate-x-1/2 whitespace-nowrap rounded-md bg-neutral-900 px-2 py-1 text-[11px] font-medium leading-tight text-white shadow-lg ring-1 ring-black/40 group-hover:block">Correo</span>
+                          </span>
+                          {st !== "accepted" && st !== "rejected" ? (
+                            <>
+                              <LabCircleIconAction
+                                variant="finish"
+                                tooltip="Aceptar cotización"
+                                ariaLabel={`Aceptar cotización ${String(q.number)}`}
+                                onClick={() => {
+                                  setAcceptId(Number(q.id));
+                                  setAcceptForm({ project_name: "", service_type: "", due_on: "", ar_notes: "", immediate_payment: false, payment_amount: "", payment_paid_on: new Date().toISOString().slice(0, 10), payment_method: "", payment_reference: "", payment_notes: "" });
+                                  setErr(null);
+                                }}
+                              />
+                              <LabCircleIconAction variant="cancel" tooltip="Rechazar cotización" ariaLabel={`Rechazar cotización ${String(q.number)}`} onClick={() => void rejectQuote(Number(q.id))} />
+                            </>
+                          ) : null}
+                        </div>
                       </td>
                     </tr>
                   );
@@ -587,10 +614,12 @@ export function OpportunitiesPage() {
                     <tr key={Number(o.id)} className={"border-t " + (isLight ? "border-[#F3F4F6]" : "border-white/[0.06]")}>
                       <td className={"py-2 font-semibold " + (isLight ? "text-[#111827]" : "text-white")}>{String(o.title)}</td>
                       <td className="py-2 text-xs">{cli}</td>
-                      <td className="py-2 text-xs">{String(o.stage)}</td>
-                      <td className="py-2 text-right whitespace-nowrap">
-                        <button type="button" className={labGhostBtn(isLight)} onClick={() => openEdit(o)}>Editar</button>{" "}
-                        <button type="button" className={labGhostBtn(isLight)} onClick={() => void del(Number(o.id))}>Eliminar</button>
+                      <td className="py-2 text-xs">{OPPORTUNITY_STAGE_LABELS[String(o.stage)] ?? String(o.stage)}</td>
+                      <td className="py-2 text-right align-middle">
+                        <div className="flex justify-end gap-2">
+                          <LabCircleIconAction variant="edit" tooltip="Editar" ariaLabel={`Editar oportunidad`} onClick={() => openEdit(o)} />
+                          <LabCircleIconAction variant="delete" tooltip="Eliminar" ariaLabel={`Eliminar oportunidad`} onClick={() => void del(Number(o.id))} />
+                        </div>
                       </td>
                     </tr>
                   );

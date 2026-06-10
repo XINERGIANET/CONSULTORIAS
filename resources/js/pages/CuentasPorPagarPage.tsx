@@ -40,6 +40,14 @@ const TYPE_LABELS: Record<string, string> = {
   other: "Otro",
 };
 
+const PAYABLE_STATUS_LABELS: Record<string, string> = {
+  pending: "Pendiente",
+  partial: "Pago parcial",
+  paid: "Pagado",
+  overdue: "Vencido",
+  cancelled: "Anulado",
+};
+
 export function CuentasPorPagarPage() {
   const { isLight } = useApexTheme();
   const [rows, setRows] = useState<LaravelPaginated<PayableRow> | null>(null);
@@ -218,7 +226,7 @@ export function CuentasPorPagarPage() {
                     <td className={td}>{r.paid_on ? String(r.paid_on).slice(0, 10) : "—"}</td>
                     <td className={td}>{r.invoiced_on ? String(r.invoiced_on).slice(0, 10) : r.requires_invoice ? "Pendiente" : "N/A"}</td>
                     <td className={td}>{r.balance_amount}</td>
-                    <td className={td}>{r.status}</td>
+                    <td className={td}>{PAYABLE_STATUS_LABELS[r.status] ?? r.status}</td>
                     <td className="py-2 text-right">
                       {Number(r.balance_amount) > 0 ? (
                         <button type="button" className={labPrimaryBtn(isLight)} onClick={() => openPay(r)}>

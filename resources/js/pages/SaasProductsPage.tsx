@@ -1,4 +1,5 @@
-import { Boxes, Pencil, Plus, Power, RefreshCw } from "lucide-react";
+import { Boxes, Plus, RefreshCw } from "lucide-react";
+import { LabCircleIconAction } from "../xpande/LabTableKit";
 import { useEffect, useMemo, useState } from "react";
 import { SmartSelect } from "../components/SmartSelect";
 import { FormModal } from "../xpande/FormModal";
@@ -210,14 +211,10 @@ export function SaasProductsPage() {
                         {row.is_active === false ? "Inactivo" : "Activo"}
                       </span>
                     </td>
-                    <td className="py-3 text-right">
+                    <td className="py-3 text-right align-middle">
                       <div className="flex justify-end gap-2">
-                        <button type="button" className={labGhostBtn(isLight)} onClick={() => startEdit(row)}>
-                          <Pencil className="h-4 w-4" /> Editar
-                        </button>
-                        <button type="button" className={labGhostBtn(isLight)} onClick={() => void deactivate(row)}>
-                          <Power className="h-4 w-4" /> Baja
-                        </button>
+                        <LabCircleIconAction variant="edit" tooltip="Editar" ariaLabel={`Editar ${String(row.name ?? "")}`} onClick={() => startEdit(row)} />
+                        <LabCircleIconAction variant="cancel" tooltip="Dar de baja" ariaLabel={`Dar de baja ${String(row.name ?? "")}`} onClick={() => void deactivate(row)} />
                       </div>
                     </td>
                   </tr>
