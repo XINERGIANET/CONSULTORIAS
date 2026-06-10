@@ -107,26 +107,30 @@ export function AreasPage() {
                 <tr key={r.id} className={isLight ? "border-t border-[#F3F4F6]" : "border-t border-white/[0.06]"}>
                   <td className={"py-2 pr-3 font-medium " + (isLight ? "text-[#111827]" : "text-zinc-100")}>{r.name}</td>
                   <td className="py-2 pr-3">{r.slug}</td>
-                  <td className="py-2 text-right">
-                    <button
-                      type="button"
-                      className={labGhostBtn(isLight)}
-                      onClick={() => {
-                        setEdit(r);
-                        setForm({
-                          name: r.name,
-                          slug: r.slug,
-                          description: typeof (r as { description?: unknown }).description === "string" ? String((r as { description?: string }).description) : "",
-                          is_active: r.is_active ?? true,
-                        });
-                        setOpen(true);
-                      }}
-                    >
-                      Editar
-                    </button>{" "}
-                    <button type="button" className={labGhostBtn(isLight)} onClick={() => void disable(r)}>
-                      Desactivar
-                    </button>
+                  <td className="py-2 text-right align-middle">
+                    <div className="flex justify-end gap-2">
+                      <LabCircleIconAction
+                        variant="edit"
+                        tooltip="Editar"
+                        ariaLabel={`Editar ${r.name}`}
+                        onClick={() => {
+                          setEdit(r);
+                          setForm({
+                            name: r.name,
+                            slug: r.slug,
+                            description: typeof (r as { description?: unknown }).description === "string" ? String((r as { description?: string }).description) : "",
+                            is_active: r.is_active ?? true,
+                          });
+                          setOpen(true);
+                        }}
+                      />
+                      <LabCircleIconAction
+                        variant="cancel"
+                        tooltip="Desactivar"
+                        ariaLabel={`Desactivar ${r.name}`}
+                        onClick={() => void disable(r)}
+                      />
+                    </div>
                   </td>
                 </tr>
               ))}
