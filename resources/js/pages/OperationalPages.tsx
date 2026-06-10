@@ -21,7 +21,7 @@ import { useApexTheme } from "../context/ThemeContext";
 type AreaRow = { id: number; name: string; slug: string; is_active?: boolean };
 
 const PIPELINE_LABELS: Record<string, string> = {
-  lead: "Lead",
+  lead: "Contacto",
   prospect: "Prospecto",
   client: "Cliente",
   active_client: "Cliente activo",
@@ -463,7 +463,7 @@ export function ClientsPage() {
               value={form.pipeline_stage}
               onChange={(v) => setForm({ ...form, pipeline_stage: v })}
               options={[
-                { value: "lead", label: "Lead" },
+                { value: "lead", label: "Contacto" },
                 { value: "prospect", label: "Prospecto" },
                 { value: "active_client", label: "Cliente activo" },
               ]}

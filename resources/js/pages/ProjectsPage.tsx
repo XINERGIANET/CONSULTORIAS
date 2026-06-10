@@ -795,7 +795,7 @@ export function ProjectsPage() {
               value={clientForm.pipeline_stage}
               onChange={(v) => setClientForm({ ...clientForm, pipeline_stage: v })}
               options={[
-                { value: "lead", label: "Lead" },
+                { value: "lead", label: "Contacto" },
                 { value: "prospect", label: "Prospecto" },
                 { value: "active_client", label: "Cliente activo" },
               ]}

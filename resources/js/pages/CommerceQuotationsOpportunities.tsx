@@ -17,7 +17,7 @@ const QUOTATION_STATUS_LABELS: Record<string, string> = {
 };
 
 const OPPORTUNITY_STAGE_LABELS: Record<string, string> = {
-  lead: "Lead",
+  lead: "Contacto",
   qualified: "Calificado",
   proposal: "Propuesta",
   negotiation: "Negociación",
@@ -672,7 +672,7 @@ export function OpportunitiesPage() {
               value={form.stage}
               onChange={(v) => setForm({ ...form, stage: v })}
               options={[
-                { value: "lead", label: "Lead" },
+                { value: "lead", label: "Contacto" },
                 { value: "qualified", label: "Calificado" },
                 { value: "proposal", label: "Propuesta" },
                 { value: "negotiation", label: "Negociación" },
