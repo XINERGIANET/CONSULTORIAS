@@ -27,6 +27,7 @@ use App\Http\Controllers\Api\StatusCatalogController;
 use App\Http\Controllers\Api\TariffConfigController;
 use App\Http\Controllers\Api\TaxRateController;
 use App\Http\Controllers\Api\TimeEntryController;
+use App\Http\Controllers\Api\NotificationController;
 use App\Http\Controllers\Api\UserManagementController;
 use App\Http\Controllers\DashboardController;
 use Illuminate\Support\Facades\Route;
@@ -40,6 +41,7 @@ Route::middleware('guest')->group(function (): void {
 Route::middleware('auth')->group(function (): void {
     Route::post('/api/auth/logout', [AuthController::class, 'logout']);
     Route::get('/api/auth/me', [AuthController::class, 'me']);
+    Route::get('/api/notifications', [NotificationController::class, 'index']);
 
     $spaUi = DashboardController::class;
 
