@@ -42,7 +42,6 @@ type ProjRow = {
   service_type?: string | null;
   start_date?: string | null;
   end_estimated?: string | null;
-  subscription_status?: string | null;
   renewal_date?: string | null;
   description?: string | null;
   objectives?: string | null;
@@ -93,7 +92,6 @@ export function ProjectsPage() {
     start_date: "",
     end_estimated: "",
     status: "pending",
-    subscription_status: "active",
     renewal_date: "",
     budget: "",
     lead_user_id: "" as "" | number,
@@ -156,7 +154,6 @@ export function ProjectsPage() {
         start_date: "",
         end_estimated: "",
         status: "pending",
-        subscription_status: "active",
         renewal_date: "",
         budget: "",
         lead_user_id: "",
@@ -209,7 +206,6 @@ export function ProjectsPage() {
         start_date: p.start_date ?? "",
         end_estimated: p.end_estimated ?? "",
         status: p.status,
-        subscription_status: p.subscription_status ?? "active",
         renewal_date: p.renewal_date ?? "",
         budget: p.budget ?? "",
         lead_user_id: p.lead_user_id ?? "",
@@ -232,6 +228,14 @@ export function ProjectsPage() {
       setModalErr("Nombre, cliente y al menos un área son obligatorios.");
       return;
     }
+    if (!editId && (!form.start_date || !form.end_estimated || !form.budget || Number(form.budget) <= 0)) {
+      setModalErr("Inicio, fin estimado y presupuesto son obligatorios para generar las cuentas por cobrar.");
+      return;
+    }
+    if (form.start_date && form.end_estimated && form.end_estimated < form.start_date) {
+      setModalErr("La fecha de fin estimado no puede ser anterior a la fecha de inicio.");
+      return;
+    }
     try {
       const body: Record<string, unknown> = {
         client_id: form.client_id,
@@ -241,7 +245,6 @@ export function ProjectsPage() {
         start_date: form.start_date || null,
         end_estimated: form.end_estimated || null,
         status: form.status,
-        subscription_status: form.engagement_type === "saas" ? form.subscription_status || null : null,
         renewal_date: form.engagement_type === "saas" ? form.renewal_date || null : null,
         budget: form.budget ? Number(form.budget) : null,
         lead_user_id: form.lead_user_id === "" ? null : form.lead_user_id,
@@ -637,33 +640,18 @@ export function ProjectsPage() {
               ]}
             />
           </LabField>
-          <LabField label="Inicio" isLight={isLight}>
+          <LabField label="Inicio *" isLight={isLight}>
             <input type="date" className={labInputClass(isLight)} value={form.start_date} onChange={(e) => setForm({ ...form, start_date: e.target.value })} />
           </LabField>
-          <LabField label="Fin estimado" isLight={isLight}>
+          <LabField label="Fin estimado *" isLight={isLight}>
             <input type="date" className={labInputClass(isLight)} value={form.end_estimated} onChange={(e) => setForm({ ...form, end_estimated: e.target.value })} />
           </LabField>
           {form.engagement_type === "saas" ? (
-            <>
-              <LabField label="Estado SaaS" isLight={isLight}>
-                <SmartSelect
-                  isLight={isLight}
-                  value={form.subscription_status}
-                  onChange={(v) => setForm({ ...form, subscription_status: v })}
-                  options={[
-                    { value: "trial", label: "Prueba" },
-                    { value: "active", label: "Activo" },
-                    { value: "paused", label: "Pausado" },
-                    { value: "cancelled", label: "Cancelado" },
-                  ]}
-                />
-              </LabField>
-              <LabField label="Renovacion" isLight={isLight}>
-                <input type="date" className={labInputClass(isLight)} value={form.renewal_date} onChange={(e) => setForm({ ...form, renewal_date: e.target.value })} />
-              </LabField>
-            </>
+            <LabField label="Renovacion" isLight={isLight}>
+              <input type="date" className={labInputClass(isLight)} value={form.renewal_date} onChange={(e) => setForm({ ...form, renewal_date: e.target.value })} />
+            </LabField>
           ) : null}
-          <LabField label="Presupuesto" isLight={isLight}>
+          <LabField label="Presupuesto *" isLight={isLight}>
             <input type="number" step="0.01" className={labInputClass(isLight)} value={form.budget} onChange={(e) => setForm({ ...form, budget: e.target.value })} />
           </LabField>
           <LabField label="Responsable" isLight={isLight}>
