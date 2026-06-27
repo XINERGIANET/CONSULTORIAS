@@ -382,6 +382,10 @@ export function ProjectsPage() {
       setClientErr("La razón social es obligatoria.");
       return;
     }
+    if (clientForm.representative_name.trim() && (!clientForm.representative_position.trim() || !clientForm.representative_phone.trim())) {
+      setClientErr("El cargo y el teléfono del representante son obligatorios.");
+      return;
+    }
     try {
       const saved = await postJson<{ id: number; legal_name: string }>("/api/clients", {
         legal_name: clientForm.legal_name,

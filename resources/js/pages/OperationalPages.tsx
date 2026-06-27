@@ -275,6 +275,10 @@ export function ClientsPage() {
 
   const save = async () => {
     setErr(null);
+    if (form.representative_name.trim() && (!form.representative_position.trim() || !form.representative_phone.trim())) {
+      setErr("El cargo y el teléfono del representante son obligatorios.");
+      return;
+    }
     try {
       const clientBody: Record<string, unknown> = {
         legal_name: form.legal_name,
@@ -583,15 +587,15 @@ export function ClientDetailPage() {
 
   const saveContact = async () => {
     setErr(null);
-    if (!cf.name.trim()) {
-      setErr("Nombre del contacto requerido.");
+    if (!cf.name.trim() || !cf.position.trim() || !cf.phone.trim()) {
+      setErr("Nombre, cargo y teléfono son obligatorios.");
       return;
     }
     try {
       await postJson(`/api/clients/${cid}/contacts`, {
         name: cf.name.trim(),
-        position: cf.position.trim() || null,
-        phone: cf.phone.trim() || null,
+        position: cf.position.trim(),
+        phone: cf.phone.trim(),
         email: cf.email.trim() || null,
         observations: cf.observations.trim() || null,
       });
@@ -818,9 +822,9 @@ export function ClientDetailPage() {
         }
       >
         <div className="grid gap-3">
-          <LabField label="Nombre *" isLight={isLight}><input className={labInputClass(isLight)} value={cf.name} onChange={(e) => setCf({ ...cf, name: e.target.value })} /></LabField>
-          <LabField label="Cargo" isLight={isLight}><input className={labInputClass(isLight)} value={cf.position} onChange={(e) => setCf({ ...cf, position: e.target.value })} /></LabField>
-          <LabField label="Teléfono" isLight={isLight}><input className={labInputClass(isLight)} value={cf.phone} onChange={(e) => setCf({ ...cf, phone: e.target.value })} /></LabField>
+          <LabField label="Nombre *" isLight={isLight}><input required className={labInputClass(isLight)} value={cf.name} onChange={(e) => setCf({ ...cf, name: e.target.value })} /></LabField>
+          <LabField label="Cargo *" isLight={isLight}><input required className={labInputClass(isLight)} value={cf.position} onChange={(e) => setCf({ ...cf, position: e.target.value })} /></LabField>
+          <LabField label="Teléfono *" isLight={isLight}><input required type="tel" className={labInputClass(isLight)} value={cf.phone} onChange={(e) => setCf({ ...cf, phone: e.target.value })} /></LabField>
           <LabField label="Email" isLight={isLight}><input className={labInputClass(isLight)} value={cf.email} onChange={(e) => setCf({ ...cf, email: e.target.value })} /></LabField>
           <LabField label="Observaciones" isLight={isLight}><textarea className={labInputClass(isLight)} rows={2} value={cf.observations} onChange={(e) => setCf({ ...cf, observations: e.target.value })} /></LabField>
           {err ? <p className="text-sm text-red-600">{err}</p> : null}
