@@ -32,7 +32,7 @@ type PayableRow = {
 };
 
 type AreaOpt = { id: number; name: string };
-type PayAccOpt = { id: number; name: string };
+type PaymentMethodOpt = { id: number; code: string; name: string };
 
 const TYPE_LABELS: Record<string, string> = {
   supplier: "Proveedor",
@@ -52,7 +52,7 @@ export function CuentasPorPagarPage() {
   const { isLight } = useApexTheme();
   const [rows, setRows] = useState<LaravelPaginated<PayableRow> | null>(null);
   const [areas, setAreas] = useState<AreaOpt[]>([]);
-  const [payAccs, setPayAccs] = useState<PayAccOpt[]>([]);
+  const [paymentMethods, setPaymentMethods] = useState<PaymentMethodOpt[]>([]);
   const [payModal, setPayModal] = useState(false);
   const [createModal, setCreateModal] = useState(false);
   const [payRow, setPayRow] = useState<PayableRow | null>(null);
@@ -84,7 +84,7 @@ export function CuentasPorPagarPage() {
   useEffect(() => {
     load();
     void getJson<AreaOpt[]>("/api/areas", { active_only: false }).then(setAreas);
-    void getJson<PayAccOpt[]>("/api/catalog/payment-accounts?active_only=1").then(setPayAccs);
+    void getJson<PaymentMethodOpt[]>("/api/catalog/payment-methods", { active_only: true }).then(setPaymentMethods);
   }, []);
 
   const openPay = (r: PayableRow) => {
@@ -256,8 +256,8 @@ export function CuentasPorPagarPage() {
           <LabField label="Método" isLight={isLight}>
             <select className={labInputClass(isLight)} value={payForm.method} onChange={(e) => setPayForm({ ...payForm, method: e.target.value })}>
               <option value="">Seleccionar método…</option>
-              {payAccs.map((pa) => (
-                <option key={pa.id} value={pa.name}>{pa.name}</option>
+              {paymentMethods.map((pm) => (
+                <option key={pm.id} value={pm.name}>{pm.name}</option>
               ))}
             </select>
           </LabField>

@@ -15,12 +15,14 @@ class Project extends Model
         'name',
         'service_type',
         'start_date',
+        'payment_start_date',
         'end_estimated',
         'end_actual',
         'status',
         'subscription_status',
         'renewal_date',
         'budget',
+        'billing_type',
         'lead_user_id',
         'description',
         'objectives',
@@ -31,6 +33,7 @@ class Project extends Model
     {
         return [
             'start_date' => 'date',
+            'payment_start_date' => 'date',
             'end_estimated' => 'date',
             'end_actual' => 'date',
             'renewal_date' => 'date',

@@ -21,6 +21,8 @@ class Client extends Model
         'industry',
         'rubro',
         'pipeline_stage',
+        'presentation_date',
+        'tentative_response_date',
         'is_active',
         'deactivation_reason',
         'deactivated_at',
@@ -33,6 +35,8 @@ class Client extends Model
         return [
             'is_active' => 'boolean',
             'deactivated_at' => 'datetime',
+            'presentation_date' => 'date',
+            'tentative_response_date' => 'date',
         ];
     }
 

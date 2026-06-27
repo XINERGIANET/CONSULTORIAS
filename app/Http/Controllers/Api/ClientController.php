@@ -38,16 +38,24 @@ class ClientController extends Controller
     {
         $this->assertClientScope($request, $client);
 
+        $user = $request->user();
+
         return response()->json($client->load([
             'areas',
             'locations',
             'contacts.area',
             'crmActivities' => fn ($r) => $r->orderByDesc('occurred_at')->limit(100),
             'opportunities',
-            'projects' => fn ($r) => $r->with(['areas:id,name', 'services:id,name,kind,billing_cycle,base_price'])
-                ->where('status', '!=', 'cancelled')
-                ->orderByDesc('id')
-                ->limit(50),
+            'projects' => function ($r) use ($user) {
+                $r->with(['areas:id,name', 'services:id,name,kind,billing_cycle,base_price'])
+                    ->where('status', '!=', 'cancelled')
+                    ->orderByDesc('id')
+                    ->limit(50);
+                if (!\App\Support\AreaVisibility::canSeeAll($user)) {
+                    $ids = \App\Support\AreaVisibility::userAreaIds($user);
+                    $r->whereHas('areas', fn ($b) => $b->whereIn('areas.id', $ids));
+                }
+            },
         ]));
     }
 
@@ -66,6 +74,8 @@ class ClientController extends Controller
             'industry' => ['nullable', 'string', 'max:255'],
             'rubro' => ['nullable', 'string', 'max:255'],
             'pipeline_stage' => ['nullable', 'string', 'in:lead,prospect,active_client'],
+            'presentation_date' => ['nullable', 'date'],
+            'tentative_response_date' => ['nullable', 'date'],
             'is_active' => ['sometimes', 'boolean'],
             'notes' => ['nullable', 'string'],
             'billing' => ['sometimes', 'array'],
@@ -124,6 +134,8 @@ class ClientController extends Controller
             'industry' => ['nullable', 'string', 'max:255'],
             'rubro' => ['nullable', 'string', 'max:255'],
             'pipeline_stage' => ['nullable', 'string', 'in:lead,prospect,active_client'],
+            'presentation_date' => ['nullable', 'date'],
+            'tentative_response_date' => ['nullable', 'date'],
             'is_active' => ['sometimes', 'boolean'],
             'notes' => ['nullable', 'string'],
             'billing' => ['sometimes', 'array'],

@@ -28,7 +28,6 @@ const OPPORTUNITY_STAGE_LABELS: Record<string, string> = {
 };
 type CurrOpt = { id: number; code: string };
 type CollabOpt = { id: number; name: string };
-type PayAccOpt = { id: number; name: string };
 type PaymentMethodOpt = { id: number; code: string; name: string };
 
 type QLineUI = { description: string; quantity: string; unit_price: string };
@@ -38,7 +37,6 @@ export function QuotationsPage() {
   const [rows, setRows] = useState<LaravelPaginated<Record<string, unknown>> | null>(null);
   const [clients, setClients] = useState<ClientOpt[]>([]);
   const [currencies, setCurrencies] = useState<CurrOpt[]>([]);
-  const [payAccs, setPayAccs] = useState<PayAccOpt[]>([]);
   const [paymentMethods, setPaymentMethods] = useState<PaymentMethodOpt[]>([]);
   const [open, setOpen] = useState(false);
   const [acceptId, setAcceptId] = useState<number | null>(null);
@@ -74,7 +72,6 @@ export function QuotationsPage() {
     load();
     void getJson<LaravelPaginated<ClientOpt>>("/api/clients", { per_page: 120 }).then((r) => setClients(r.data));
     void getJson<CurrOpt[]>("/api/catalog/currencies").then(setCurrencies);
-    void getJson<PayAccOpt[]>("/api/catalog/payment-accounts?active_only=1").then(setPayAccs);
     void getJson<PaymentMethodOpt[]>("/api/catalog/payment-methods", { active_only: true }).then(setPaymentMethods);
   }, []);
 
@@ -461,16 +458,13 @@ export function QuotationsPage() {
                   isLight={isLight}
                   value={acceptForm.payment_method}
                   onChange={(v) => setAcceptForm({ ...acceptForm, payment_method: v })}
-                  options={[
-                    ...paymentMethods.map((method) => ({ value: method.name, label: method.name })),
-                    ...payAccs.filter((pa) => !paymentMethods.some((method) => method.name === pa.name)).map((pa) => ({ value: pa.name, label: pa.name })),
-                  ]}
+                  options={paymentMethods.map((method) => ({ value: method.name, label: method.name }))}
                   emptyLabel="Seleccionar metodo..."
                 />
                 <div className="hidden">
                 <select className={labInputClass(isLight)} value={acceptForm.payment_method} onChange={(e) => setAcceptForm({ ...acceptForm, payment_method: e.target.value })}>
                   <option value="">Seleccionar método…</option>
-                  {payAccs.map((pa) => (
+                  {paymentMethods.map((pa) => (
                     <option key={pa.id} value={pa.name}>{pa.name}</option>
                   ))}
                 </select>

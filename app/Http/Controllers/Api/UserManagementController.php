@@ -72,6 +72,12 @@ class UserManagementController extends Controller
             'permissions.*' => ['nullable', 'boolean'],
         ]);
 
+        if (isset($data['is_superadmin']) && $data['is_superadmin']) {
+            return response()->json([
+                'message' => 'No está permitido crear nuevos usuarios superadministradores.',
+            ], 422);
+        }
+
         $user = DB::transaction(function () use ($data) {
             $areaIds = $data['area_ids'] ?? [];
             $projectIds = $data['project_ids'] ?? [];
@@ -124,6 +130,12 @@ class UserManagementController extends Controller
             'permissions' => ['sometimes', 'array'],
             'permissions.*' => ['nullable', 'boolean'],
         ]);
+
+        if (isset($data['is_superadmin']) && $data['is_superadmin'] && !$user->is_superadmin) {
+            return response()->json([
+                'message' => 'No está permitido promover usuarios a superadministrador.',
+            ], 422);
+        }
 
         if (array_key_exists('is_superadmin', $data) && $user->is_superadmin && ! $data['is_superadmin']) {
             $superadmins = User::query()->where('is_superadmin', true)->count();

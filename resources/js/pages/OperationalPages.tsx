@@ -188,6 +188,8 @@ const emptyClientForm = () => ({
   address: "",
   rubro: "",
   pipeline_stage: "lead",
+  presentation_date: "",
+  tentative_response_date: "",
   representative_contact_id: null as number | null,
   representative_name: "",
   representative_phone: "",
@@ -236,7 +238,7 @@ export function ClientsPage() {
   const openEditClient = async (c: ClientLite) => {
     setErr(null);
     try {
-      const full = await getJson<{ legal_name?: string; trade_name?: string | null; ruc?: string | null; address?: string | null; rubro?: string | null; pipeline_stage?: string; contacts?: CrmContact[] }>(`/api/clients/${c.id}`);
+      const full = await getJson<{ legal_name?: string; trade_name?: string | null; ruc?: string | null; address?: string | null; rubro?: string | null; pipeline_stage?: string; presentation_date?: string | null; tentative_response_date?: string | null; contacts?: CrmContact[] }>(`/api/clients/${c.id}`);
       const representative = full.contacts?.[0] ?? null;
       setForm({
         legal_name: full.legal_name ?? c.legal_name,
@@ -245,6 +247,8 @@ export function ClientsPage() {
         address: full.address ?? "",
         rubro: full.rubro ?? "",
         pipeline_stage: full.pipeline_stage ?? c.pipeline_stage,
+        presentation_date: full.presentation_date ? String(full.presentation_date).slice(0, 10) : "",
+        tentative_response_date: full.tentative_response_date ? String(full.tentative_response_date).slice(0, 10) : "",
         representative_contact_id: representative?.id ?? null,
         representative_name: representative?.name ?? "",
         representative_phone: representative?.phone ?? "",
@@ -314,6 +318,8 @@ export function ClientsPage() {
         address: form.address,
         rubro: form.rubro,
         pipeline_stage: form.pipeline_stage,
+        presentation_date: form.pipeline_stage === "prospect" ? form.presentation_date || null : null,
+        tentative_response_date: form.pipeline_stage === "prospect" ? form.tentative_response_date || null : null,
         is_active: form.pipeline_stage === "active_client",
       };
       if (form.billing_activate && form.pipeline_stage === "active_client" && form.billing_area_id !== "" && form.billing_total) {
@@ -552,6 +558,16 @@ export function ClientsPage() {
           <LabField label="Rubro" isLight={isLight}>
             <input className={labInputClass(isLight)} value={form.rubro} onChange={(e) => setForm({ ...form, rubro: e.target.value })} />
           </LabField>
+          {form.pipeline_stage === "prospect" ? (
+            <>
+              <LabField label="Fecha de presentación" isLight={isLight}>
+                <input type="date" className={labInputClass(isLight)} value={form.presentation_date} onChange={(e) => setForm({ ...form, presentation_date: e.target.value })} />
+              </LabField>
+              <LabField label="Fecha tentativa de respuesta" isLight={isLight}>
+                <input type="date" className={labInputClass(isLight)} value={form.tentative_response_date} onChange={(e) => setForm({ ...form, tentative_response_date: e.target.value })} />
+              </LabField>
+            </>
+          ) : null}
           {form.pipeline_stage === "active_client" ? (
             <div className={"sm:col-span-2 rounded-xl border p-4 " + (isLight ? "border-[#E5E7EB] bg-[#F9FAFB]" : "border-white/[0.06] bg-[#0a0a0a]/50")}>
               <label className={["mb-3 flex items-center gap-2 text-sm font-semibold", isLight ? "text-[#111827]" : "text-zinc-100"].join(" ")}>
@@ -801,6 +817,23 @@ export function ClientDetailPage() {
         }
       />
       {err ? <p className="mb-4 text-sm text-red-600">{err}</p> : null}
+
+      {asRec.pipeline_stage === "prospect" && (asRec.presentation_date || asRec.tentative_response_date) ? (
+        <div className={["mb-4 p-4 rounded-xl border flex flex-wrap gap-6 text-sm font-medium", isLight ? "border-[#E5E7EB] bg-[#F9FAFB] text-[#374151]" : "border-white/[0.06] bg-[#0a0a0a]/50 text-zinc-300"].join(" ")}>
+          {asRec.presentation_date ? (
+            <div>
+              <span className="text-xs uppercase text-zinc-500 block">Fecha de presentación</span>
+              <span>{String(asRec.presentation_date).slice(0, 10)}</span>
+            </div>
+          ) : null}
+          {asRec.tentative_response_date ? (
+            <div>
+              <span className="text-xs uppercase text-zinc-500 block">Fecha tentativa de respuesta</span>
+              <span>{String(asRec.tentative_response_date).slice(0, 10)}</span>
+            </div>
+          ) : null}
+        </div>
+      ) : null}
 
       <div className="grid gap-4 lg:grid-cols-2">
         <section className={labPanelClass(isLight)}>
