@@ -2,6 +2,7 @@ import { HandCoins } from "lucide-react";
 import { useEffect, useState } from "react";
 import { FormModal } from "../xpande/FormModal";
 import { getJson, postJson, type LaravelPaginated } from "../xpande/http";
+import { SmartSelect } from "../components/SmartSelect";
 import {
   LabBreadcrumbs,
   LabField,
@@ -253,16 +254,13 @@ export function CuentasPorCobrarPage() {
             />
           </LabField>
           <LabField label="Método de pago" isLight={isLight}>
-            <select
-              className={labInputClass(isLight)}
+            <SmartSelect
+              isLight={isLight}
               value={payForm.method}
-              onChange={(e) => setPayForm({ ...payForm, method: e.target.value })}
-            >
-              <option value="">Seleccionar método…</option>
-              {paymentMethods.map((pm) => (
-                <option key={pm.id} value={pm.name}>{pm.name}</option>
-              ))}
-            </select>
+              onChange={(v) => setPayForm({ ...payForm, method: v })}
+              options={paymentMethods.map((pm) => ({ value: pm.name, label: pm.name }))}
+              emptyLabel="Seleccionar método…"
+            />
           </LabField>
           <LabField label="Referencia / Nro. operación" isLight={isLight}>
             <input

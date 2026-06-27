@@ -3,6 +3,7 @@ import { useEffect, useState } from "react";
 import { FormModal } from "../xpande/FormModal";
 import { LabNoticeModal } from "../xpande/LabTableKit";
 import { getJson, postJson, type LaravelPaginated } from "../xpande/http";
+import { SmartSelect } from "../components/SmartSelect";
 import {
   LabBreadcrumbs,
   LabField,
@@ -177,12 +178,13 @@ export function CuentasPorPagarPage() {
 
       <div className={`mb-4 grid gap-3 rounded-xl border p-4 sm:grid-cols-4 ${isLight ? "border-[#E5E7EB] bg-white" : "border-white/[0.06] bg-[#121212]"}`}>
         <LabField label="Área planilla" isLight={isLight}>
-          <select className={labInputClass(isLight)} value={payrollForm.area_id === "" ? "" : String(payrollForm.area_id)} onChange={(e) => setPayrollForm({ ...payrollForm, area_id: e.target.value ? Number(e.target.value) : "" })}>
-            <option value="">Seleccionar…</option>
-            {areas.map((a) => (
-              <option key={a.id} value={a.id}>{a.name}</option>
-            ))}
-          </select>
+          <SmartSelect
+            isLight={isLight}
+            value={payrollForm.area_id === "" ? "" : String(payrollForm.area_id)}
+            onChange={(v) => setPayrollForm({ ...payrollForm, area_id: v ? Number(v) : "" })}
+            options={areas.map((a) => ({ value: a.id, label: a.name }))}
+            emptyLabel="Seleccionar…"
+          />
         </LabField>
         <LabField label="Año" isLight={isLight}>
           <input type="number" className={labInputClass(isLight)} value={payrollForm.period_year} onChange={(e) => setPayrollForm({ ...payrollForm, period_year: Number(e.target.value) })} />
@@ -254,12 +256,13 @@ export function CuentasPorPagarPage() {
           <LabField label="Monto" isLight={isLight}><input className={labInputClass(isLight)} value={payForm.amount} onChange={(e) => setPayForm({ ...payForm, amount: e.target.value })} /></LabField>
           <LabField label="Fecha real de pago" isLight={isLight}><input type="date" className={labInputClass(isLight)} value={payForm.paid_on} onChange={(e) => setPayForm({ ...payForm, paid_on: e.target.value })} /></LabField>
           <LabField label="Método" isLight={isLight}>
-            <select className={labInputClass(isLight)} value={payForm.method} onChange={(e) => setPayForm({ ...payForm, method: e.target.value })}>
-              <option value="">Seleccionar método…</option>
-              {paymentMethods.map((pm) => (
-                <option key={pm.id} value={pm.name}>{pm.name}</option>
-              ))}
-            </select>
+            <SmartSelect
+              isLight={isLight}
+              value={payForm.method}
+              onChange={(v) => setPayForm({ ...payForm, method: v })}
+              options={paymentMethods.map((pm) => ({ value: pm.name, label: pm.name }))}
+              emptyLabel="Seleccionar método…"
+            />
           </LabField>
           <LabField label="Referencia" isLight={isLight}><input className={labInputClass(isLight)} value={payForm.reference} onChange={(e) => setPayForm({ ...payForm, reference: e.target.value })} /></LabField>
         </div>
@@ -273,18 +276,26 @@ export function CuentasPorPagarPage() {
       }>
         <div className="grid gap-3 sm:grid-cols-2">
           <LabField label="Tipo" isLight={isLight}>
-            <select className={labInputClass(isLight)} value={newForm.payable_type} onChange={(e) => setNewForm({ ...newForm, payable_type: e.target.value })}>
-              <option value="supplier">Proveedor</option>
-              <option value="payroll">Planilla / practicante</option>
-              <option value="other">Otro</option>
-            </select>
+            <SmartSelect
+              isLight={isLight}
+              value={newForm.payable_type}
+              onChange={(v) => setNewForm({ ...newForm, payable_type: v })}
+              options={[
+                { value: "supplier", label: "Proveedor" },
+                { value: "payroll", label: "Planilla / practicante" },
+                { value: "other", label: "Otro" },
+              ]}
+            />
           </LabField>
           <LabField label="Proveedor / referencia" isLight={isLight}><input className={labInputClass(isLight)} value={newForm.vendor_name} onChange={(e) => setNewForm({ ...newForm, vendor_name: e.target.value })} /></LabField>
           <LabField label="Área" isLight={isLight}>
-            <select className={labInputClass(isLight)} value={newForm.area_id === "" ? "" : String(newForm.area_id)} onChange={(e) => setNewForm({ ...newForm, area_id: e.target.value ? Number(e.target.value) : "" })}>
-              <option value="">Seleccionar…</option>
-              {areas.map((a) => (<option key={a.id} value={a.id}>{a.name}</option>))}
-            </select>
+            <SmartSelect
+              isLight={isLight}
+              value={newForm.area_id === "" ? "" : String(newForm.area_id)}
+              onChange={(v) => setNewForm({ ...newForm, area_id: v ? Number(v) : "" })}
+              options={areas.map((a) => ({ value: a.id, label: a.name }))}
+              emptyLabel="Seleccionar…"
+            />
           </LabField>
           <LabField label="Monto" isLight={isLight}><input type="number" step="0.01" className={labInputClass(isLight)} value={newForm.total_amount} onChange={(e) => setNewForm({ ...newForm, total_amount: e.target.value })} /></LabField>
           <LabField label="Vencimiento proyectado" isLight={isLight}><input type="date" className={labInputClass(isLight)} value={newForm.projected_due_on} onChange={(e) => setNewForm({ ...newForm, projected_due_on: e.target.value })} /></LabField>

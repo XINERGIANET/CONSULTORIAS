@@ -495,11 +495,16 @@ export function FinanzasHubPage() {
               {outForm.schedule_payable ? (
                 <div className="mt-2 grid gap-2 sm:grid-cols-2">
                   <LabField label="Tipo" isLight={isLight}>
-                    <select className={labInputClass(isLight)} value={outForm.payable_type} onChange={(e) => setOutForm({ ...outForm, payable_type: e.target.value })}>
-                      <option value="supplier">Proveedor</option>
-                      <option value="payroll">Planilla</option>
-                      <option value="other">Otro</option>
-                    </select>
+                    <SmartSelect
+                      isLight={isLight}
+                      value={outForm.payable_type}
+                      onChange={(v) => setOutForm({ ...outForm, payable_type: v })}
+                      options={[
+                        { value: "supplier", label: "Proveedor" },
+                        { value: "payroll", label: "Planilla" },
+                        { value: "other", label: "Otro" },
+                      ]}
+                    />
                   </LabField>
                   <LabField label="Proveedor / referencia" isLight={isLight}>
                     <input className={labInputClass(isLight)} value={outForm.vendor_name} onChange={(e) => setOutForm({ ...outForm, vendor_name: e.target.value })} />

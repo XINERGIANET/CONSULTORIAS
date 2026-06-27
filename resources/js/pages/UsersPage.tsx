@@ -598,7 +598,9 @@ export function UsersPage() {
               isLight={isLight}
               value={form.role_id === "" ? "" : String(form.role_id)}
               onChange={(v) => setForm({ ...form, role_id: v ? Number(v) : "" })}
-              options={roles.map((r) => ({ value: r.id, label: r.name }))}
+              options={roles
+                .filter((r) => r.slug !== "superadmin" || (editingId && Number(form.role_id) === r.id))
+                .map((r) => ({ value: r.id, label: r.name }))}
               emptyLabel="Seleccionar…"
             />
           </LabField>
@@ -618,10 +620,12 @@ export function UsersPage() {
             <input className={labInputClass(isLight)} value={form.specialty} onChange={(e) => setForm({ ...form, specialty: e.target.value })} />
           </LabField>
           <div className="sm:col-span-2 flex flex-wrap items-center gap-4 pt-2">
-            <label className={["flex items-center gap-2 text-sm font-medium", isLight ? "text-[#374151]" : "text-zinc-200"].join(" ")}>
-              <input type="checkbox" checked={form.is_superadmin} onChange={(e) => setForm({ ...form, is_superadmin: e.target.checked })} />
-              Superadmin
-            </label>
+            {editingId && form.is_superadmin ? (
+              <label className={["flex items-center gap-2 text-sm font-medium opacity-70", isLight ? "text-[#374151]" : "text-zinc-200"].join(" ")}>
+                <input type="checkbox" checked={form.is_superadmin} disabled />
+                Superadmin
+              </label>
+            ) : null}
             <label className={["flex items-center gap-2 text-sm font-medium", isLight ? "text-[#374151]" : "text-zinc-200"].join(" ")}>
               <input type="checkbox" checked={form.is_active} onChange={(e) => setForm({ ...form, is_active: e.target.checked })} />
               Activo

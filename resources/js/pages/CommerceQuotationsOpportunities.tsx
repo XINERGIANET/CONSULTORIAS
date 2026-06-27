@@ -461,14 +461,6 @@ export function QuotationsPage() {
                   options={paymentMethods.map((method) => ({ value: method.name, label: method.name }))}
                   emptyLabel="Seleccionar metodo..."
                 />
-                <div className="hidden">
-                <select className={labInputClass(isLight)} value={acceptForm.payment_method} onChange={(e) => setAcceptForm({ ...acceptForm, payment_method: e.target.value })}>
-                  <option value="">Seleccionar método…</option>
-                  {paymentMethods.map((pa) => (
-                    <option key={pa.id} value={pa.name}>{pa.name}</option>
-                  ))}
-                </select>
-                </div>
               </LabField>
               <LabField label="Referencia / Nro. operación" isLight={isLight}>
                 <input className={labInputClass(isLight)} value={acceptForm.payment_reference} onChange={(e) => setAcceptForm({ ...acceptForm, payment_reference: e.target.value })} />

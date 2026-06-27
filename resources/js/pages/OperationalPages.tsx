@@ -589,12 +589,13 @@ export function ClientsPage() {
                     <input type="date" className={labInputClass(isLight)} value={form.billing_first_due} onChange={(e) => setForm({ ...form, billing_first_due: e.target.value })} />
                   </LabField>
                   <LabField label="Área facturación" isLight={isLight}>
-                    <select className={labInputClass(isLight)} value={form.billing_area_id === "" ? "" : String(form.billing_area_id)} onChange={(e) => setForm({ ...form, billing_area_id: e.target.value ? Number(e.target.value) : "" })}>
-                      <option value="">Seleccionar…</option>
-                      {areas.map((a) => (
-                        <option key={a.id} value={a.id}>{a.name}</option>
-                      ))}
-                    </select>
+                    <SmartSelect
+                      isLight={isLight}
+                      value={form.billing_area_id === "" ? "" : String(form.billing_area_id)}
+                      onChange={(v) => setForm({ ...form, billing_area_id: v ? Number(v) : "" })}
+                      options={areas.map((a) => ({ value: a.id, label: a.name }))}
+                      emptyLabel="Seleccionar…"
+                    />
                   </LabField>
                   <LabField label="Título contrato (opcional)" isLight={isLight}>
                     <input className={labInputClass(isLight)} value={form.billing_title} onChange={(e) => setForm({ ...form, billing_title: e.target.value })} />

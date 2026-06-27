@@ -1,6 +1,5 @@
 import { ChevronDown } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
-import { SMART_SELECT_THRESHOLD } from "../config/selectConfig";
 import { labInputClass } from "../xpande/XpandeUi";
 
 export interface SelectOption {
@@ -32,30 +31,7 @@ export function SmartSelect({
   emptyLabel,
   disabled = false,
   isLight,
-  threshold,
 }: SmartSelectProps) {
-  const limit = threshold ?? SMART_SELECT_THRESHOLD;
-  // Cuenta la opción vacía si existe
-  const total = emptyLabel !== undefined ? options.length + 1 : options.length;
-
-  if (total <= limit) {
-    return (
-      <select
-        className={labInputClass(isLight)}
-        value={value === "" ? "" : String(value)}
-        onChange={(e) => onChange(e.target.value)}
-        disabled={disabled}
-      >
-        {emptyLabel !== undefined && <option value="">{emptyLabel}</option>}
-        {options.map((opt) => (
-          <option key={String(opt.value)} value={String(opt.value)}>
-            {opt.label}
-          </option>
-        ))}
-      </select>
-    );
-  }
-
   return (
     <AutocompleteSelect
       options={options}
