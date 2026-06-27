@@ -17,7 +17,6 @@ import {
   Radar,
   Receipt,
   Settings2,
-  Target,
   Users,
   Wallet,
   Zap,
@@ -79,7 +78,6 @@ export function Sidebar({ mobileMenuOpen, setMobileMenuOpen }: { mobileMenuOpen?
 
   const crm: NavLink[] = [
     can("view_clients") ? { label: "Clientes", to: "/clientes", icon: Briefcase } : null,
-    can("view_clients") ? { label: "Oportunidades", to: "/oportunidades", icon: Target } : null,
     can("view_quotations") ? { label: "Cotizaciones", to: "/cotizaciones", icon: ClipboardList } : null,
   ].filter(Boolean) as NavLink[];
   const ops: NavLink[] = [

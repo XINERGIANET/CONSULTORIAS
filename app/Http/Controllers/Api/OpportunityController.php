@@ -20,6 +20,10 @@ class OpportunityController extends Controller
             $q->where('stage', $request->input('stage'));
         }
 
+        if ($request->filled('client_id')) {
+            $q->where('client_id', $request->integer('client_id'));
+        }
+
         return response()->json($q->orderByDesc('id')->paginate(30));
     }
 

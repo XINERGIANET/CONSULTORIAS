@@ -14,7 +14,7 @@ class ClientController extends Controller
 {
     public function index(Request $request): JsonResponse
     {
-        $q = Client::query()->with('areas:id,name,slug');
+        $q = Client::query()->with('areas:id,name,slug')->whereNull('deactivated_at');
         AreaVisibility::applyClientScope($q, $request->user());
 
         if ($request->filled('area_id')) {
@@ -168,7 +168,15 @@ class ClientController extends Controller
     public function destroy(Request $request, Client $client): JsonResponse
     {
         $this->assertClientScope($request, $client);
-        $client->update(['is_active' => false]);
+        $data = $request->validate([
+            'reason' => ['required', 'string', 'max:1000'],
+        ]);
+        $client->update([
+            'is_active' => false,
+            'deactivation_reason' => $data['reason'],
+            'deactivated_at' => now(),
+            'deactivated_by' => $request->user()?->id,
+        ]);
 
         return response()->json(null, 204);
     }

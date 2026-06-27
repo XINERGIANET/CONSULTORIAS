@@ -22,6 +22,9 @@ class Client extends Model
         'rubro',
         'pipeline_stage',
         'is_active',
+        'deactivation_reason',
+        'deactivated_at',
+        'deactivated_by',
         'notes',
     ];
 
@@ -29,6 +32,7 @@ class Client extends Model
     {
         return [
             'is_active' => 'boolean',
+            'deactivated_at' => 'datetime',
         ];
     }
 

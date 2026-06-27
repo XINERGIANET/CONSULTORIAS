@@ -1,4 +1,4 @@
-import { Briefcase, ExternalLink, Layers, Radar, Search, TrendingUp } from "lucide-react";
+import { Briefcase, ExternalLink, Layers, Radar, Search, Target, TrendingUp } from "lucide-react";
 import { useEffect, useState } from "react";
 import { Link, useParams } from "react-router-dom";
 import { SmartSelect } from "../components/SmartSelect";
@@ -212,6 +212,9 @@ export function ClientsPage() {
   const [searchingRuc, setSearchingRuc] = useState(false);
   const [form, setForm] = useState(emptyClientForm());
   const [err, setErr] = useState<string | null>(null);
+  const [deactivateTarget, setDeactivateTarget] = useState<ClientLite | null>(null);
+  const [deactivationReason, setDeactivationReason] = useState("");
+  const [deactivating, setDeactivating] = useState(false);
 
   const load = async (page = 1) => {
     const r = await getJson<LaravelPaginated<ClientLite>>("/api/clients", { page });
@@ -263,13 +266,37 @@ export function ClientsPage() {
     }
   };
 
-  const deactivateClient = async (c: ClientLite) => {
-    if (!confirm("¿Dar de baja a " + c.legal_name + "?")) return;
+  const openDeactivateClient = (c: ClientLite) => {
+    setDeactivateTarget(c);
+    setDeactivationReason("");
+    setErr(null);
+  };
+
+  const closeDeactivateClient = () => {
+    if (deactivating) return;
+    setDeactivateTarget(null);
+    setDeactivationReason("");
+    setErr(null);
+  };
+
+  const deactivateClient = async () => {
+    if (!deactivateTarget) return;
+    const reason = deactivationReason.trim();
+    if (!reason) {
+      setErr("Debe indicar el motivo de la baja.");
+      return;
+    }
+    setDeactivating(true);
+    setErr(null);
     try {
-      await deleteJson(`/api/clients/${c.id}`);
+      await deleteJson(`/api/clients/${deactivateTarget.id}`, { reason });
+      setDeactivateTarget(null);
+      setDeactivationReason("");
       await load(data?.current_page ?? 1);
     } catch {
       setErr("No se pudo desactivar.");
+    } finally {
+      setDeactivating(false);
     }
   };
 
@@ -398,6 +425,19 @@ export function ClientsPage() {
                         <LabCircleIconAction variant="edit" tooltip="Editar" ariaLabel={`Editar ${c.legal_name}`} onClick={() => void openEditClient(c)} />
                         <span className="group relative inline-flex">
                           <Link
+                            to={`/clientes/${c.id}/oportunidades`}
+                            className={[circleRowActionClass("link"), "inline-flex items-center justify-center"].join(" ")}
+                            title="Oportunidades"
+                            aria-label={`Oportunidades de ${c.legal_name}`}
+                          >
+                            <Target className="h-3.5 w-3.5 text-white" strokeWidth={2.25} aria-hidden />
+                          </Link>
+                          <span className="pointer-events-none absolute bottom-[calc(100%+6px)] left-1/2 z-40 hidden -translate-x-1/2 whitespace-nowrap rounded-md bg-neutral-900 px-2 py-1 text-[11px] font-medium leading-tight text-white shadow-lg ring-1 ring-black/40 group-hover:block">
+                            Oportunidades
+                          </span>
+                        </span>
+                        <span className="group relative inline-flex">
+                          <Link
                             to={`/clientes/${c.id}`}
                             className={[circleRowActionClass("link"), "inline-flex items-center justify-center"].join(" ")}
                             title="Ver CRM"
@@ -409,7 +449,7 @@ export function ClientsPage() {
                             CRM
                           </span>
                         </span>
-                        <LabCircleIconAction variant="cancel" tooltip="Dar de baja" ariaLabel={`Dar de baja ${c.legal_name}`} onClick={() => void deactivateClient(c)} />
+                        <LabCircleIconAction variant="cancel" tooltip="Dar de baja" ariaLabel={`Dar de baja ${c.legal_name}`} onClick={() => openDeactivateClient(c)} />
                       </div>
                     </td>
                   </tr>
@@ -419,6 +459,38 @@ export function ClientsPage() {
           </div>
         )}
       </div>
+
+      <FormModal
+        open={deactivateTarget !== null}
+        title="Dar de baja al cliente"
+        subtitle={deactivateTarget ? deactivateTarget.legal_name : undefined}
+        isLight={isLight}
+        onClose={closeDeactivateClient}
+        footer={
+          <div className="flex justify-end gap-2">
+            <button type="button" className={labGhostBtn(isLight)} disabled={deactivating} onClick={closeDeactivateClient}>
+              Cancelar
+            </button>
+            <button type="button" className={labPrimaryBtn(isLight)} disabled={deactivating} onClick={() => void deactivateClient()}>
+              {deactivating ? "Procesando…" : "Confirmar baja"}
+            </button>
+          </div>
+        }
+      >
+        <LabField label="Motivo de la baja *" isLight={isLight}>
+          <textarea
+            required
+            autoFocus
+            rows={4}
+            maxLength={1000}
+            className={labInputClass(isLight)}
+            value={deactivationReason}
+            onChange={(e) => setDeactivationReason(e.target.value)}
+            placeholder="Explique por qué se dará de baja a este cliente"
+          />
+        </LabField>
+        {err ? <p className="mt-2 text-sm text-red-600">{err}</p> : null}
+      </FormModal>
 
       <FormModal
         open={modal}
