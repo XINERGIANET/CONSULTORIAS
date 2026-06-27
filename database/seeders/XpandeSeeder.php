@@ -6,6 +6,7 @@ use App\Models\Area;
 use App\Models\Cargo;
 use App\Models\Currency;
 use App\Models\FinancialCategory;
+use App\Models\PaymentMethod;
 use App\Models\Permission;
 use App\Models\Role;
 use App\Models\Service;
@@ -108,6 +109,19 @@ class XpandeSeeder extends Seeder
         Cargo::query()->updateOrCreate(['name' => 'Director general'], ['is_active' => true]);
         Cargo::query()->updateOrCreate(['name' => 'Consultor senior'], ['is_active' => true]);
         Cargo::query()->updateOrCreate(['name' => 'Ejecutivo comercial'], ['is_active' => true]);
+
+        foreach ([
+            ['code' => 'transferencia', 'name' => 'Transferencia bancaria'],
+            ['code' => 'yape', 'name' => 'Yape'],
+            ['code' => 'plin', 'name' => 'Plin'],
+            ['code' => 'efectivo', 'name' => 'Efectivo'],
+            ['code' => 'tarjeta', 'name' => 'Tarjeta'],
+        ] as $method) {
+            PaymentMethod::query()->updateOrCreate(
+                ['code' => $method['code']],
+                ['name' => $method['name'], 'is_active' => true]
+            );
+        }
 
         $xingeria = Area::query()->where('slug', 'xingeria')->first();
         $xpande = Area::query()->where('slug', 'xpande')->first();

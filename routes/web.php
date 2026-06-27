@@ -16,6 +16,7 @@ use App\Http\Controllers\Api\FinancialCategoryController;
 use App\Http\Controllers\Api\IncomeController;
 use App\Http\Controllers\Api\IntegrationStubController;
 use App\Http\Controllers\Api\OpportunityController;
+use App\Http\Controllers\Api\PaymentMethodController;
 use App\Http\Controllers\Api\PerformanceReviewController;
 use App\Http\Controllers\Api\ProjectController;
 use App\Http\Controllers\Api\TaskController;
@@ -240,6 +241,11 @@ Route::middleware('auth')->group(function (): void {
         Route::post('catalog/payment-accounts', [\App\Http\Controllers\Api\PaymentAccountController::class, 'store']);
         Route::put('catalog/payment-accounts/{paymentAccount}', [\App\Http\Controllers\Api\PaymentAccountController::class, 'update']);
         Route::delete('catalog/payment-accounts/{paymentAccount}', [\App\Http\Controllers\Api\PaymentAccountController::class, 'destroy']);
+
+        Route::get('catalog/payment-methods', [PaymentMethodController::class, 'index']);
+        Route::post('catalog/payment-methods', [PaymentMethodController::class, 'store']);
+        Route::put('catalog/payment-methods/{paymentMethod}', [PaymentMethodController::class, 'update']);
+        Route::delete('catalog/payment-methods/{paymentMethod}', [PaymentMethodController::class, 'destroy']);
 
         Route::get('performance-reviews', [PerformanceReviewController::class, 'index']);
         Route::post('performance-reviews', [PerformanceReviewController::class, 'store']);
