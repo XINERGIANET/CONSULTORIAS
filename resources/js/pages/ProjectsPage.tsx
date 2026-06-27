@@ -61,6 +61,8 @@ const PROJECT_STATUS_LABELS: Record<string, string> = {
   cancelled: "Cancelado",
 };
 
+const normalizeDateInput = (value?: string | null) => (value ? String(value).slice(0, 10) : "");
+
 export function ProjectsPage() {
   const { isLight } = useApexTheme();
   const loc = useLocation();
@@ -203,10 +205,10 @@ export function ProjectsPage() {
         engagement_type: p.engagement_type ?? "project",
         name: p.name,
         service_type: p.service_type ?? "",
-        start_date: p.start_date ?? "",
-        end_estimated: p.end_estimated ?? "",
+        start_date: normalizeDateInput(p.start_date),
+        end_estimated: normalizeDateInput(p.end_estimated),
         status: p.status,
-        renewal_date: p.renewal_date ?? "",
+        renewal_date: normalizeDateInput(p.renewal_date),
         budget: p.budget ?? "",
         lead_user_id: p.lead_user_id ?? "",
         description: p.description ?? "",
