@@ -9,6 +9,7 @@ use App\Support\AreaVisibility;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Http;
 
 class ClientController extends Controller
 {
@@ -195,42 +196,57 @@ class ClientController extends Controller
 
     public function searchRuc(string $ruc): JsonResponse
     {
-        $url = env('APIRENIEC_URL_RUC');
-        $token = env('APIRENIEC_KEY');
+        $response = Http::withToken((string) config('apireniec.key'))
+            ->timeout(15)
+            ->post((string) config('apireniec.ruc_url'), [
+                'ruc' => $ruc,
+            ]);
 
-        $response = \Illuminate\Support\Facades\Http::get($url, [
-            'document' => $ruc,
-            'key' => $token,
-        ]);
+        if (! $response->successful()) {
+            return response()->json([
+                'error' => 'No se pudo consultar el RUC',
+                'details' => $response->json(),
+            ], $response->status());
+        }
 
-        if ($response->successful()) {
-            return response()->json($response->json());
+        $data = (array) $response->json();
+        $estado = (bool) ($data['success'] ?? false);
+        $resultado = (array) ($data['data'] ?? []);
+
+        if ($estado) {
+            $resultado['razon_social'] = $resultado['razon_social'] ?? ($resultado['nombre_o_razon_social'] ?? null);
+            $resultado['direccion'] = $resultado['direccion'] ?? ($resultado['direccion_completa'] ?? null);
         }
 
         return response()->json([
-            'error' => 'No se pudo consultar el RUC',
-            'details' => $response->json(),
-        ], $response->status());
+            'estado' => $estado,
+            'resultado' => $resultado,
+        ]);
     }
 
     public function searchDni(string $dni): JsonResponse
     {
-        $url = env('APIRENIEC_URL');
-        $token = env('APIRENIEC_KEY');
+        $response = Http::withToken((string) config('apireniec.key'))
+            ->timeout(15)
+            ->post((string) config('apireniec.url'), [
+                'dni' => $dni,
+            ]);
 
-        $response = \Illuminate\Support\Facades\Http::get($url, [
-            'document' => $dni,
-            'key' => $token,
-        ]);
-
-        if ($response->successful()) {
-            return response()->json($response->json());
+        if (! $response->successful()) {
+            return response()->json([
+                'error' => 'No se pudo consultar el DNI',
+                'details' => $response->json(),
+            ], $response->status());
         }
 
+        $data = (array) $response->json();
+        $estado = (bool) ($data['success'] ?? false);
+        $resultado = (array) ($data['data'] ?? []);
+
         return response()->json([
-            'error' => 'No se pudo consultar el DNI',
-            'details' => $response->json(),
-        ], $response->status());
+            'estado' => $estado,
+            'resultado' => $resultado,
+        ]);
     }
 
     private function assertClientScope(Request $request, Client $client): void
