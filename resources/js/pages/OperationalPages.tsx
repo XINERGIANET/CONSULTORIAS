@@ -1,4 +1,4 @@
-import { Briefcase, ExternalLink, Layers, Radar, Search, TrendingUp } from "lucide-react";
+import { Briefcase, ExternalLink, Layers, Radar, Search, Target, TrendingUp } from "lucide-react";
 import { useEffect, useState } from "react";
 import { Link, useParams } from "react-router-dom";
 import { SmartSelect } from "../components/SmartSelect";
@@ -188,6 +188,8 @@ const emptyClientForm = () => ({
   address: "",
   rubro: "",
   pipeline_stage: "lead",
+  presentation_date: "",
+  tentative_response_date: "",
   representative_contact_id: null as number | null,
   representative_name: "",
   representative_phone: "",
@@ -212,6 +214,9 @@ export function ClientsPage() {
   const [searchingRuc, setSearchingRuc] = useState(false);
   const [form, setForm] = useState(emptyClientForm());
   const [err, setErr] = useState<string | null>(null);
+  const [deactivateTarget, setDeactivateTarget] = useState<ClientLite | null>(null);
+  const [deactivationReason, setDeactivationReason] = useState("");
+  const [deactivating, setDeactivating] = useState(false);
 
   const load = async (page = 1) => {
     const r = await getJson<LaravelPaginated<ClientLite>>("/api/clients", { page });
@@ -233,7 +238,7 @@ export function ClientsPage() {
   const openEditClient = async (c: ClientLite) => {
     setErr(null);
     try {
-      const full = await getJson<{ legal_name?: string; trade_name?: string | null; ruc?: string | null; address?: string | null; rubro?: string | null; pipeline_stage?: string; contacts?: CrmContact[] }>(`/api/clients/${c.id}`);
+      const full = await getJson<{ legal_name?: string; trade_name?: string | null; ruc?: string | null; address?: string | null; rubro?: string | null; pipeline_stage?: string; presentation_date?: string | null; tentative_response_date?: string | null; contacts?: CrmContact[] }>(`/api/clients/${c.id}`);
       const representative = full.contacts?.[0] ?? null;
       setForm({
         legal_name: full.legal_name ?? c.legal_name,
@@ -242,6 +247,8 @@ export function ClientsPage() {
         address: full.address ?? "",
         rubro: full.rubro ?? "",
         pipeline_stage: full.pipeline_stage ?? c.pipeline_stage,
+        presentation_date: full.presentation_date ? String(full.presentation_date).slice(0, 10) : "",
+        tentative_response_date: full.tentative_response_date ? String(full.tentative_response_date).slice(0, 10) : "",
         representative_contact_id: representative?.id ?? null,
         representative_name: representative?.name ?? "",
         representative_phone: representative?.phone ?? "",
@@ -263,18 +270,46 @@ export function ClientsPage() {
     }
   };
 
-  const deactivateClient = async (c: ClientLite) => {
-    if (!confirm("¿Dar de baja a " + c.legal_name + "?")) return;
+  const openDeactivateClient = (c: ClientLite) => {
+    setDeactivateTarget(c);
+    setDeactivationReason("");
+    setErr(null);
+  };
+
+  const closeDeactivateClient = () => {
+    if (deactivating) return;
+    setDeactivateTarget(null);
+    setDeactivationReason("");
+    setErr(null);
+  };
+
+  const deactivateClient = async () => {
+    if (!deactivateTarget) return;
+    const reason = deactivationReason.trim();
+    if (!reason) {
+      setErr("Debe indicar el motivo de la baja.");
+      return;
+    }
+    setDeactivating(true);
+    setErr(null);
     try {
-      await deleteJson(`/api/clients/${c.id}`);
+      await deleteJson(`/api/clients/${deactivateTarget.id}`, { reason });
+      setDeactivateTarget(null);
+      setDeactivationReason("");
       await load(data?.current_page ?? 1);
     } catch {
       setErr("No se pudo desactivar.");
+    } finally {
+      setDeactivating(false);
     }
   };
 
   const save = async () => {
     setErr(null);
+    if (form.representative_name.trim() && (!form.representative_position.trim() || !form.representative_phone.trim())) {
+      setErr("El cargo y el teléfono del representante son obligatorios.");
+      return;
+    }
     try {
       const clientBody: Record<string, unknown> = {
         legal_name: form.legal_name,
@@ -283,6 +318,8 @@ export function ClientsPage() {
         address: form.address,
         rubro: form.rubro,
         pipeline_stage: form.pipeline_stage,
+        presentation_date: form.pipeline_stage === "prospect" ? form.presentation_date || null : null,
+        tentative_response_date: form.pipeline_stage === "prospect" ? form.tentative_response_date || null : null,
         is_active: form.pipeline_stage === "active_client",
       };
       if (form.billing_activate && form.pipeline_stage === "active_client" && form.billing_area_id !== "" && form.billing_total) {
@@ -394,6 +431,19 @@ export function ClientsPage() {
                         <LabCircleIconAction variant="edit" tooltip="Editar" ariaLabel={`Editar ${c.legal_name}`} onClick={() => void openEditClient(c)} />
                         <span className="group relative inline-flex">
                           <Link
+                            to={`/clientes/${c.id}/oportunidades`}
+                            className={[circleRowActionClass("link"), "inline-flex items-center justify-center"].join(" ")}
+                            title="Oportunidades"
+                            aria-label={`Oportunidades de ${c.legal_name}`}
+                          >
+                            <Target className="h-3.5 w-3.5 text-white" strokeWidth={2.25} aria-hidden />
+                          </Link>
+                          <span className="pointer-events-none absolute bottom-[calc(100%+6px)] left-1/2 z-40 hidden -translate-x-1/2 whitespace-nowrap rounded-md bg-neutral-900 px-2 py-1 text-[11px] font-medium leading-tight text-white shadow-lg ring-1 ring-black/40 group-hover:block">
+                            Oportunidades
+                          </span>
+                        </span>
+                        <span className="group relative inline-flex">
+                          <Link
                             to={`/clientes/${c.id}`}
                             className={[circleRowActionClass("link"), "inline-flex items-center justify-center"].join(" ")}
                             title="Ver CRM"
@@ -405,7 +455,7 @@ export function ClientsPage() {
                             CRM
                           </span>
                         </span>
-                        <LabCircleIconAction variant="cancel" tooltip="Dar de baja" ariaLabel={`Dar de baja ${c.legal_name}`} onClick={() => void deactivateClient(c)} />
+                        <LabCircleIconAction variant="cancel" tooltip="Dar de baja" ariaLabel={`Dar de baja ${c.legal_name}`} onClick={() => openDeactivateClient(c)} />
                       </div>
                     </td>
                   </tr>
@@ -415,6 +465,38 @@ export function ClientsPage() {
           </div>
         )}
       </div>
+
+      <FormModal
+        open={deactivateTarget !== null}
+        title="Dar de baja al cliente"
+        subtitle={deactivateTarget ? deactivateTarget.legal_name : undefined}
+        isLight={isLight}
+        onClose={closeDeactivateClient}
+        footer={
+          <div className="flex justify-end gap-2">
+            <button type="button" className={labGhostBtn(isLight)} disabled={deactivating} onClick={closeDeactivateClient}>
+              Cancelar
+            </button>
+            <button type="button" className={labPrimaryBtn(isLight)} disabled={deactivating} onClick={() => void deactivateClient()}>
+              {deactivating ? "Procesando…" : "Confirmar baja"}
+            </button>
+          </div>
+        }
+      >
+        <LabField label="Motivo de la baja *" isLight={isLight}>
+          <textarea
+            required
+            autoFocus
+            rows={4}
+            maxLength={1000}
+            className={labInputClass(isLight)}
+            value={deactivationReason}
+            onChange={(e) => setDeactivationReason(e.target.value)}
+            placeholder="Explique por qué se dará de baja a este cliente"
+          />
+        </LabField>
+        {err ? <p className="mt-2 text-sm text-red-600">{err}</p> : null}
+      </FormModal>
 
       <FormModal
         open={modal}
@@ -476,6 +558,16 @@ export function ClientsPage() {
           <LabField label="Rubro" isLight={isLight}>
             <input className={labInputClass(isLight)} value={form.rubro} onChange={(e) => setForm({ ...form, rubro: e.target.value })} />
           </LabField>
+          {form.pipeline_stage === "prospect" ? (
+            <>
+              <LabField label="Fecha de presentación" isLight={isLight}>
+                <input type="date" className={labInputClass(isLight)} value={form.presentation_date} onChange={(e) => setForm({ ...form, presentation_date: e.target.value })} />
+              </LabField>
+              <LabField label="Fecha tentativa de respuesta" isLight={isLight}>
+                <input type="date" className={labInputClass(isLight)} value={form.tentative_response_date} onChange={(e) => setForm({ ...form, tentative_response_date: e.target.value })} />
+              </LabField>
+            </>
+          ) : null}
           {form.pipeline_stage === "active_client" ? (
             <div className={"sm:col-span-2 rounded-xl border p-4 " + (isLight ? "border-[#E5E7EB] bg-[#F9FAFB]" : "border-white/[0.06] bg-[#0a0a0a]/50")}>
               <label className={["mb-3 flex items-center gap-2 text-sm font-semibold", isLight ? "text-[#111827]" : "text-zinc-100"].join(" ")}>
@@ -497,12 +589,13 @@ export function ClientsPage() {
                     <input type="date" className={labInputClass(isLight)} value={form.billing_first_due} onChange={(e) => setForm({ ...form, billing_first_due: e.target.value })} />
                   </LabField>
                   <LabField label="Área facturación" isLight={isLight}>
-                    <select className={labInputClass(isLight)} value={form.billing_area_id === "" ? "" : String(form.billing_area_id)} onChange={(e) => setForm({ ...form, billing_area_id: e.target.value ? Number(e.target.value) : "" })}>
-                      <option value="">Seleccionar…</option>
-                      {areas.map((a) => (
-                        <option key={a.id} value={a.id}>{a.name}</option>
-                      ))}
-                    </select>
+                    <SmartSelect
+                      isLight={isLight}
+                      value={form.billing_area_id === "" ? "" : String(form.billing_area_id)}
+                      onChange={(v) => setForm({ ...form, billing_area_id: v ? Number(v) : "" })}
+                      options={areas.map((a) => ({ value: a.id, label: a.name }))}
+                      emptyLabel="Seleccionar…"
+                    />
                   </LabField>
                   <LabField label="Título contrato (opcional)" isLight={isLight}>
                     <input className={labInputClass(isLight)} value={form.billing_title} onChange={(e) => setForm({ ...form, billing_title: e.target.value })} />
@@ -583,15 +676,15 @@ export function ClientDetailPage() {
 
   const saveContact = async () => {
     setErr(null);
-    if (!cf.name.trim()) {
-      setErr("Nombre del contacto requerido.");
+    if (!cf.name.trim() || !cf.position.trim() || !cf.phone.trim()) {
+      setErr("Nombre, cargo y teléfono son obligatorios.");
       return;
     }
     try {
       await postJson(`/api/clients/${cid}/contacts`, {
         name: cf.name.trim(),
-        position: cf.position.trim() || null,
-        phone: cf.phone.trim() || null,
+        position: cf.position.trim(),
+        phone: cf.phone.trim(),
         email: cf.email.trim() || null,
         observations: cf.observations.trim() || null,
       });
@@ -726,6 +819,23 @@ export function ClientDetailPage() {
       />
       {err ? <p className="mb-4 text-sm text-red-600">{err}</p> : null}
 
+      {asRec.pipeline_stage === "prospect" && (asRec.presentation_date || asRec.tentative_response_date) ? (
+        <div className={["mb-4 p-4 rounded-xl border flex flex-wrap gap-6 text-sm font-medium", isLight ? "border-[#E5E7EB] bg-[#F9FAFB] text-[#374151]" : "border-white/[0.06] bg-[#0a0a0a]/50 text-zinc-300"].join(" ")}>
+          {asRec.presentation_date ? (
+            <div>
+              <span className="text-xs uppercase text-zinc-500 block">Fecha de presentación</span>
+              <span>{String(asRec.presentation_date).slice(0, 10)}</span>
+            </div>
+          ) : null}
+          {asRec.tentative_response_date ? (
+            <div>
+              <span className="text-xs uppercase text-zinc-500 block">Fecha tentativa de respuesta</span>
+              <span>{String(asRec.tentative_response_date).slice(0, 10)}</span>
+            </div>
+          ) : null}
+        </div>
+      ) : null}
+
       <div className="grid gap-4 lg:grid-cols-2">
         <section className={labPanelClass(isLight)}>
           <h3 className={"mb-2 text-sm font-semibold " + (isLight ? "text-[#111827]" : "text-zinc-100")}>Productos y proyectos adquiridos</h3>
@@ -818,9 +928,9 @@ export function ClientDetailPage() {
         }
       >
         <div className="grid gap-3">
-          <LabField label="Nombre *" isLight={isLight}><input className={labInputClass(isLight)} value={cf.name} onChange={(e) => setCf({ ...cf, name: e.target.value })} /></LabField>
-          <LabField label="Cargo" isLight={isLight}><input className={labInputClass(isLight)} value={cf.position} onChange={(e) => setCf({ ...cf, position: e.target.value })} /></LabField>
-          <LabField label="Teléfono" isLight={isLight}><input className={labInputClass(isLight)} value={cf.phone} onChange={(e) => setCf({ ...cf, phone: e.target.value })} /></LabField>
+          <LabField label="Nombre *" isLight={isLight}><input required className={labInputClass(isLight)} value={cf.name} onChange={(e) => setCf({ ...cf, name: e.target.value })} /></LabField>
+          <LabField label="Cargo *" isLight={isLight}><input required className={labInputClass(isLight)} value={cf.position} onChange={(e) => setCf({ ...cf, position: e.target.value })} /></LabField>
+          <LabField label="Teléfono *" isLight={isLight}><input required type="tel" className={labInputClass(isLight)} value={cf.phone} onChange={(e) => setCf({ ...cf, phone: e.target.value })} /></LabField>
           <LabField label="Email" isLight={isLight}><input className={labInputClass(isLight)} value={cf.email} onChange={(e) => setCf({ ...cf, email: e.target.value })} /></LabField>
           <LabField label="Observaciones" isLight={isLight}><textarea className={labInputClass(isLight)} rows={2} value={cf.observations} onChange={(e) => setCf({ ...cf, observations: e.target.value })} /></LabField>
           {err ? <p className="text-sm text-red-600">{err}</p> : null}

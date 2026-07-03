@@ -16,8 +16,8 @@ class ClientContactController extends Controller
         $this->assertClient($request, $client);
         $data = $request->validate([
             'name' => ['required', 'string', 'max:255'],
-            'position' => ['nullable', 'string', 'max:255'],
-            'phone' => ['nullable', 'string', 'max:64'],
+            'position' => ['required', 'string', 'max:255'],
+            'phone' => ['required', 'string', 'max:64'],
             'email' => ['nullable', 'email', 'max:255'],
             'area_id' => ['nullable', 'integer', 'exists:areas,id'],
             'observations' => ['nullable', 'string'],

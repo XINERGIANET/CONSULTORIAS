@@ -43,6 +43,7 @@ class ContractBillingService
             $endDate = match ($frequency) {
                 'monthly' => $firstDue->copy()->addMonths($count - 1),
                 'quarterly' => $firstDue->copy()->addMonths(($count - 1) * 3),
+                'yearly' => $firstDue->copy()->addYears($count - 1),
                 default => $firstDue->copy()->addMonths($count - 1),
             };
 
@@ -80,6 +81,7 @@ class ContractBillingService
                 $due = match ($frequency) {
                     'monthly' => $firstDue->copy()->addMonths($i),
                     'quarterly' => $firstDue->copy()->addMonths($i * 3),
+                    'yearly' => $firstDue->copy()->addYears($i),
                     default => $firstDue->copy()->addMonths($i),
                 };
 

@@ -65,7 +65,7 @@ class ServiceCatalogController extends Controller
     public function destroy(Request $request, Service $service): JsonResponse
     {
         $this->authorizePrivileged($request);
-        $service->update(['is_active' => false]);
+        $service->delete();
 
         return response()->json(null, 204);
     }

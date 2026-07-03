@@ -22,8 +22,8 @@ export async function putJson<T>(url: string, body: unknown): Promise<T> {
   return data;
 }
 
-export async function deleteJson(url: string): Promise<void> {
-  await axios.delete(url);
+export async function deleteJson(url: string, body?: unknown): Promise<void> {
+  await axios.delete(url, body === undefined ? undefined : { data: body });
 }
 
 export async function postFormData<T>(url: string, body: FormData): Promise<T> {

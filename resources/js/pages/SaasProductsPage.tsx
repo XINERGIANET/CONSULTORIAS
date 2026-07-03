@@ -139,13 +139,32 @@ export function SaasProductsPage() {
   };
 
   const deactivate = async (row: SaasRow) => {
-    if (!confirm("Dar de baja este producto SaaS?")) return;
+    if (!confirm("¿Dar de baja este producto SaaS?")) return;
+    setErr(null);
+    try {
+      await putJson(`/api/catalog/services/${row.id}`, {
+        name: row.name,
+        kind: "saas",
+        area_id: row.area?.id ?? row.area_id ?? null,
+        billing_cycle: row.billing_cycle ?? null,
+        base_price: row.base_price ? Number(row.base_price) : null,
+        description: row.description ?? null,
+        is_active: false,
+      });
+      await load();
+    } catch (e: unknown) {
+      setErr(apiErrorMessage(e, "No se pudo dar de baja."));
+    }
+  };
+
+  const remove = async (row: SaasRow) => {
+    if (!confirm(`¿Eliminar definitivamente el producto SaaS «${row.name}»? Esta acción lo removerá de la base de datos.`)) return;
     setErr(null);
     try {
       await deleteJson(`/api/catalog/services/${row.id}`);
       await load();
     } catch (e: unknown) {
-      setErr(apiErrorMessage(e, "No se pudo dar de baja."));
+      setErr(apiErrorMessage(e, "No se pudo eliminar el producto SaaS."));
     }
   };
 
@@ -215,6 +234,7 @@ export function SaasProductsPage() {
                       <div className="flex justify-end gap-2">
                         <LabCircleIconAction variant="edit" tooltip="Editar" ariaLabel={`Editar ${String(row.name ?? "")}`} onClick={() => startEdit(row)} />
                         <LabCircleIconAction variant="cancel" tooltip="Dar de baja" ariaLabel={`Dar de baja ${String(row.name ?? "")}`} onClick={() => void deactivate(row)} />
+                        <LabCircleIconAction variant="delete" tooltip="Eliminar" ariaLabel={`Eliminar ${String(row.name ?? "")}`} onClick={() => void remove(row)} />
                       </div>
                     </td>
                   </tr>

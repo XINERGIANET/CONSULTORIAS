@@ -3,8 +3,11 @@
 namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
+use App\Models\Client;
 use App\Models\Project;
+use App\Services\ContractBillingService;
 use App\Support\AreaVisibility;
+use Carbon\Carbon;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -76,20 +79,23 @@ class ProjectController extends Controller
         return response()->json($project->load(['client', 'areas', 'users', 'leadUser', 'services']));
     }
 
-    public function store(Request $request): JsonResponse
+    public function store(Request $request, ContractBillingService $billing): JsonResponse
     {
         $data = $request->validate([
             'client_id' => ['required', 'integer', 'exists:clients,id'],
             'engagement_type' => ['nullable', 'string', 'max:64'],
             'name' => ['required', 'string', 'max:255'],
             'service_type' => ['nullable', 'string', 'max:255'],
-            'start_date' => ['nullable', 'date'],
-            'end_estimated' => ['nullable', 'date'],
+            'start_date' => ['required', 'date'],
+            'payment_start_date' => ['nullable', 'date'],
+            'end_estimated' => ['required', 'date', 'after_or_equal:start_date'],
             'end_actual' => ['nullable', 'date'],
             'status' => ['nullable', 'string', 'max:64'],
             'subscription_status' => ['nullable', 'string', 'max:64'],
             'renewal_date' => ['nullable', 'date'],
-            'budget' => ['nullable', 'numeric', 'min:0'],
+            'budget' => ['required', 'numeric', 'min:0.01'],
+            'billing_type' => ['nullable', 'string', 'in:mensual,anual,único,por partes'],
+            'installments_count' => ['nullable', 'integer', 'min:1'],
             'lead_user_id' => ['nullable', 'integer', 'exists:users,id'],
             'description' => ['nullable', 'string'],
             'objectives' => ['nullable', 'string'],
@@ -102,15 +108,56 @@ class ProjectController extends Controller
             'service_ids.*' => ['integer', 'exists:services,id'],
         ]);
 
-        $project = DB::transaction(function () use ($data) {
+        $project = DB::transaction(function () use ($data, $billing, $request) {
             $aids = $data['area_ids'];
             $uids = $data['user_ids'] ?? [];
             $sids = $data['service_ids'] ?? [];
-            unset($data['area_ids'], $data['user_ids'], $data['service_ids']);
+            $instCount = (int) ($data['installments_count'] ?? 2);
+            unset($data['area_ids'], $data['user_ids'], $data['service_ids'], $data['installments_count']);
+
             $p = Project::query()->create($data);
             $p->areas()->sync($aids);
             $p->users()->sync($uids);
             $p->services()->sync($sids);
+
+            $start = Carbon::parse($p->start_date)->startOfDay();
+            $paymentStart = $p->payment_start_date ? Carbon::parse($p->payment_start_date)->startOfDay() : $start->copy();
+            $end = Carbon::parse($p->end_estimated)->startOfDay();
+
+            $billingType = $p->billing_type ?? 'mensual';
+            $frequency = 'monthly';
+            $installments = 1;
+
+            if ($billingType === 'mensual') {
+                $frequency = 'monthly';
+                $installments = max(1, ((int) $paymentStart->copy()->startOfMonth()->diffInMonths($end->copy()->startOfMonth())) + 1);
+            } elseif ($billingType === 'anual') {
+                $frequency = 'yearly';
+                $installments = max(1, ((int) $paymentStart->diffInYears($end)) + 1);
+            } elseif ($billingType === 'único') {
+                $frequency = 'monthly';
+                $installments = 1;
+            } elseif ($billingType === 'por partes') {
+                $frequency = 'monthly';
+                $installments = max(1, $instCount);
+            }
+
+            $billing->createContractAndSchedule(
+                Client::query()->findOrFail($p->client_id),
+                [
+                    'client_id' => $p->client_id,
+                    'area_id' => (int) $aids[0],
+                    'project_id' => $p->id,
+                    'title' => 'Proyecto — '.$p->name,
+                    'total_amount' => $p->budget,
+                    'installments_count' => $installments,
+                    'start_date' => $paymentStart->toDateString(),
+                    'first_due_on' => $paymentStart->toDateString(),
+                    'billing_frequency' => $frequency,
+                    'notes' => 'Cronograma generado automáticamente al crear el proyecto.',
+                ],
+                $request->user()?->id,
+            );
 
             return $p;
         });
@@ -127,12 +174,14 @@ class ProjectController extends Controller
             'name' => ['sometimes', 'required', 'string', 'max:255'],
             'service_type' => ['nullable', 'string', 'max:255'],
             'start_date' => ['nullable', 'date'],
+            'payment_start_date' => ['nullable', 'date'],
             'end_estimated' => ['nullable', 'date'],
             'end_actual' => ['nullable', 'date'],
             'status' => ['nullable', 'string', 'max:64'],
             'subscription_status' => ['nullable', 'string', 'max:64'],
             'renewal_date' => ['nullable', 'date'],
             'budget' => ['nullable', 'numeric', 'min:0'],
+            'billing_type' => ['nullable', 'string', 'in:mensual,anual,único,por partes'],
             'lead_user_id' => ['nullable', 'integer', 'exists:users,id'],
             'description' => ['nullable', 'string'],
             'objectives' => ['nullable', 'string'],

@@ -13,6 +13,7 @@ type ClientOpt = { id: number; legal_name: string };
 type ProjOpt = { id: number; name: string };
 type FinCat = { id: number; name: string; type: string };
 type CurrOpt = { id: number; code: string };
+type PaymentMethodOpt = { id: number; code: string; name: string };
 
 const TIME_STATUS_LABELS: Record<string, string> = {
   pending: "Pendiente",
@@ -494,11 +495,16 @@ export function FinanzasHubPage() {
               {outForm.schedule_payable ? (
                 <div className="mt-2 grid gap-2 sm:grid-cols-2">
                   <LabField label="Tipo" isLight={isLight}>
-                    <select className={labInputClass(isLight)} value={outForm.payable_type} onChange={(e) => setOutForm({ ...outForm, payable_type: e.target.value })}>
-                      <option value="supplier">Proveedor</option>
-                      <option value="payroll">Planilla</option>
-                      <option value="other">Otro</option>
-                    </select>
+                    <SmartSelect
+                      isLight={isLight}
+                      value={outForm.payable_type}
+                      onChange={(v) => setOutForm({ ...outForm, payable_type: v })}
+                      options={[
+                        { value: "supplier", label: "Proveedor" },
+                        { value: "payroll", label: "Planilla" },
+                        { value: "other", label: "Otro" },
+                      ]}
+                    />
                   </LabField>
                   <LabField label="Proveedor / referencia" isLight={isLight}>
                     <input className={labInputClass(isLight)} value={outForm.vendor_name} onChange={(e) => setOutForm({ ...outForm, vendor_name: e.target.value })} />
@@ -733,6 +739,7 @@ export function DocumentsPage() {
   const [clients, setClients] = useState<ClientOpt[]>([]);
   const [projects, setProjects] = useState<ProjOpt[]>([]);
   const [areas, setAreas] = useState<AreaOpt[]>([]);
+  const [paymentMethods, setPaymentMethods] = useState<PaymentMethodOpt[]>([]);
   const [open, setOpen] = useState(false);
   const [err, setErr] = useState<string | null>(null);
   const [file, setFile] = useState<File | null>(null);
@@ -758,6 +765,7 @@ export function DocumentsPage() {
     void getJson<LaravelPaginated<ClientOpt>>("/api/clients", { per_page: 100 }).then((r) => setClients(r.data));
     void getJson<LaravelPaginated<ProjOpt>>("/api/projects", { per_page: 120 }).then((r) => setProjects(r.data));
     void getJson<AreaOpt[]>("/api/areas", { active_only: false }).then(setAreas);
+    void getJson<PaymentMethodOpt[]>("/api/catalog/payment-methods", { active_only: true }).then(setPaymentMethods);
   }, []);
 
   const upload = async () => {
@@ -926,7 +934,13 @@ export function DocumentsPage() {
                     <input type="date" className={labInputClass(isLight)} value={meta.payment_paid_on} onChange={(e) => setMeta({ ...meta, payment_paid_on: e.target.value })} />
                   </LabField>
                   <LabField label="Metodo" isLight={isLight}>
-                    <input className={labInputClass(isLight)} value={meta.payment_method} onChange={(e) => setMeta({ ...meta, payment_method: e.target.value })} />
+                    <SmartSelect
+                      isLight={isLight}
+                      value={meta.payment_method}
+                      onChange={(v) => setMeta({ ...meta, payment_method: v })}
+                      options={paymentMethods.map((method) => ({ value: method.name, label: method.name }))}
+                      emptyLabel="Seleccionar..."
+                    />
                   </LabField>
                   <LabField label="Referencia" isLight={isLight}>
                     <input className={labInputClass(isLight)} value={meta.payment_reference} onChange={(e) => setMeta({ ...meta, payment_reference: e.target.value })} />
@@ -942,7 +956,7 @@ export function DocumentsPage() {
   );
 }
 
-type CatSlug = "financial-categories" | "currencies" | "services" | "tax-rates" | "cargos" | "tariffs" | "statuses" | "payment-accounts";
+type CatSlug = "financial-categories" | "currencies" | "services" | "tax-rates" | "cargos" | "tariffs" | "statuses" | "payment-accounts" | "payment-methods";
 
 function catalogColumnTitles(cat: CatSlug): string[] {
   switch (cat) {
@@ -962,6 +976,8 @@ function catalogColumnTitles(cat: CatSlug): string[] {
       return ["ID", "Categoría", "Código", "Etiqueta", "Orden"];
     case "payment-accounts":
       return ["ID", "Nombre", "Tipo", "Banco", "Nro. Cuenta", "CCI", "Icono"];
+    case "payment-methods":
+      return ["ID", "Codigo", "Nombre", "Activo"];
     default:
       return ["ID"];
   }
@@ -1040,6 +1056,13 @@ function catalogRowCells(cat: CatSlug, r: Record<string, unknown>, td: string, i
         <td key="cci" className={td}>{String(r.cci ?? "—")}</td>,
         <td key="ic" className={td}>{String(r.icon ?? "—")}</td>,
       ];
+    case "payment-methods":
+      return [
+        <td key="i" className={td + " " + mono}>{id}</td>,
+        <td key="c" className={td}>{String(r.code ?? "")}</td>,
+        <td key="n" className={td + " font-medium"}>{String(r.name ?? "")}</td>,
+        <td key="a" className={td}>{r.is_active === false ? "No" : "Si"}</td>,
+      ];
     default:
       return [<td key="x" className={td}>{id}</td>];
   }
@@ -1062,6 +1085,7 @@ export function CatalogosAdminPage() {
   interface TfRow { name: string; rate_type: string; amount: string; currency_id: string; area_id: string }
   interface StRow { category: string; code: string; label: string; sort_order: string }
   interface PaRow { name: string; type: string; bank_name: string; account_number: string; cci: string; currency: string; holder_name: string; icon: string; is_active: boolean }
+  interface PmRow { code: string; name: string; is_active: boolean }
 
   const [formFin, setFormFin] = useState<FiRow>({ name: "", type: "income" });
   const [formCur, setFormCur] = useState<CurRow>({ code: "", name: "", symbol: "" });
@@ -1071,6 +1095,7 @@ export function CatalogosAdminPage() {
   const [formTf, setFormTf] = useState<TfRow>({ name: "", rate_type: "hourly", amount: "", currency_id: "", area_id: "" });
   const [formSt, setFormSt] = useState<StRow>({ category: "pipeline", code: "", label: "", sort_order: "0" });
   const [formPa, setFormPa] = useState<PaRow>({ name: "", type: "bank", bank_name: "", account_number: "", cci: "", currency: "PEN", holder_name: "", icon: "", is_active: true });
+  const [formPm, setFormPm] = useState<PmRow>({ code: "", name: "", is_active: true });
 
   const catalogUrl = (slug: CatSlug) => `/api/catalog/${slug === "statuses" ? "statuses" : slug}`;
 
@@ -1103,6 +1128,7 @@ export function CatalogosAdminPage() {
     setFormTf({ name: "", rate_type: "hourly", amount: "", currency_id: "", area_id: "" });
     setFormSt({ category: "pipeline", code: "", label: "", sort_order: "0" });
     setFormPa({ name: "", type: "bank", bank_name: "", account_number: "", cci: "", currency: "PEN", holder_name: "", icon: "", is_active: true });
+    setFormPm({ code: "", name: "", is_active: true });
   };
 
   const parseId = (r: Record<string, unknown>): number => Number(r.id);
@@ -1117,6 +1143,7 @@ export function CatalogosAdminPage() {
     if (cat === "tariffs") setFormTf({ name: String(r.name ?? ""), rate_type: String(r.rate_type ?? "hourly"), amount: String(r.amount ?? ""), currency_id: r.currency_id != null ? String(r.currency_id) : "", area_id: r.area_id != null ? String(r.area_id) : "" });
     if (cat === "statuses") setFormSt({ category: String(r.category ?? "pipeline"), code: String(r.code ?? ""), label: String(r.label ?? ""), sort_order: String(r.sort_order ?? "0") });
     if (cat === "payment-accounts") setFormPa({ name: String(r.name ?? ""), type: String(r.type ?? "bank"), bank_name: String(r.bank_name ?? ""), account_number: String(r.account_number ?? ""), cci: String(r.cci ?? ""), currency: String(r.currency ?? "PEN"), holder_name: String(r.holder_name ?? ""), icon: String(r.icon ?? ""), is_active: Boolean(r.is_active ?? true) });
+    if (cat === "payment-methods") setFormPm({ code: String(r.code ?? ""), name: String(r.name ?? ""), is_active: Boolean(r.is_active ?? true) });
     setErr(null);
     setOpen(true);
   };
@@ -1172,6 +1199,12 @@ export function CatalogosAdminPage() {
         if (editRow) await putJson(`/api/catalog/payment-accounts/${parseId(editRow)}`, body);
         else await postJson("/api/catalog/payment-accounts", body);
       }
+      if (cat === "payment-methods") {
+        const body = { code: formPm.code.trim(), name: formPm.name.trim(), is_active: formPm.is_active };
+        if (!body.code || !body.name) throw new Error("Campos incompletos");
+        if (editRow) await putJson(`/api/catalog/payment-methods/${parseId(editRow)}`, body);
+        else await postJson("/api/catalog/payment-methods", body);
+      }
       closeModal();
       loadCatalog();
     } catch {
@@ -1191,6 +1224,7 @@ export function CatalogosAdminPage() {
       else if (cat === "tariffs") await deleteJson(`/api/catalog/tariffs/${id}`);
       else if (cat === "statuses") await deleteJson(`/api/catalog/statuses/${id}`);
       else if (cat === "payment-accounts") await deleteJson(`/api/catalog/payment-accounts/${id}`);
+      else if (cat === "payment-methods") await deleteJson(`/api/catalog/payment-methods/${id}`);
       loadCatalog();
     } catch {
       setErr("No se pudo actualizar.");
@@ -1206,6 +1240,7 @@ export function CatalogosAdminPage() {
     ["tariffs", "Tarifas"],
     ["statuses", "Estados"],
     ["payment-accounts", "Cuentas de pago"],
+    ["payment-methods", "Metodos de pago"],
   ];
 
   return (
@@ -1229,6 +1264,8 @@ export function CatalogosAdminPage() {
               setFormCg({ name: "" });
               setFormTf({ name: "", rate_type: "hourly", amount: "", currency_id: "", area_id: "" });
               setFormSt({ category: "pipeline", code: "", label: "", sort_order: "0" });
+              setFormPa({ name: "", type: "bank", bank_name: "", account_number: "", cci: "", currency: "PEN", holder_name: "", icon: "", is_active: true });
+              setFormPm({ code: "", name: "", is_active: true });
               setOpen(true);
             }}
           >
@@ -1452,6 +1489,20 @@ export function CatalogosAdminPage() {
               <label className={["flex items-center gap-2 text-sm sm:col-span-2", isLight ? "text-[#374151]" : "text-zinc-200"].join(" ")}>
                 <input type="checkbox" checked={formPa.is_active} onChange={(e) => setFormPa({ ...formPa, is_active: e.target.checked })} />
                 Cuenta activa
+              </label>
+            </>
+          ) : null}
+          {cat === "payment-methods" ? (
+            <>
+              <LabField label="Codigo *" isLight={isLight}>
+                <input className={labInputClass(isLight)} placeholder="Ej: transferencia" value={formPm.code} onChange={(e) => setFormPm({ ...formPm, code: e.target.value })} disabled={editRow !== null} />
+              </LabField>
+              <LabField label="Nombre *" isLight={isLight}>
+                <input className={labInputClass(isLight)} placeholder="Ej: Transferencia bancaria" value={formPm.name} onChange={(e) => setFormPm({ ...formPm, name: e.target.value })} />
+              </LabField>
+              <label className={["flex items-center gap-2 text-sm sm:col-span-2", isLight ? "text-[#374151]" : "text-zinc-200"].join(" ")}>
+                <input type="checkbox" checked={formPm.is_active} onChange={(e) => setFormPm({ ...formPm, is_active: e.target.checked })} />
+                Metodo activo
               </label>
             </>
           ) : null}

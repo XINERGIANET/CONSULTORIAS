@@ -42,7 +42,6 @@ type ProjRow = {
   service_type?: string | null;
   start_date?: string | null;
   end_estimated?: string | null;
-  subscription_status?: string | null;
   renewal_date?: string | null;
   description?: string | null;
   objectives?: string | null;
@@ -61,6 +60,8 @@ const PROJECT_STATUS_LABELS: Record<string, string> = {
   completed: "Completado",
   cancelled: "Cancelado",
 };
+
+const normalizeDateInput = (value?: string | null) => (value ? String(value).slice(0, 10) : "");
 
 export function ProjectsPage() {
   const { isLight } = useApexTheme();
@@ -91,11 +92,13 @@ export function ProjectsPage() {
     name: "",
     service_type: "",
     start_date: "",
+    payment_start_date: "",
     end_estimated: "",
     status: "pending",
-    subscription_status: "active",
     renewal_date: "",
     budget: "",
+    billing_type: "mensual",
+    installments_count: "2",
     lead_user_id: "" as "" | number,
     description: "",
     objectives: "",
@@ -104,6 +107,20 @@ export function ProjectsPage() {
     user_ids: [] as number[],
     service_ids: [] as number[],
   });
+
+  const [clientHistory, setClientHistory] = useState<any[]>([]);
+
+  useEffect(() => {
+    if (form.client_id) {
+      void getJson<{ projects?: any[] }>(`/api/clients/${form.client_id}`)
+        .then((res) => {
+          setClientHistory(res.projects ?? []);
+        })
+        .catch(() => setClientHistory([]));
+    } else {
+      setClientHistory([]);
+    }
+  }, [form.client_id]);
 
   const fetchProjects = useCallback(
     async (targetPage: number, nextPer?: number) => {
@@ -154,11 +171,13 @@ export function ProjectsPage() {
         name: "",
         service_type: "",
         start_date: "",
+        payment_start_date: "",
         end_estimated: "",
         status: "pending",
-        subscription_status: "active",
         renewal_date: "",
         budget: "",
+        billing_type: "mensual",
+        installments_count: "2",
         lead_user_id: "",
         description: "",
         objectives: "",
@@ -206,12 +225,14 @@ export function ProjectsPage() {
         engagement_type: p.engagement_type ?? "project",
         name: p.name,
         service_type: p.service_type ?? "",
-        start_date: p.start_date ?? "",
-        end_estimated: p.end_estimated ?? "",
+        start_date: normalizeDateInput(p.start_date),
+        payment_start_date: normalizeDateInput((p as any).payment_start_date),
+        end_estimated: normalizeDateInput(p.end_estimated),
         status: p.status,
-        subscription_status: p.subscription_status ?? "active",
-        renewal_date: p.renewal_date ?? "",
+        renewal_date: normalizeDateInput(p.renewal_date),
         budget: p.budget ?? "",
+        billing_type: (p as any).billing_type ?? "mensual",
+        installments_count: "2",
         lead_user_id: p.lead_user_id ?? "",
         description: p.description ?? "",
         objectives: p.objectives ?? "",
@@ -232,6 +253,14 @@ export function ProjectsPage() {
       setModalErr("Nombre, cliente y al menos un área son obligatorios.");
       return;
     }
+    if (!editId && (!form.start_date || !form.end_estimated || !form.budget || Number(form.budget) <= 0)) {
+      setModalErr("Inicio, fin estimado y presupuesto son obligatorios para generar las cuentas por cobrar.");
+      return;
+    }
+    if (form.start_date && form.end_estimated && form.end_estimated < form.start_date) {
+      setModalErr("La fecha de fin estimado no puede ser anterior a la fecha de inicio.");
+      return;
+    }
     try {
       const body: Record<string, unknown> = {
         client_id: form.client_id,
@@ -239,11 +268,13 @@ export function ProjectsPage() {
         name: form.name,
         service_type: form.service_type || null,
         start_date: form.start_date || null,
+        payment_start_date: form.payment_start_date || null,
         end_estimated: form.end_estimated || null,
         status: form.status,
-        subscription_status: form.engagement_type === "saas" ? form.subscription_status || null : null,
         renewal_date: form.engagement_type === "saas" ? form.renewal_date || null : null,
         budget: form.budget ? Number(form.budget) : null,
+        billing_type: form.billing_type || null,
+        installments_count: form.billing_type === "por partes" ? Number(form.installments_count) || 2 : null,
         lead_user_id: form.lead_user_id === "" ? null : form.lead_user_id,
         description: form.description || null,
         objectives: form.objectives || null,
@@ -297,6 +328,8 @@ export function ProjectsPage() {
     address: "",
     rubro: "",
     pipeline_stage: "lead",
+    presentation_date: "",
+    tentative_response_date: "",
     representative_name: "",
     representative_phone: "",
     representative_position: "",
@@ -382,6 +415,10 @@ export function ProjectsPage() {
       setClientErr("La razón social es obligatoria.");
       return;
     }
+    if (clientForm.representative_name.trim() && (!clientForm.representative_position.trim() || !clientForm.representative_phone.trim())) {
+      setClientErr("El cargo y el teléfono del representante son obligatorios.");
+      return;
+    }
     try {
       const saved = await postJson<{ id: number; legal_name: string }>("/api/clients", {
         legal_name: clientForm.legal_name,
@@ -390,6 +427,8 @@ export function ProjectsPage() {
         address: clientForm.address || null,
         rubro: clientForm.rubro || null,
         pipeline_stage: clientForm.pipeline_stage,
+        presentation_date: clientForm.pipeline_stage === "prospect" ? clientForm.presentation_date || null : null,
+        tentative_response_date: clientForm.pipeline_stage === "prospect" ? clientForm.tentative_response_date || null : null,
       });
       if (clientForm.representative_name.trim()) {
         await postJson(`/api/clients/${saved.id}/contacts`, {
@@ -416,7 +455,32 @@ export function ProjectsPage() {
         subtitle="Búsqueda, ordenamiento y paginación en servidor."
         isLight={isLight}
         action={
-          <button type="button" className={labPrimaryBtn(isLight)} onClick={() => {setEditId(null); setModalErr(null); setOpen(true);}}>
+          <button type="button" className={labPrimaryBtn(isLight)} onClick={() => {
+            setEditId(null);
+            setModalErr(null);
+            setForm({
+              client_id: "",
+              engagement_type: "project",
+              name: "",
+              service_type: "",
+              start_date: "",
+              payment_start_date: "",
+              end_estimated: "",
+              status: "pending",
+              renewal_date: "",
+              budget: "",
+              billing_type: "mensual",
+              installments_count: "2",
+              lead_user_id: "",
+              description: "",
+              objectives: "",
+              deliverables: "",
+              area_ids: [],
+              user_ids: [],
+              service_ids: [],
+            });
+            setOpen(true);
+          }}>
             <FolderKanban className="h-4 w-4" /> Nuevo registro
           </button>
         }
@@ -601,6 +665,35 @@ export function ProjectsPage() {
               </button>
             </div>
           </LabField>
+          {form.client_id ? (
+            <div className="sm:col-span-2">
+              <span className={["block text-[11px] font-semibold uppercase tracking-wider mb-1", isLight ? "text-[#6B7280]" : "text-zinc-500"].join(" ")}>
+                Historial de Proyectos / Servicios del Cliente (Marcas autorizadas)
+              </span>
+              <div className={["max-h-36 overflow-y-auto rounded-lg border p-3 text-xs space-y-2", isLight ? "border-[#E5E7EB] bg-[#F9FAFB]/60" : "border-white/[0.06] bg-[#0a0a0a]/40"].join(" ")}>
+                {clientHistory.map((h: any) => (
+                  <div key={h.id} className={["flex justify-between items-center py-1.5 border-b last:border-b-0", isLight ? "border-[#E5E7EB]" : "border-white/[0.04]"].join(" ")}>
+                    <div>
+                      <span className={["font-semibold", isLight ? "text-[#374151]" : "text-zinc-300"].join(" ")}>{h.name}</span>
+                      <span className="ml-2 text-[10px] uppercase text-zinc-500">({h.engagement_type === "saas" ? "SaaS" : "Proyecto"})</span>
+                      <div className="text-[10px] text-zinc-500 mt-0.5">
+                        Marcas/Áreas: {(h.areas ?? []).map((a: any) => a.name).join(", ") || "Ninguna"}
+                      </div>
+                    </div>
+                    <div className="text-right">
+                      <span className={["font-semibold", isLight ? "text-[#111827]" : "text-zinc-200"].join(" ")}>S/. {h.budget ?? 0}</span>
+                      <div className="text-[10px] text-zinc-500 mt-0.5">
+                        {PROJECT_STATUS_LABELS[h.status] ?? h.status}
+                      </div>
+                    </div>
+                  </div>
+                ))}
+                {!clientHistory.length ? (
+                  <p className="text-zinc-500 italic text-center py-2">Sin historial de proyectos asignados.</p>
+                ) : null}
+              </div>
+            </div>
+          ) : null}
           <LabField label="Nombre *" isLight={isLight} className="sm:col-span-2">
             <input className={labInputClass(isLight)} value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} />
           </LabField>
@@ -633,35 +726,41 @@ export function ProjectsPage() {
               ]}
             />
           </LabField>
-          <LabField label="Inicio" isLight={isLight}>
+          <LabField label="Inicio *" isLight={isLight}>
             <input type="date" className={labInputClass(isLight)} value={form.start_date} onChange={(e) => setForm({ ...form, start_date: e.target.value })} />
           </LabField>
-          <LabField label="Fin estimado" isLight={isLight}>
+          <LabField label="Fin estimado *" isLight={isLight}>
             <input type="date" className={labInputClass(isLight)} value={form.end_estimated} onChange={(e) => setForm({ ...form, end_estimated: e.target.value })} />
           </LabField>
           {form.engagement_type === "saas" ? (
-            <>
-              <LabField label="Estado SaaS" isLight={isLight}>
-                <SmartSelect
-                  isLight={isLight}
-                  value={form.subscription_status}
-                  onChange={(v) => setForm({ ...form, subscription_status: v })}
-                  options={[
-                    { value: "trial", label: "Prueba" },
-                    { value: "active", label: "Activo" },
-                    { value: "paused", label: "Pausado" },
-                    { value: "cancelled", label: "Cancelado" },
-                  ]}
-                />
-              </LabField>
-              <LabField label="Renovacion" isLight={isLight}>
-                <input type="date" className={labInputClass(isLight)} value={form.renewal_date} onChange={(e) => setForm({ ...form, renewal_date: e.target.value })} />
-              </LabField>
-            </>
+            <LabField label="Renovacion" isLight={isLight}>
+              <input type="date" className={labInputClass(isLight)} value={form.renewal_date} onChange={(e) => setForm({ ...form, renewal_date: e.target.value })} />
+            </LabField>
           ) : null}
-          <LabField label="Presupuesto" isLight={isLight}>
+          <LabField label="Presupuesto *" isLight={isLight}>
             <input type="number" step="0.01" className={labInputClass(isLight)} value={form.budget} onChange={(e) => setForm({ ...form, budget: e.target.value })} />
           </LabField>
+          <LabField label="Inicio de Pago" isLight={isLight}>
+            <input type="date" className={labInputClass(isLight)} value={form.payment_start_date} onChange={(e) => setForm({ ...form, payment_start_date: e.target.value })} />
+          </LabField>
+          <LabField label="Tipo de cobranza" isLight={isLight}>
+            <SmartSelect
+              isLight={isLight}
+              value={form.billing_type}
+              onChange={(v) => setForm({ ...form, billing_type: v })}
+              options={[
+                { value: "mensual", label: "Mensual" },
+                { value: "anual", label: "Anual" },
+                { value: "único", label: "Único" },
+                { value: "por partes", label: "Por partes" },
+              ]}
+            />
+          </LabField>
+          {form.billing_type === "por partes" ? (
+            <LabField label="Número de partes (cuotas)" isLight={isLight}>
+              <input type="number" min="1" className={labInputClass(isLight)} value={form.installments_count} onChange={(e) => setForm({ ...form, installments_count: e.target.value })} />
+            </LabField>
+          ) : null}
           <LabField label="Responsable" isLight={isLight}>
             <SmartSelect
               isLight={isLight}
@@ -801,6 +900,16 @@ export function ProjectsPage() {
               ]}
             />
           </LabField>
+          {clientForm.pipeline_stage === "prospect" ? (
+            <>
+              <LabField label="Fecha de presentación" isLight={isLight}>
+                <input type="date" className={labInputClass(isLight)} value={clientForm.presentation_date} onChange={(e) => setClientForm({ ...clientForm, presentation_date: e.target.value })} />
+              </LabField>
+              <LabField label="Fecha tentativa de respuesta" isLight={isLight}>
+                <input type="date" className={labInputClass(isLight)} value={clientForm.tentative_response_date} onChange={(e) => setClientForm({ ...clientForm, tentative_response_date: e.target.value })} />
+              </LabField>
+            </>
+          ) : null}
           <div className="sm:col-span-2">
             <h3 className={"mb-1 text-sm font-semibold " + (isLight ? "text-[#111827]" : "text-zinc-100")}>Representante del cliente</h3>
           </div>

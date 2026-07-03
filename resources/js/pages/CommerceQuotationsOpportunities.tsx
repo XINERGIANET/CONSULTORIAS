@@ -1,6 +1,7 @@
 import { FileSpreadsheet, FileText, Mail, MessageCircle } from "lucide-react";
 import { LabCircleIconAction, circleRowActionClass } from "../xpande/LabTableKit";
 import { useEffect, useState } from "react";
+import { useParams } from "react-router-dom";
 import { SmartSelect } from "../components/SmartSelect";
 import { FormModal } from "../xpande/FormModal";
 import { deleteJson, getJson, postJson, putJson, type LaravelPaginated } from "../xpande/http";
@@ -27,7 +28,7 @@ const OPPORTUNITY_STAGE_LABELS: Record<string, string> = {
 };
 type CurrOpt = { id: number; code: string };
 type CollabOpt = { id: number; name: string };
-type PayAccOpt = { id: number; name: string };
+type PaymentMethodOpt = { id: number; code: string; name: string };
 
 type QLineUI = { description: string; quantity: string; unit_price: string };
 
@@ -36,7 +37,7 @@ export function QuotationsPage() {
   const [rows, setRows] = useState<LaravelPaginated<Record<string, unknown>> | null>(null);
   const [clients, setClients] = useState<ClientOpt[]>([]);
   const [currencies, setCurrencies] = useState<CurrOpt[]>([]);
-  const [payAccs, setPayAccs] = useState<PayAccOpt[]>([]);
+  const [paymentMethods, setPaymentMethods] = useState<PaymentMethodOpt[]>([]);
   const [open, setOpen] = useState(false);
   const [acceptId, setAcceptId] = useState<number | null>(null);
   const [editId, setEditId] = useState<number | null>(null);
@@ -71,7 +72,7 @@ export function QuotationsPage() {
     load();
     void getJson<LaravelPaginated<ClientOpt>>("/api/clients", { per_page: 120 }).then((r) => setClients(r.data));
     void getJson<CurrOpt[]>("/api/catalog/currencies").then(setCurrencies);
-    void getJson<PayAccOpt[]>("/api/catalog/payment-accounts?active_only=1").then(setPayAccs);
+    void getJson<PaymentMethodOpt[]>("/api/catalog/payment-methods", { active_only: true }).then(setPaymentMethods);
   }, []);
 
   const resetForm = () => {
@@ -453,12 +454,13 @@ export function QuotationsPage() {
                 <input type="date" className={labInputClass(isLight)} value={acceptForm.payment_paid_on} onChange={(e) => setAcceptForm({ ...acceptForm, payment_paid_on: e.target.value })} />
               </LabField>
               <LabField label="Método de pago" isLight={isLight}>
-                <select className={labInputClass(isLight)} value={acceptForm.payment_method} onChange={(e) => setAcceptForm({ ...acceptForm, payment_method: e.target.value })}>
-                  <option value="">Seleccionar método…</option>
-                  {payAccs.map((pa) => (
-                    <option key={pa.id} value={pa.name}>{pa.name}</option>
-                  ))}
-                </select>
+                <SmartSelect
+                  isLight={isLight}
+                  value={acceptForm.payment_method}
+                  onChange={(v) => setAcceptForm({ ...acceptForm, payment_method: v })}
+                  options={paymentMethods.map((method) => ({ value: method.name, label: method.name }))}
+                  emptyLabel="Seleccionar metodo..."
+                />
               </LabField>
               <LabField label="Referencia / Nro. operación" isLight={isLight}>
                 <input className={labInputClass(isLight)} value={acceptForm.payment_reference} onChange={(e) => setAcceptForm({ ...acceptForm, payment_reference: e.target.value })} />
@@ -475,6 +477,8 @@ export function QuotationsPage() {
 
 export function OpportunitiesPage() {
   const { isLight } = useApexTheme();
+  const { clientId } = useParams();
+  const scopedClientId = clientId && Number.isInteger(Number(clientId)) ? Number(clientId) : null;
   const [rows, setRows] = useState<LaravelPaginated<Record<string, unknown>> | null>(null);
   const [clients, setClients] = useState<ClientOpt[]>([]);
   const [users, setUsers] = useState<CollabOpt[]>([]);
@@ -493,18 +497,21 @@ export function OpportunitiesPage() {
     notes: "",
   });
 
-  const load = () => void getJson<LaravelPaginated<Record<string, unknown>>>("/api/opportunities").then(setRows);
+  const load = () => void getJson<LaravelPaginated<Record<string, unknown>>>(
+    "/api/opportunities",
+    scopedClientId ? { client_id: scopedClientId } : undefined,
+  ).then(setRows);
 
   useEffect(() => {
     load();
     void getJson<LaravelPaginated<ClientOpt>>("/api/clients", { per_page: 120 }).then((r) => setClients(r.data));
     void getJson<CollabOpt[]>("/api/collaborators").then(setUsers);
-  }, []);
+  }, [scopedClientId]);
 
   const reset = () => {
     setEditId(null);
     setForm({
-      client_id: "",
+      client_id: scopedClientId ?? "",
       owner_user_id: "",
       title: "",
       stage: "lead",
@@ -580,10 +587,15 @@ export function OpportunitiesPage() {
 
   return (
     <main className={labCrudMainClass(isLight)}>
-      <LabBreadcrumbs items={[{ label: "Dashboard", to: "/" }, { label: "Oportunidades" }]} isLight={isLight} />
+      <LabBreadcrumbs
+        items={scopedClientId
+          ? [{ label: "Dashboard", to: "/" }, { label: "Clientes", to: "/clientes" }, { label: "Oportunidades" }]
+          : [{ label: "Dashboard", to: "/" }, { label: "Oportunidades" }]}
+        isLight={isLight}
+      />
       <LabPageHeader
-        title="Embudo comercial"
-        subtitle="Registro integral con responsable y recordatorios de seguimiento."
+        title={scopedClientId ? "Oportunidades del cliente" : "Embudo comercial"}
+        subtitle={scopedClientId ? "Oportunidades y seguimiento comercial de este cliente." : "Registro integral con responsable y recordatorios de seguimiento."}
         isLight={isLight}
         action={
           <button type="button" className={labPrimaryBtn(isLight)} onClick={openNew}>
@@ -647,7 +659,7 @@ export function OpportunitiesPage() {
           <LabField label="Cliente *" isLight={isLight} className="sm:col-span-2">
             <SmartSelect
               isLight={isLight}
-              disabled={editId !== null}
+              disabled={editId !== null || scopedClientId !== null}
               value={form.client_id === "" ? "" : String(form.client_id)}
               onChange={(v) => setForm({ ...form, client_id: v ? Number(v) : "" })}
               options={clients.map((c) => ({ value: c.id, label: c.legal_name }))}

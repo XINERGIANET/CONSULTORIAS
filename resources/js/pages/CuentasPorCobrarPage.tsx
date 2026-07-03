@@ -2,6 +2,7 @@ import { HandCoins } from "lucide-react";
 import { useEffect, useState } from "react";
 import { FormModal } from "../xpande/FormModal";
 import { getJson, postJson, type LaravelPaginated } from "../xpande/http";
+import { SmartSelect } from "../components/SmartSelect";
 import {
   LabBreadcrumbs,
   LabField,
@@ -32,7 +33,7 @@ type AccountRow = {
   notes?: string | null;
 };
 
-type PayAccOpt = { id: number; name: string };
+type PaymentMethodOpt = { id: number; code: string; name: string };
 
 const STATUS_LABELS: Record<string, string> = {
   pending: "Pendiente",
@@ -67,7 +68,7 @@ function statusPill(status: string, isLight: boolean): string {
 export function CuentasPorCobrarPage() {
   const { isLight } = useApexTheme();
   const [rows, setRows] = useState<LaravelPaginated<AccountRow> | null>(null);
-  const [payAccs, setPayAccs] = useState<PayAccOpt[]>([]);
+  const [paymentMethods, setPaymentMethods] = useState<PaymentMethodOpt[]>([]);
   const [payModal, setPayModal] = useState(false);
   const [payAccount, setPayAccount] = useState<AccountRow | null>(null);
   const [err, setErr] = useState<string | null>(null);
@@ -84,7 +85,7 @@ export function CuentasPorCobrarPage() {
 
   useEffect(() => { 
     load(); 
-    void getJson<PayAccOpt[]>("/api/catalog/payment-accounts?active_only=1").then(setPayAccs);
+    void getJson<PaymentMethodOpt[]>("/api/catalog/payment-methods", { active_only: true }).then(setPaymentMethods);
   }, []);
 
   const openPayment = (r: AccountRow) => {
@@ -253,16 +254,13 @@ export function CuentasPorCobrarPage() {
             />
           </LabField>
           <LabField label="Método de pago" isLight={isLight}>
-            <select
-              className={labInputClass(isLight)}
+            <SmartSelect
+              isLight={isLight}
               value={payForm.method}
-              onChange={(e) => setPayForm({ ...payForm, method: e.target.value })}
-            >
-              <option value="">Seleccionar método…</option>
-              {payAccs.map((pa) => (
-                <option key={pa.id} value={pa.name}>{pa.name}</option>
-              ))}
-            </select>
+              onChange={(v) => setPayForm({ ...payForm, method: v })}
+              options={paymentMethods.map((pm) => ({ value: pm.name, label: pm.name }))}
+              emptyLabel="Seleccionar método…"
+            />
           </LabField>
           <LabField label="Referencia / Nro. operación" isLight={isLight}>
             <input

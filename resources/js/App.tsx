@@ -66,6 +66,7 @@ function App() {
           />
 
           <Route path="/clientes" element={<ClientsPage />} />
+          <Route path="/clientes/:clientId/oportunidades" element={<OpportunitiesPage />} />
           <Route path="/clientes/:id" element={<ClientDetailPage />} />
 
           <Route path="/proyectos" element={<ProjectsPage />} />
