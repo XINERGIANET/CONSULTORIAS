@@ -140,16 +140,21 @@ class XpandeSeeder extends Seeder
 
         foreach ($services as $s) {
             if ($s['area_id'] !== null) {
-                Service::query()->firstOrCreate(
-                    ['name' => $s['name']],
-                    [
+                $exists = Service::query()
+                    ->where('name', $s['name'])
+                    ->when(isset($s['slug']), fn ($q) => $q->orWhere('slug', $s['slug']))
+                    ->exists();
+
+                if (! $exists) {
+                    Service::query()->create([
+                        'name' => $s['name'],
                         'kind' => $s['kind'] ?? 'service',
                         'slug' => $s['slug'] ?? null,
                         'area_id' => $s['area_id'],
                         'billing_cycle' => $s['billing_cycle'] ?? null,
                         'is_active' => true,
-                    ]
-                );
+                    ]);
+                }
             }
         }
 
