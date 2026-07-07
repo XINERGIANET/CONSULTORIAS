@@ -71,6 +71,7 @@ export function FinanzasHubPage() {
   const [catsIncome, setCatsIncome] = useState<FinCat[]>([]);
   const [catsExpense, setCatsExpense] = useState<FinCat[]>([]);
   const [paymentMethods, setPaymentMethods] = useState<PaymentMethodOpt[]>([]);
+  const [editingCategory, setEditingCategory] = useState<FinCat | null>(null);
   const [inModal, setInModal] = useState(false);
   const [outModal, setOutModal] = useState(false);
   const [editInId, setEditInId] = useState<number | null>(null);
@@ -116,8 +117,14 @@ export function FinanzasHubPage() {
   useEffect(() => {
     const areaId = isSuperadmin ? outForm.area_id : user?.area_ids?.[0];
     const params = areaId ? { type: "expense", area_id: areaId } : { type: "expense" };
-    void getJson<FinCat[]>("/api/catalog/financial-categories", params).then(setCatsExpense);
-  }, [isSuperadmin, outForm.area_id, user?.area_ids]);
+    void getJson<FinCat[]>("/api/catalog/financial-categories", params).then((list) => {
+      if (editingCategory && !list.some((c) => c.id === editingCategory.id)) {
+        setCatsExpense([...list, editingCategory]);
+      } else {
+        setCatsExpense(list);
+      }
+    });
+  }, [isSuperadmin, outForm.area_id, user?.area_ids, editingCategory]);
 
   useEffect(() => {
     if (tab === "in") void getJson<LaravelPaginated<Record<string, unknown>>>("/api/incomes").then(setIncomes);
@@ -142,6 +149,7 @@ export function FinanzasHubPage() {
 
   const resetOut = () => {
     setEditOutId(null);
+    setEditingCategory(null);
     setOutForm({
       financial_category_id: "",
       amount: "",
@@ -230,6 +238,7 @@ export function FinanzasHubPage() {
     try {
       const r = await getJson<Record<string, unknown>>(`/api/expenses/${id}`);
       setEditOutId(id);
+      setEditingCategory((r.financial_category as FinCat | undefined) ?? null);
       setOutForm({
         financial_category_id: typeof r.financial_category_id === "number" ? r.financial_category_id : "",
         amount: String(r.amount ?? ""),
