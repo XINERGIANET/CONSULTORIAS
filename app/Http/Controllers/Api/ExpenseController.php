@@ -167,7 +167,7 @@ class ExpenseController extends Controller
             abort(422, 'Seleccione una categoria de costos valida.');
         }
 
-        if ($category->area_id === null || (int) $category->area_id !== $areaId) {
+        if ($category->area_id !== null && (int) $category->area_id !== $areaId) {
             abort(422, 'La categoria de costos no pertenece a la empresa seleccionada.');
         }
     }

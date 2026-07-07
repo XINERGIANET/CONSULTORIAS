@@ -22,10 +22,14 @@ class FinancialCategoryController extends Controller
         $user = $request->user();
         if ($request->filled('area_id')) {
             $areaId = AreaVisibility::resolveAreaIdOrFail($user, $request->input('area_id'));
-            $q->where('area_id', $areaId);
+            $q->where(function ($w) use ($areaId): void {
+                $w->where('area_id', $areaId)->orWhereNull('area_id');
+            });
         } elseif ($request->input('type') === 'expense' && $user !== null && ! $user->isSuperadmin()) {
             $areaIds = AreaVisibility::userAreaIds($user);
-            $q->whereIn('area_id', $areaIds);
+            $q->where(function ($w) use ($areaIds): void {
+                $w->whereIn('area_id', $areaIds)->orWhereNull('area_id');
+            });
         }
 
         return response()->json($q->get());
