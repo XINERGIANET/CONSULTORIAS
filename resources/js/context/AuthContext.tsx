@@ -32,11 +32,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const login = async (payload: { email: string; password: string; remember?: boolean }) => {
     setLoading(true);
     try {
-      const me = await authLogin(payload);
-      setUser(me);
-    } finally {
+      await authLogin(payload);
+    } catch (e) {
       setLoading(false);
+      throw e;
     }
+    // Recarga completa para que Laravel embeba en window.__APEX__ los indicadores
+    // reales del usuario recien autenticado (con sesion vacia se calculan en 0/vacio
+    // y el dashboard se queda mostrando el contenido de relleno hasta que se refresque).
+    window.location.href = "/";
   };
 
   const logout = async () => {

@@ -1,13 +1,12 @@
 import { Lock, Mail } from "lucide-react";
 import { useState } from "react";
-import { Navigate, useNavigate } from "react-router-dom";
+import { Navigate } from "react-router-dom";
 import { useApexTheme } from "../context/ThemeContext";
 import { useAuth } from "../context/AuthContext";
 
 export function LoginPage() {
   const { isLight } = useApexTheme();
   const { login, isAuthenticated, loading } = useAuth();
-  const nav = useNavigate();
   const [form, setForm] = useState({ email: "", password: "", remember: true });
   const [error, setError] = useState<string | null>(null);
 
@@ -19,8 +18,9 @@ export function LoginPage() {
     e.preventDefault();
     setError(null);
     try {
+      // login() hace una recarga completa a "/" si tiene exito, asi que aqui
+      // solo queda manejar el caso de error (credenciales invalidas).
       await login(form);
-      nav("/", { replace: true });
     } catch {
       setError("Credenciales inválidas.");
     }
