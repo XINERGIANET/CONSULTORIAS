@@ -6,9 +6,22 @@ import { RecentActivityList } from "../components/RecentActivityList";
 import { RecentOrdersTable } from "../components/RecentOrdersTable";
 import { RevenueLineChart } from "../components/RevenueLineChart";
 import { useApexTheme } from "../context/ThemeContext";
+import { useAuth } from "../context/AuthContext";
+
+function dashboardSubtitle(isSuperadmin: boolean, areaNames: string[]): string {
+  if (isSuperadmin) {
+    return "Visión ejecutiva consolidada entre Xingeria, Xpande y Xango con foco financiero mensual y proyectos.";
+  }
+  if (areaNames.length === 0) {
+    return "Visión ejecutiva con foco financiero mensual y proyectos.";
+  }
+  return `Visión ejecutiva de ${areaNames.join(", ")} con foco financiero mensual y proyectos.`;
+}
 
 export function DashboardHome() {
   const { isLight } = useApexTheme();
+  const { user, isSuperadmin } = useAuth();
+  const areaNames = (user?.areas ?? []).map((a) => a.name);
   return (
     <main
       className={[
@@ -26,7 +39,7 @@ export function DashboardHome() {
           Panel corporativo
         </h1>
         <p className={["mt-1 text-sm", isLight ? "text-[#6B7280]" : "text-zinc-500"].join(" ")}>
-          Visión ejecutiva consolidada entre Xingeria, Xpande y Xango con foco financiero mensual y proyectos.
+          {dashboardSubtitle(isSuperadmin, areaNames)}
         </p>
       </div>
       <KpiCards />

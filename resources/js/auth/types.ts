@@ -7,6 +7,7 @@ export type AuthUser = {
   role_name?: string | null;
   permissions?: string[];
   area_ids?: number[];
+  areas?: { id: number; name: string }[];
   phone?: string | null;
   is_active?: boolean;
   cargo_id?: number | null;

@@ -135,6 +135,7 @@ class User extends Authenticatable
             'role_name' => $this->role !== null ? $this->role->name : null,
             'permissions' => $this->isSuperadmin() ? array_keys(Permission::CATALOG) : $effective,
             'area_ids' => $this->areas->pluck('id')->values()->all(),
+            'areas' => $this->areas->map(fn ($a) => ['id' => $a->id, 'name' => $a->name])->values()->all(),
             'phone' => $this->phone,
             'is_active' => $this->is_active,
             'cargo_id' => $this->cargo_id,
