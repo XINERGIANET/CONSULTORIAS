@@ -11,7 +11,6 @@ import {
   LayoutDashboard,
   Layers,
   ListTodo,
-  LogOut,
   PackageOpen,
   Plug,
   Radar,
@@ -72,7 +71,7 @@ function NavSection({ title, items, isLight }: { title: string; items: NavLink[]
 
 export function Sidebar({ mobileMenuOpen, setMobileMenuOpen }: { mobileMenuOpen?: boolean; setMobileMenuOpen?: (v: boolean) => void }) {
   const { isLight } = useApexTheme();
-  const { user, isSuperadmin, logout } = useAuth();
+  const { user, isSuperadmin } = useAuth();
   const loc = useLocation();
   const can = (code: string) => isSuperadmin || Boolean(user?.permissions?.includes(code));
 
@@ -168,43 +167,6 @@ export function Sidebar({ mobileMenuOpen, setMobileMenuOpen }: { mobileMenuOpen?
         {finances.length ? <NavSection title="Finanzas" items={finances} isLight={isLight} /> : null}
         <NavSection title="Analítica" items={analytic} isLight={isLight} />
         {isSuperadmin ? <NavSection title="Administración" items={admin} isLight={isLight} /> : null}
-      </div>
-
-      <div className={["border-t p-3", isLight ? "border-[#E5E7EB]" : "border-white/[0.04]"].join(" ")}>
-        <div className={["flex items-center gap-3 rounded-xl p-2", isLight ? "bg-slate-50" : "bg-white/[0.03]"].join(" ")}>
-          <div
-            className={[
-              "flex h-10 w-10 items-center justify-center rounded-full text-sm font-semibold",
-              isLight ? "bg-[#007BFF] text-white" : "bg-[#007BFF] text-white shadow-[0_0_18px_rgba(0,123,255,0.35)]",
-            ].join(" ")}
-          >
-            {(user?.name ?? "U")
-              .split(" ")
-              .filter(Boolean)
-              .slice(0, 2)
-              .map((x) => x[0]?.toUpperCase() ?? "")
-              .join("")}
-          </div>
-          <div className="min-w-0 flex-1">
-            <p className={["truncate text-sm font-medium", isLight ? "text-slate-800" : "text-zinc-200"].join(" ")}>
-              {user?.name ?? "Usuario"}
-            </p>
-            <p className={["text-xs", isLight ? "text-[#94A3B8]" : "text-zinc-500"].join(" ")}>
-              {user?.role_name ?? (user?.is_superadmin ? "Superadmin" : "Colaborador")}
-            </p>
-          </div>
-          <button
-            type="button"
-            onClick={() => void logout()}
-            className={[
-              "rounded-lg p-2 transition-colors",
-              isLight ? "text-slate-500 hover:bg-slate-200 hover:text-slate-800" : "text-zinc-500 hover:bg-white/5 hover:text-zinc-300",
-            ].join(" ")}
-            aria-label="Cerrar sesión"
-          >
-            <LogOut className="h-4 w-4" />
-          </button>
-        </div>
       </div>
     </aside>
     </>

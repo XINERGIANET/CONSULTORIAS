@@ -108,8 +108,10 @@ class ProjectController extends Controller
             'service_ids.*' => ['integer', 'exists:services,id'],
         ]);
 
-        $project = DB::transaction(function () use ($data, $billing, $request) {
-            $aids = $data['area_ids'];
+        $this->assertClientVisible($request, (int) $data['client_id']);
+        $aids = AreaVisibility::allowedAreaIdsOrFail($request->user(), $data['area_ids']);
+
+        $project = DB::transaction(function () use ($data, $billing, $request, $aids) {
             $uids = $data['user_ids'] ?? [];
             $sids = $data['service_ids'] ?? [];
             $instCount = (int) ($data['installments_count'] ?? 2);
@@ -194,8 +196,12 @@ class ProjectController extends Controller
             'service_ids.*' => ['integer', 'exists:services,id'],
         ]);
 
-        DB::transaction(function () use ($project, $data) {
-            $aids = $data['area_ids'] ?? null;
+        if (isset($data['client_id'])) {
+            $this->assertClientVisible($request, (int) $data['client_id']);
+        }
+        $aids = isset($data['area_ids']) ? AreaVisibility::allowedAreaIdsOrFail($request->user(), $data['area_ids']) : null;
+
+        DB::transaction(function () use ($project, $data, $aids) {
             $uids = $data['user_ids'] ?? null;
             $sids = $data['service_ids'] ?? null;
             unset($data['area_ids'], $data['user_ids'], $data['service_ids']);
@@ -226,6 +232,15 @@ class ProjectController extends Controller
     {
         $q = Project::query()->whereKey($project->id);
         AreaVisibility::applyProjectScope($q, $request->user());
+        if (! $q->exists()) {
+            abort(404);
+        }
+    }
+
+    private function assertClientVisible(Request $request, int $clientId): void
+    {
+        $q = Client::query()->whereKey($clientId);
+        AreaVisibility::applyClientScope($q, $request->user());
         if (! $q->exists()) {
             abort(404);
         }

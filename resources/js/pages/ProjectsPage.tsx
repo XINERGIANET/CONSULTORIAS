@@ -1,5 +1,5 @@
 import { ExternalLink, FolderKanban, Search, UserPlus } from "lucide-react";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import { ConfirmModal } from "../components/ConfirmModal";
 import { SmartSelect } from "../components/SmartSelect";
@@ -25,6 +25,7 @@ import {
   labPrimaryBtn,
 } from "../xpande/XpandeUi";
 import { useApexTheme } from "../context/ThemeContext";
+import { useAuth } from "../context/AuthContext";
 
 type AreaOpt = { id: number; name: string };
 type ClientOpt = { id: number; legal_name: string };
@@ -65,14 +66,18 @@ const normalizeDateInput = (value?: string | null) => (value ? String(value).sli
 
 export function ProjectsPage() {
   const { isLight } = useApexTheme();
+  const { user, isSuperadmin } = useAuth();
   const loc = useLocation();
   const navigate = useNavigate();
+  const primaryAreaId = user?.area_ids?.[0] ?? "";
+  const defaultAreaIds = useMemo(() => (isSuperadmin ? [] : user?.area_ids?.slice(0, 1) ?? []), [isSuperadmin, user?.area_ids]);
 
   const [data, setData] = useState<LaravelPaginated<ProjRow> | null>(null);
   const [refreshing, setRefreshing] = useState(false);
   const [page, setPage] = useState(1);
   const [clients, setClients] = useState<ClientOpt[]>([]);
   const [areas, setAreas] = useState<AreaOpt[]>([]);
+  const scopedAreas = isSuperadmin ? areas : areas.filter((a) => user?.area_ids?.includes(a.id));
   const [users, setUsers] = useState<UserOpt[]>([]);
   const [services, setServices] = useState<ServiceOpt[]>([]);
   const [open, setOpen] = useState(false);
@@ -103,7 +108,7 @@ export function ProjectsPage() {
     description: "",
     objectives: "",
     deliverables: "",
-    area_ids: [] as number[],
+    area_ids: defaultAreaIds as number[],
     user_ids: [] as number[],
     service_ids: [] as number[],
   });
@@ -182,17 +187,19 @@ export function ProjectsPage() {
         description: "",
         objectives: "",
         deliverables: "",
-        area_ids: [],
+        area_ids: defaultAreaIds,
         user_ids: [],
         service_ids: [],
       });
       setOpen(true);
       navigate(loc.pathname, { replace: true, state: {} });
     }
-  }, [loc.pathname, loc.state, navigate]);
+  }, [defaultAreaIds, loc.pathname, loc.state, navigate]);
 
-  const toggleArea = (id: number) =>
+  const toggleArea = (id: number) => {
+    if (!isSuperadmin) return;
     void setForm((f) => ({ ...f, area_ids: f.area_ids.includes(id) ? f.area_ids.filter((x) => x !== id) : [...f.area_ids, id] }));
+  };
   const toggleUser = (id: number) =>
     void setForm((f) => ({ ...f, user_ids: f.user_ids.includes(id) ? f.user_ids.filter((x) => x !== id) : [...f.user_ids, id] }));
 
@@ -214,6 +221,10 @@ export function ProjectsPage() {
     setModalErr(null);
     if (form.engagement_type === "saas" && form.service_ids.length === 0) {
       setModalErr("Seleccione al menos un producto SaaS para la afiliacion.");
+      return;
+    }
+    if ((isSuperadmin ? clientForm.area_id : primaryAreaId) === "") {
+      setClientErr("Seleccione una empresa.");
       return;
     }
     try {
@@ -328,6 +339,7 @@ export function ProjectsPage() {
     address: "",
     rubro: "",
     pipeline_stage: "lead",
+    area_id: isSuperadmin ? "" : primaryAreaId,
     presentation_date: "",
     tentative_response_date: "",
     representative_name: "",
@@ -426,6 +438,7 @@ export function ProjectsPage() {
         ruc: clientForm.ruc || null,
         address: clientForm.address || null,
         rubro: clientForm.rubro || null,
+        area_id: isSuperadmin ? clientForm.area_id : primaryAreaId,
         pipeline_stage: clientForm.pipeline_stage,
         presentation_date: clientForm.pipeline_stage === "prospect" ? clientForm.presentation_date || null : null,
         tentative_response_date: clientForm.pipeline_stage === "prospect" ? clientForm.tentative_response_date || null : null,
@@ -475,7 +488,7 @@ export function ProjectsPage() {
               description: "",
               objectives: "",
               deliverables: "",
-              area_ids: [],
+              area_ids: defaultAreaIds,
               user_ids: [],
               service_ids: [],
             });
@@ -783,7 +796,7 @@ export function ProjectsPage() {
             <div className={["flex flex-wrap gap-2 rounded-lg border p-3 text-xs", isLight ? "border-[#E5E7EB] bg-[#F9FAFB]" : "border-white/[0.06] bg-[#0a0a0a]/60"].join(" ")}>
               {areas.map((a) => (
                 <label key={a.id} className={(isLight ? "text-[#374151]" : "text-zinc-200") + " flex gap-2"}>
-                  <input type="checkbox" checked={form.area_ids.includes(a.id)} onChange={() => toggleArea(a.id)} /> {a.name}
+                  <input type="checkbox" checked={form.area_ids.includes(a.id)} onChange={() => toggleArea(a.id)} disabled={!isSuperadmin} /> {a.name}
                 </label>
               ))}
             </div>
@@ -887,6 +900,16 @@ export function ProjectsPage() {
           </LabField>
           <LabField label="Rubro" isLight={isLight}>
             <input className={labInputClass(isLight)} value={clientForm.rubro} onChange={(e) => setClientForm({ ...clientForm, rubro: e.target.value })} />
+          </LabField>
+          <LabField label="Empresa *" isLight={isLight}>
+            <SmartSelect
+              isLight={isLight}
+              value={clientForm.area_id === "" ? "" : String(clientForm.area_id)}
+              onChange={(v) => setClientForm({ ...clientForm, area_id: v ? Number(v) : "" })}
+              options={scopedAreas.map((a) => ({ value: a.id, label: a.name }))}
+              emptyLabel="Seleccionar..."
+              disabled={!isSuperadmin}
+            />
           </LabField>
           <LabField label="Etapa CRM" isLight={isLight}>
             <SmartSelect

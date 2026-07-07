@@ -63,7 +63,7 @@ type TabKey = "all" | "admins" | "users";
 
 export function UsersPage() {
   const { isLight } = useApexTheme();
-  const { user } = useAuth();
+  const { user, isSuperadmin } = useAuth();
   const [rows, setRows] = useState<ManagedUser[]>([]);
   const [meta, setMeta] = useState<{ page: number; lastPage: number; total: number; perPage: number }>({
     page: 1,
@@ -620,9 +620,25 @@ export function UsersPage() {
             <input className={labInputClass(isLight)} value={form.specialty} onChange={(e) => setForm({ ...form, specialty: e.target.value })} />
           </LabField>
           <div className="sm:col-span-2 flex flex-wrap items-center gap-4 pt-2">
-            {editingId && form.is_superadmin ? (
-              <label className={["flex items-center gap-2 text-sm font-medium opacity-70", isLight ? "text-[#374151]" : "text-zinc-200"].join(" ")}>
-                <input type="checkbox" checked={form.is_superadmin} disabled />
+            {editingId && isSuperadmin ? (
+              <label className={["flex items-center gap-2 text-sm font-medium", isLight ? "text-[#374151]" : "text-zinc-200"].join(" ")}>
+                <input
+                  type="checkbox"
+                  checked={form.is_superadmin}
+                  onChange={(e) => {
+                    const checked = e.target.checked;
+                    const superadminRole = roles.find((r) => r.slug === "superadmin");
+                    setForm((f) => ({
+                      ...f,
+                      is_superadmin: checked,
+                      role_id: checked
+                        ? superadminRole?.id ?? f.role_id
+                        : superadminRole && f.role_id === superadminRole.id
+                          ? ""
+                          : f.role_id,
+                    }));
+                  }}
+                />
                 Superadmin
               </label>
             ) : null}

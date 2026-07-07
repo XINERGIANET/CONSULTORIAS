@@ -76,7 +76,7 @@ class DashboardService
             ],
             [
                 'id' => 'active_users',
-                'title' => 'Gastos del mes',
+                'title' => 'Costos del mes',
                 'value' => 'S/. '.number_format($monthlyExpense, 2, '.', ','),
                 'delta' => 'Mes en curso',
                 'up' => false,
@@ -85,7 +85,7 @@ class DashboardService
                 'id' => 'total_orders',
                 'title' => 'Utilidad bruta mensual',
                 'value' => 'S/. '.number_format($utility, 2, '.', ','),
-                'delta' => 'Ingresos − Gastos',
+                'delta' => 'Ingresos − Costos',
                 'up' => $utility >= 0,
             ],
             [

@@ -17,6 +17,7 @@ class Expense extends Model
         'responsible_user_id',
         'receipt_path',
         'observation',
+        'payment_method',
     ];
 
     protected function casts(): array

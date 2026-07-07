@@ -39,6 +39,7 @@ class TimeEntryController extends Controller
             'hours' => ['required', 'numeric', 'min:0.01', 'max:24'],
             'description' => ['nullable', 'string'],
             'user_id' => ['sometimes', 'integer', 'exists:users,id'],
+            'area_id' => ['nullable', 'integer', 'exists:areas,id'],
         ]);
 
         $project = Project::query()->with('client')->findOrFail($data['project_id']);
@@ -49,16 +50,37 @@ class TimeEntryController extends Controller
         if ($uid === null) {
             abort(422, 'Usuario requerido.');
         }
-        if ($uid !== $currentUserId && ! AreaVisibility::canSeeAll($request->user())) {
+        if ($uid !== $currentUserId && ! AreaVisibility::canManageOwnAreas($request->user())) {
             abort(403);
         }
 
-        unset($data['user_id']);
+        $requestedAreaId = $data['area_id'] ?? null;
+        unset($data['user_id'], $data['area_id']);
 
         $data['user_id'] = $uid;
         $data['client_id'] = $project->client_id;
         $data['status'] = 'pending';
-        $data['area_id'] = $request->user()->areas()->first()?->id;
+
+        $candidateAreaIds = $request->user()->isSuperadmin()
+            ? $project->areas()->pluck('areas.id')->all()
+            : $project->areas()->whereIn('areas.id', AreaVisibility::userAreaIds($request->user()))->pluck('areas.id')->all();
+
+        if ($requestedAreaId !== null) {
+            if (! in_array($requestedAreaId, $candidateAreaIds, true)) {
+                abort(422, 'La empresa seleccionada no pertenece a este proyecto.');
+            }
+            $data['area_id'] = $requestedAreaId;
+        } elseif (count($candidateAreaIds) === 1) {
+            $data['area_id'] = $candidateAreaIds[0];
+        } elseif (count($candidateAreaIds) > 1) {
+            abort(422, 'Este proyecto pertenece a varias empresas; seleccione a cual asignar el registro.');
+        } else {
+            $data['area_id'] = $request->user()->isSuperadmin() ? AreaVisibility::firstUserAreaId($request->user()) : null;
+        }
+
+        if ($data['area_id'] === null) {
+            abort(422, 'Empresa requerida.');
+        }
 
         return response()->json(TimeEntry::query()->create($data), 201);
     }
@@ -74,7 +96,7 @@ class TimeEntryController extends Controller
             'description' => ['nullable', 'string'],
         ]);
         $currentUserId = $request->user() !== null ? $request->user()->id : null;
-        if ($timeEntry->user_id !== $currentUserId && ! AreaVisibility::canSeeAll($request->user())) {
+        if ($timeEntry->user_id !== $currentUserId && ! AreaVisibility::canManageOwnAreas($request->user())) {
             abort(403);
         }
         $timeEntry->update($data);
@@ -84,7 +106,7 @@ class TimeEntryController extends Controller
 
     public function review(Request $request, TimeEntry $timeEntry): JsonResponse
     {
-        if (! AreaVisibility::canSeeAll($request->user())) {
+        if (! AreaVisibility::canManageOwnAreas($request->user())) {
             abort(403);
         }
         $this->assertEntry($request, $timeEntry);
@@ -100,7 +122,7 @@ class TimeEntryController extends Controller
     {
         $this->assertEntry($request, $timeEntry);
         $currentUserId = $request->user() !== null ? $request->user()->id : null;
-        if ($timeEntry->user_id !== $currentUserId && ! AreaVisibility::canSeeAll($request->user())) {
+        if ($timeEntry->user_id !== $currentUserId && ! AreaVisibility::canManageOwnAreas($request->user())) {
             abort(403);
         }
         $timeEntry->delete();

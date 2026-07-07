@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Models\AccountReceivable;
 use App\Services\AccountsReceivableService;
 use App\Support\AreaVisibility;
+use App\Models\User;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 
@@ -67,6 +68,7 @@ class AccountReceivableController extends Controller
             'due_on' => ['nullable', 'date'],
             'notes' => ['nullable', 'string'],
         ]);
+        $data['area_id'] = $this->resolveAreaId($request);
 
         $account = AccountReceivable::query()->create(array_merge($data, [
             'paid_amount' => 0,
@@ -106,7 +108,7 @@ class AccountReceivableController extends Controller
 
     private function applyScope($q, Request $request): void
     {
-        if (AreaVisibility::canSeeAll($request->user())) {
+        if ($request->user()?->isSuperadmin()) {
             return;
         }
 
@@ -118,5 +120,29 @@ class AccountReceivableController extends Controller
         }
 
         $q->whereIn('area_id', $ids);
+    }
+
+    private function resolveAreaId(Request $request): int
+    {
+        $user = $request->user();
+        if (! $user instanceof User) {
+            abort(401);
+        }
+
+        $areaId = $request->integer('area_id');
+        if ($areaId <= 0) {
+            abort(422, 'Seleccione la empresa de la cuenta por cobrar.');
+        }
+
+        if ($user->isSuperadmin()) {
+            return $areaId;
+        }
+
+        $ids = AreaVisibility::userAreaIds($user);
+        if (! in_array($areaId, $ids, true)) {
+            abort(403, 'No puedes registrar cuentas por cobrar de otra empresa.');
+        }
+
+        return $areaId;
     }
 }

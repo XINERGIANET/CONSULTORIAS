@@ -10,8 +10,8 @@ import { useApexTheme } from "../context/ThemeContext";
 
 type AreaOpt = { id: number; name: string };
 type ClientOpt = { id: number; legal_name: string };
-type ProjOpt = { id: number; name: string };
-type FinCat = { id: number; name: string; type: string };
+type ProjOpt = { id: number; name: string; areas?: { id: number; name: string }[] };
+type FinCat = { id: number; name: string; type: string; area_id?: number | null; area?: { name?: string } | null };
 type CurrOpt = { id: number; code: string };
 type PaymentMethodOpt = { id: number; code: string; name: string };
 
@@ -49,16 +49,28 @@ function canApproveTimes(user: { is_superadmin?: boolean; role_slug?: string | n
   return s === "admin";
 }
 
+function financeActionBtn(kind: "income" | "cost", isLight: boolean): string {
+  const base = "inline-flex items-center justify-center gap-2 rounded-lg px-4 py-2 text-sm font-semibold shadow-sm transition-colors";
+  if (kind === "income") {
+    return base + (isLight ? " bg-emerald-600 text-white hover:bg-emerald-700" : " bg-emerald-500 text-black hover:bg-emerald-400");
+  }
+
+  return base + (isLight ? " bg-amber-600 text-white hover:bg-amber-700" : " bg-amber-400 text-black hover:bg-amber-300");
+}
+
 export function FinanzasHubPage() {
   const { isLight } = useApexTheme();
+  const { user, isSuperadmin } = useAuth();
   const [tab, setTab] = useState<"in" | "out" | "flow">("in");
   const [incomes, setIncomes] = useState<LaravelPaginated<Record<string, unknown>> | null>(null);
   const [expenses, setExpenses] = useState<LaravelPaginated<Record<string, unknown>> | null>(null);
   const [cash, setCash] = useState<Record<string, unknown> | null>(null);
+  const [areas, setAreas] = useState<AreaOpt[]>([]);
   const [clients, setClients] = useState<ClientOpt[]>([]);
   const [projects, setProjects] = useState<ProjOpt[]>([]);
   const [catsIncome, setCatsIncome] = useState<FinCat[]>([]);
   const [catsExpense, setCatsExpense] = useState<FinCat[]>([]);
+  const [paymentMethods, setPaymentMethods] = useState<PaymentMethodOpt[]>([]);
   const [inModal, setInModal] = useState(false);
   const [outModal, setOutModal] = useState(false);
   const [editInId, setEditInId] = useState<number | null>(null);
@@ -69,6 +81,7 @@ export function FinanzasHubPage() {
     amount: "",
     recorded_on: new Date().toISOString().slice(0, 10),
     payment_status: "pending",
+    area_id: "" as "" | number,
     client_id: "" as "" | number,
     project_id: "" as "" | number,
     description: "",
@@ -77,12 +90,15 @@ export function FinanzasHubPage() {
     financial_category_id: "" as "" | number,
     amount: "",
     recorded_on: new Date().toISOString().slice(0, 10),
+    area_id: "" as "" | number,
     client_id: "" as "" | number,
     project_id: "" as "" | number,
     responsible_user_id: "" as "" | number,
     observation: "",
+    payment_method: "",
     schedule_payable: false,
     payable_type: "supplier",
+    payable_frequency: "monthly",
     vendor_name: "",
     projected_due_on: new Date().toISOString().slice(0, 10),
     requires_invoice: true,
@@ -90,11 +106,18 @@ export function FinanzasHubPage() {
   });
 
   useEffect(() => {
+    void getJson<AreaOpt[]>("/api/areas", { active_only: true }).then(setAreas);
     void getJson<LaravelPaginated<ClientOpt>>("/api/clients", { per_page: 100 }).then((r) => setClients(r.data));
     void getJson<LaravelPaginated<ProjOpt>>("/api/projects", { per_page: 100 }).then((r) => setProjects(r.data));
     void getJson<FinCat[]>("/api/catalog/financial-categories", { type: "income" }).then(setCatsIncome);
-    void getJson<FinCat[]>("/api/catalog/financial-categories", { type: "expense" }).then(setCatsExpense);
+    void getJson<PaymentMethodOpt[]>("/api/catalog/payment-methods", { active_only: true }).then(setPaymentMethods);
   }, []);
+
+  useEffect(() => {
+    const areaId = isSuperadmin ? outForm.area_id : user?.area_ids?.[0];
+    const params = areaId ? { type: "expense", area_id: areaId } : { type: "expense" };
+    void getJson<FinCat[]>("/api/catalog/financial-categories", params).then(setCatsExpense);
+  }, [isSuperadmin, outForm.area_id, user?.area_ids]);
 
   useEffect(() => {
     if (tab === "in") void getJson<LaravelPaginated<Record<string, unknown>>>("/api/incomes").then(setIncomes);
@@ -109,6 +132,7 @@ export function FinanzasHubPage() {
       amount: "",
       recorded_on: new Date().toISOString().slice(0, 10),
       payment_status: "pending",
+      area_id: "",
       client_id: "",
       project_id: "",
       description: "",
@@ -122,12 +146,15 @@ export function FinanzasHubPage() {
       financial_category_id: "",
       amount: "",
       recorded_on: new Date().toISOString().slice(0, 10),
+      area_id: "",
       client_id: "",
       project_id: "",
       responsible_user_id: "",
       observation: "",
+      payment_method: "",
       schedule_payable: false,
       payable_type: "supplier",
+      payable_frequency: "monthly",
       vendor_name: "",
       projected_due_on: new Date().toISOString().slice(0, 10),
       requires_invoice: true,
@@ -146,6 +173,7 @@ export function FinanzasHubPage() {
         amount: String(r.amount ?? ""),
         recorded_on: typeof r.recorded_on === "string" ? r.recorded_on.slice(0, 10) : "",
         payment_status: String(r.payment_status ?? "pending"),
+        area_id: typeof r.area_id === "number" ? r.area_id : "",
         client_id: typeof r.client_id === "number" ? r.client_id : "",
         project_id: typeof r.project_id === "number" ? r.project_id : "",
         description: String(r.description ?? ""),
@@ -162,8 +190,13 @@ export function FinanzasHubPage() {
       setErr("Categoría y monto son obligatorios.");
       return;
     }
+    if (isSuperadmin && inForm.area_id === "") {
+      setErr("Seleccione la empresa del ingreso.");
+      return;
+    }
     const body: Record<string, unknown> = {
       financial_category_id: inForm.financial_category_id,
+      area_id: isSuperadmin ? inForm.area_id : undefined,
       amount: Number(inForm.amount),
       recorded_on: inForm.recorded_on,
       payment_status: inForm.payment_status || null,
@@ -201,12 +234,15 @@ export function FinanzasHubPage() {
         financial_category_id: typeof r.financial_category_id === "number" ? r.financial_category_id : "",
         amount: String(r.amount ?? ""),
         recorded_on: typeof r.recorded_on === "string" ? r.recorded_on.slice(0, 10) : "",
+        area_id: typeof r.area_id === "number" ? r.area_id : "",
         client_id: typeof r.client_id === "number" ? r.client_id : "",
         project_id: typeof r.project_id === "number" ? r.project_id : "",
         responsible_user_id: typeof r.responsible_user_id === "number" ? r.responsible_user_id : "",
         observation: String(r.observation ?? ""),
+        payment_method: String(r.payment_method ?? ""),
         schedule_payable: false,
         payable_type: "supplier",
+        payable_frequency: "monthly",
         vendor_name: "",
         projected_due_on: new Date().toISOString().slice(0, 10),
         requires_invoice: true,
@@ -214,7 +250,7 @@ export function FinanzasHubPage() {
       });
       setOutModal(true);
     } catch {
-      setErr("No se pudo cargar el gasto.");
+      setErr("No se pudo cargar el costo.");
     }
   };
 
@@ -224,18 +260,25 @@ export function FinanzasHubPage() {
       setErr("Categoría y monto son obligatorios.");
       return;
     }
+    if (isSuperadmin && outForm.area_id === "") {
+      setErr("Seleccione la empresa del costo.");
+      return;
+    }
     const body: Record<string, unknown> = {
       financial_category_id: outForm.financial_category_id,
+      area_id: isSuperadmin ? outForm.area_id : undefined,
       amount: Number(outForm.amount),
       recorded_on: outForm.recorded_on,
       client_id: outForm.client_id === "" ? null : outForm.client_id,
       project_id: outForm.project_id === "" ? null : outForm.project_id,
       responsible_user_id: outForm.responsible_user_id === "" ? null : outForm.responsible_user_id,
       observation: outForm.observation || null,
+      payment_method: outForm.payment_method || null,
     };
     if (!editOutId && outForm.schedule_payable) {
       body.schedule_payable = true;
       body.payable_type = outForm.payable_type;
+      body.payable_frequency = outForm.payable_frequency;
       body.vendor_name = outForm.vendor_name || null;
       body.projected_due_on = outForm.projected_due_on;
       body.requires_invoice = outForm.requires_invoice;
@@ -248,12 +291,12 @@ export function FinanzasHubPage() {
       resetOut();
       void getJson<LaravelPaginated<Record<string, unknown>>>("/api/expenses").then(setExpenses);
     } catch {
-      setErr("Error al guardar gasto.");
+      setErr("Error al guardar costo.");
     }
   };
 
   const delOut = async (id: number) => {
-    if (!confirm("¿Eliminar gasto permanentemente?")) return;
+    if (!confirm("¿Eliminar costo permanentemente?")) return;
     try {
       await deleteJson(`/api/expenses/${id}`);
       void getJson<LaravelPaginated<Record<string, unknown>>>("/api/expenses").then(setExpenses);
@@ -267,27 +310,29 @@ export function FinanzasHubPage() {
       <LabBreadcrumbs items={[{ label: "Dashboard", to: "/" }, { label: "Finanzas" }]} isLight={isLight} />
       <LabPageHeader
         title="Finanzas corporativas"
-        subtitle="Alta de ingresos/gastos, categorías parametrizadas y flujo financiero."
+        subtitle="Alta de ingresos/costos, categorías parametrizadas y flujo financiero."
         isLight={isLight}
       />
-      <div className="mb-4 flex flex-wrap gap-2">
-        <button type="button" className={tab === "in" ? labPrimaryBtn(isLight) : labGhostBtn(isLight)} onClick={() => setTab("in")}>
-          <Wallet className="h-4 w-4" /> Ingresos
-        </button>
-        <button type="button" className={tab === "out" ? labPrimaryBtn(isLight) : labGhostBtn(isLight)} onClick={() => setTab("out")}>
-          <Receipt className="h-4 w-4" /> Gastos
-        </button>
-        <button type="button" className={tab === "flow" ? labPrimaryBtn(isLight) : labGhostBtn(isLight)} onClick={() => setTab("flow")}>
-          <Landmark className="h-4 w-4" /> Flujo
-        </button>
+      <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
+        <div className="flex flex-wrap gap-2">
+          <button type="button" className={tab === "in" ? labPrimaryBtn(isLight) : labGhostBtn(isLight)} onClick={() => setTab("in")}>
+            <Wallet className="h-4 w-4" /> Ingresos
+          </button>
+          <button type="button" className={tab === "out" ? labPrimaryBtn(isLight) : labGhostBtn(isLight)} onClick={() => setTab("out")}>
+            <Receipt className="h-4 w-4" /> Costos
+          </button>
+          <button type="button" className={tab === "flow" ? labPrimaryBtn(isLight) : labGhostBtn(isLight)} onClick={() => setTab("flow")}>
+            <Landmark className="h-4 w-4" /> Flujo
+          </button>
+        </div>
         {tab === "in" ? (
-          <button type="button" className={labPrimaryBtn(isLight)} onClick={() => {resetIn(); setInModal(true);}}>
+          <button type="button" className={financeActionBtn("income", isLight)} onClick={() => {resetIn(); setInModal(true);}}>
             Nuevo ingreso
           </button>
         ) : null}
         {tab === "out" ? (
-          <button type="button" className={labPrimaryBtn(isLight)} onClick={() => {resetOut(); setOutModal(true);}}>
-            Nuevo gasto
+          <button type="button" className={financeActionBtn("cost", isLight)} onClick={() => {resetOut(); setOutModal(true);}}>
+            Nuevo costo
           </button>
         ) : null}
       </div>
@@ -300,7 +345,7 @@ export function FinanzasHubPage() {
               Ingresos totales: <strong>{String((cash.totales as Record<string, unknown>)?.ingresos ?? "")}</strong>
             </p>
             <p>
-              Gastos totales: <strong>{String((cash.totales as Record<string, unknown>)?.gastos ?? "")}</strong>
+              Costos totales: <strong>{String((cash.totales as Record<string, unknown>)?.gastos ?? "")}</strong>
             </p>
             <p>
               Balance: <strong>{String((cash.totales as Record<string, unknown>)?.balance ?? "")}</strong>
@@ -355,8 +400,8 @@ export function FinanzasHubPage() {
                     <td className="py-2 text-right">S/. {String(r.amount ?? "")}</td>
                     <td className="py-2 text-right align-middle">
                       <div className="flex justify-end gap-2">
-                        <LabCircleIconAction variant="edit" tooltip="Editar" ariaLabel="Editar gasto" onClick={() => void fillOutEdit(Number(r.id))} />
-                        <LabCircleIconAction variant="delete" tooltip="Eliminar" ariaLabel="Eliminar gasto" onClick={() => void delOut(Number(r.id))} />
+                        <LabCircleIconAction variant="edit" tooltip="Editar" ariaLabel="Editar costo" onClick={() => void fillOutEdit(Number(r.id))} />
+                        <LabCircleIconAction variant="delete" tooltip="Eliminar" ariaLabel="Eliminar costo" onClick={() => void delOut(Number(r.id))} />
                       </div>
                     </td>
                   </tr>
@@ -382,6 +427,17 @@ export function FinanzasHubPage() {
         }
       >
         <div className="grid gap-3 sm:grid-cols-2">
+          {isSuperadmin ? (
+            <LabField label="Empresa *" isLight={isLight} className="sm:col-span-2">
+              <SmartSelect
+                isLight={isLight}
+                value={inForm.area_id === "" ? "" : String(inForm.area_id)}
+                onChange={(v) => setInForm({ ...inForm, area_id: v ? Number(v) : "" })}
+                options={areas.map((a) => ({ value: a.id, label: a.name }))}
+                emptyLabel="Seleccionar empresa..."
+              />
+            </LabField>
+          ) : null}
           <LabField label="Categoría (ingreso) *" isLight={isLight}>
             <SmartSelect
               isLight={isLight}
@@ -438,7 +494,7 @@ export function FinanzasHubPage() {
 
       <FormModal
         open={outModal}
-        title={editOutId ? "Editar gasto" : "Nuevo gasto"}
+        title={editOutId ? "Editar costo" : "Nuevo costo"}
         isLight={isLight}
         wide
         onClose={() => {setOutModal(false); resetOut();}}
@@ -450,9 +506,21 @@ export function FinanzasHubPage() {
         }
       >
         <div className="grid gap-3 sm:grid-cols-2">
-          <LabField label="Categoría (gasto) *" isLight={isLight}>
+          {isSuperadmin ? (
+            <LabField label="Empresa *" isLight={isLight} className="sm:col-span-2">
+              <SmartSelect
+                isLight={isLight}
+                value={outForm.area_id === "" ? "" : String(outForm.area_id)}
+                onChange={(v) => setOutForm({ ...outForm, area_id: v ? Number(v) : "", financial_category_id: "" })}
+                options={areas.map((a) => ({ value: a.id, label: a.name }))}
+                emptyLabel="Seleccionar empresa..."
+              />
+            </LabField>
+          ) : null}
+          <LabField label="Categoría (costo) *" isLight={isLight}>
             <SmartSelect
               isLight={isLight}
+              disabled={isSuperadmin && outForm.area_id === ""}
               value={outForm.financial_category_id === "" ? "" : String(outForm.financial_category_id)}
               onChange={(v) => setOutForm({ ...outForm, financial_category_id: v ? Number(v) : "" })}
               options={catsExpense.map((c) => ({ value: c.id, label: c.name }))}
@@ -483,6 +551,15 @@ export function FinanzasHubPage() {
               emptyLabel="—"
             />
           </LabField>
+          <LabField label="Método de pago (opc.)" isLight={isLight}>
+            <SmartSelect
+              isLight={isLight}
+              value={outForm.payment_method}
+              onChange={(v) => setOutForm({ ...outForm, payment_method: v })}
+              options={paymentMethods.map((pm) => ({ value: pm.name, label: pm.name }))}
+              emptyLabel="—"
+            />
+          </LabField>
           <LabField label="Observación" isLight={isLight} className="sm:col-span-2">
             <textarea className={labInputClass(isLight)} rows={2} value={outForm.observation} onChange={(e) => setOutForm({ ...outForm, observation: e.target.value })} />
           </LabField>
@@ -503,6 +580,17 @@ export function FinanzasHubPage() {
                         { value: "supplier", label: "Proveedor" },
                         { value: "payroll", label: "Planilla" },
                         { value: "other", label: "Otro" },
+                      ]}
+                    />
+                  </LabField>
+                  <LabField label="Frecuencia" isLight={isLight}>
+                    <SmartSelect
+                      isLight={isLight}
+                      value={outForm.payable_frequency}
+                      onChange={(v) => setOutForm({ ...outForm, payable_frequency: v })}
+                      options={[
+                        { value: "monthly", label: "Mensual" },
+                        { value: "one_time", label: "Unico" },
                       ]}
                     />
                   </LabField>
@@ -533,7 +621,7 @@ export function FinanzasHubPage() {
 
 export function TimeEntriesPage() {
   const { isLight } = useApexTheme();
-  const { user } = useAuth();
+  const { user, isSuperadmin } = useAuth();
   const [rows, setRows] = useState<LaravelPaginated<Record<string, unknown>> | null>(null);
   const [projects, setProjects] = useState<ProjOpt[]>([]);
   const [users, setUsers] = useState<{ id: number; name: string }[]>([]);
@@ -546,8 +634,12 @@ export function TimeEntriesPage() {
     hours: "1",
     description: "",
     user_id: "" as "" | number,
+    area_id: "" as "" | number,
   });
   const canReview = useMemo(() => canApproveTimes(user), [user]);
+  const selectedProject = projects.find((p) => p.id === form.project_id);
+  const candidateAreas = (selectedProject?.areas ?? []).filter((a) => isSuperadmin || user?.area_ids?.includes(a.id));
+  const needsAreaChoice = !editId && candidateAreas.length > 1;
 
   const load = () => void getJson<LaravelPaginated<Record<string, unknown>>>("/api/time-entries").then(setRows);
 
@@ -565,6 +657,7 @@ export function TimeEntriesPage() {
       hours: "1",
       description: "",
       user_id: "",
+      area_id: "",
     });
     setErr(null);
   };
@@ -578,6 +671,7 @@ export function TimeEntriesPage() {
       hours: String(r.hours ?? "1"),
       description: String(r.description ?? ""),
       user_id: "",
+      area_id: "",
     });
     setOpen(true);
   };
@@ -586,6 +680,10 @@ export function TimeEntriesPage() {
     setErr(null);
     if (!editId && form.project_id === "") {
       setErr("Proyecto es obligatorio.");
+      return;
+    }
+    if (needsAreaChoice && form.area_id === "") {
+      setErr("Este proyecto pertenece a varias empresas: seleccione a cuál asignar el registro.");
       return;
     }
     try {
@@ -603,6 +701,7 @@ export function TimeEntriesPage() {
           description: form.description || null,
         };
         if (canReview && form.user_id !== "") body.user_id = form.user_id;
+        if (form.area_id !== "") body.area_id = form.area_id;
         await postJson("/api/time-entries", body);
       }
       setOpen(false);
@@ -717,6 +816,17 @@ export function TimeEntriesPage() {
           ) : (
             <p className={"sm:col-span-2 text-xs " + (isLight ? "text-[#6B7280]" : "text-zinc-500")}>El proyecto no se altera desde esta edición.</p>
           )}
+          {needsAreaChoice ? (
+            <LabField label="Empresa *" isLight={isLight} className="sm:col-span-2">
+              <SmartSelect
+                isLight={isLight}
+                value={form.area_id === "" ? "" : String(form.area_id)}
+                onChange={(v) => setForm({ ...form, area_id: v ? Number(v) : "" })}
+                options={candidateAreas.map((a) => ({ value: a.id, label: a.name }))}
+                emptyLabel="Seleccionar empresa..."
+              />
+            </LabField>
+          ) : null}
           <LabField label="Fecha labor" isLight={isLight}>
             <input type="date" className={labInputClass(isLight)} value={form.work_date} onChange={(e) => setForm({ ...form, work_date: e.target.value })} />
           </LabField>
@@ -735,10 +845,13 @@ export function TimeEntriesPage() {
 
 export function DocumentsPage() {
   const { isLight } = useApexTheme();
+  const { user, isSuperadmin } = useAuth();
+  const primaryAreaId = user?.area_ids?.[0] ?? "";
   const [rows, setRows] = useState<LaravelPaginated<Record<string, unknown>> | null>(null);
   const [clients, setClients] = useState<ClientOpt[]>([]);
   const [projects, setProjects] = useState<ProjOpt[]>([]);
   const [areas, setAreas] = useState<AreaOpt[]>([]);
+  const scopedAreas = isSuperadmin ? areas : areas.filter((a) => user?.area_ids?.includes(a.id));
   const [paymentMethods, setPaymentMethods] = useState<PaymentMethodOpt[]>([]);
   const [open, setOpen] = useState(false);
   const [err, setErr] = useState<string | null>(null);
@@ -796,7 +909,7 @@ export function DocumentsPage() {
       await postFormData<unknown>("/api/documents", fd);
       setOpen(false);
       setFile(null);
-      setMeta({ title: "", doc_type: "contract", client_id: "", project_id: "", area_id: "", contract_total: "", contract_due_on: "", register_payment: false, payment_amount: "", payment_paid_on: new Date().toISOString().slice(0, 10), payment_method: "", payment_reference: "" });
+      setMeta({ title: "", doc_type: "contract", client_id: "", project_id: "", area_id: isSuperadmin ? "" : primaryAreaId, contract_total: "", contract_due_on: "", register_payment: false, payment_amount: "", payment_paid_on: new Date().toISOString().slice(0, 10), payment_method: "", payment_reference: "" });
       load();
     } catch {
       setErr("Error al subir (tamaño máx. 15MB).");
@@ -821,7 +934,7 @@ export function DocumentsPage() {
         subtitle="Carga mediante formulario multipart hacia la API."
         isLight={isLight}
         action={
-          <button type="button" className={labPrimaryBtn(isLight)} onClick={() => {setErr(null); setOpen(true);}}>
+          <button type="button" className={labPrimaryBtn(isLight)} onClick={() => {setErr(null); setMeta((m) => ({ ...m, area_id: isSuperadmin ? m.area_id : primaryAreaId })); setOpen(true);}}>
             <FileText className="h-4 w-4" /> Subir
           </button>
         }
@@ -908,7 +1021,8 @@ export function DocumentsPage() {
               isLight={isLight}
               value={meta.area_id === "" ? "" : String(meta.area_id)}
               onChange={(v) => setMeta({ ...meta, area_id: v ? Number(v) : "" })}
-              options={areas.map((a) => ({ value: a.id, label: a.name }))}
+              options={scopedAreas.map((a) => ({ value: a.id, label: a.name }))}
+              disabled={!isSuperadmin}
               emptyLabel="—"
             />
           </LabField>
@@ -961,7 +1075,7 @@ type CatSlug = "financial-categories" | "currencies" | "services" | "tax-rates" 
 function catalogColumnTitles(cat: CatSlug): string[] {
   switch (cat) {
     case "financial-categories":
-      return ["ID", "Nombre", "Tipo", "Activo"];
+      return ["ID", "Nombre", "Tipo", "Empresa", "Activo"];
     case "currencies":
       return ["ID", "Código", "Nombre", "Símbolo"];
     case "services":
@@ -988,10 +1102,13 @@ function catalogRowCells(cat: CatSlug, r: Record<string, unknown>, td: string, i
   const mono = isLight ? "font-mono text-[11px] text-[#6B7280]" : "font-mono text-[11px] text-zinc-500";
   switch (cat) {
     case "financial-categories":
+      const ar = r.area as { name?: string } | undefined;
+      const areaText = ar?.name ?? (r.area_id != null ? `#${r.area_id}` : "General");
       return [
         <td key="i" className={td + " " + mono}>{id}</td>,
         <td key="n" className={td + " font-medium"}>{String(r.name ?? "")}</td>,
-        <td key="t" className={td}>{r.type === "expense" ? "Gasto" : "Ingreso"}</td>,
+        <td key="t" className={td}>{r.type === "expense" ? "Costo" : "Ingreso"}</td>,
+        <td key="ar" className={td}>{areaText}</td>,
         <td key="a" className={td}>{r.is_active === false ? "No" : "Sí"}</td>,
       ];
     case "currencies":
@@ -1070,6 +1187,8 @@ function catalogRowCells(cat: CatSlug, r: Record<string, unknown>, td: string, i
 
 export function CatalogosAdminPage() {
   const { isLight } = useApexTheme();
+  const { user, isSuperadmin } = useAuth();
+  const primaryAreaId = user?.area_ids?.[0] != null ? String(user.area_ids[0]) : "";
   const [cat, setCat] = useState<CatSlug>("financial-categories");
   const [rows, setRows] = useState<Record<string, unknown>[]>([]);
   const [areas, setAreas] = useState<AreaOpt[]>([]);
@@ -1078,7 +1197,7 @@ export function CatalogosAdminPage() {
   const [editRow, setEditRow] = useState<Record<string, unknown> | null>(null);
   const [err, setErr] = useState<string | null>(null);
   interface CurRow { code: string; name: string; symbol: string }
-  interface FiRow { name: string; type: "income" | "expense" }
+  interface FiRow { name: string; type: "income" | "expense"; area_id: string }
   interface SvcRow { name: string; kind: string; area_id: string; billing_cycle: string; base_price: string; description: string }
   interface TxRow { name: string; rate_percent: string }
   interface CgRow { name: string }
@@ -1087,7 +1206,7 @@ export function CatalogosAdminPage() {
   interface PaRow { name: string; type: string; bank_name: string; account_number: string; cci: string; currency: string; holder_name: string; icon: string; is_active: boolean }
   interface PmRow { code: string; name: string; is_active: boolean }
 
-  const [formFin, setFormFin] = useState<FiRow>({ name: "", type: "income" });
+  const [formFin, setFormFin] = useState<FiRow>({ name: "", type: "income", area_id: "" });
   const [formCur, setFormCur] = useState<CurRow>({ code: "", name: "", symbol: "" });
   const [formSvc, setFormSvc] = useState<SvcRow>({ name: "", kind: "service", area_id: "", billing_cycle: "", base_price: "", description: "" });
   const [formTx, setFormTx] = useState<TxRow>({ name: "", rate_percent: "" });
@@ -1120,12 +1239,12 @@ export function CatalogosAdminPage() {
     setOpen(false);
     setEditRow(null);
     setErr(null);
-    setFormFin({ name: "", type: "income" });
+    setFormFin({ name: "", type: "income", area_id: "" });
     setFormCur({ code: "", name: "", symbol: "" });
-    setFormSvc({ name: "", kind: "service", area_id: "", billing_cycle: "", base_price: "", description: "" });
+    setFormSvc({ name: "", kind: "service", area_id: isSuperadmin ? "" : primaryAreaId, billing_cycle: "", base_price: "", description: "" });
     setFormTx({ name: "", rate_percent: "" });
     setFormCg({ name: "" });
-    setFormTf({ name: "", rate_type: "hourly", amount: "", currency_id: "", area_id: "" });
+    setFormTf({ name: "", rate_type: "hourly", amount: "", currency_id: "", area_id: isSuperadmin ? "" : primaryAreaId });
     setFormSt({ category: "pipeline", code: "", label: "", sort_order: "0" });
     setFormPa({ name: "", type: "bank", bank_name: "", account_number: "", cci: "", currency: "PEN", holder_name: "", icon: "", is_active: true });
     setFormPm({ code: "", name: "", is_active: true });
@@ -1135,7 +1254,7 @@ export function CatalogosAdminPage() {
 
   const startEdit = (r: Record<string, unknown>) => {
     setEditRow(r);
-    if (cat === "financial-categories") setFormFin({ name: String(r.name ?? ""), type: (r.type === "expense" ? "expense" : "income") });
+    if (cat === "financial-categories") setFormFin({ name: String(r.name ?? ""), type: (r.type === "expense" ? "expense" : "income"), area_id: r.area_id != null ? String(r.area_id) : "" });
     if (cat === "currencies") setFormCur({ code: String(r.code ?? ""), name: String(r.name ?? ""), symbol: String(r.symbol ?? "") });
     if (cat === "services") setFormSvc({ name: String(r.name ?? ""), kind: String(r.kind ?? "service"), area_id: r.area_id != null ? String(r.area_id) : "", billing_cycle: String(r.billing_cycle ?? ""), base_price: String(r.base_price ?? ""), description: String(r.description ?? "") });
     if (cat === "tax-rates") setFormTx({ name: String(r.name ?? ""), rate_percent: String(r.rate_percent ?? "") });
@@ -1152,8 +1271,10 @@ export function CatalogosAdminPage() {
     setErr(null);
     try {
       if (cat === "financial-categories") {
-        const body = { name: formFin.name.trim(), type: formFin.type };
+        const finAreaId = isSuperadmin ? formFin.area_id : primaryAreaId;
+        const body = { name: formFin.name.trim(), type: formFin.type, area_id: formFin.type === "expense" && finAreaId ? Number(finAreaId) : null };
         if (!body.name) throw new Error("Nombre requerido");
+        if (body.type === "expense" && body.area_id === null) throw new Error("Empresa requerida");
         if (editRow) await putJson(`/api/catalog/financial-categories/${parseId(editRow)}`, body);
         else await postJson("/api/catalog/financial-categories", body);
       } else if (cat === "currencies") {
@@ -1165,7 +1286,7 @@ export function CatalogosAdminPage() {
         const body = {
           name: formSvc.name.trim(),
           kind: formSvc.kind,
-          area_id: formSvc.area_id ? Number(formSvc.area_id) : null,
+          area_id: (isSuperadmin ? formSvc.area_id : primaryAreaId) ? Number(isSuperadmin ? formSvc.area_id : primaryAreaId) : null,
           billing_cycle: formSvc.billing_cycle.trim() || null,
           base_price: formSvc.base_price ? Number(formSvc.base_price) : null,
           description: formSvc.description.trim() || null,
@@ -1184,7 +1305,8 @@ export function CatalogosAdminPage() {
         if (editRow) await putJson(`/api/catalog/cargos/${parseId(editRow)}`, body);
         else await postJson("/api/catalog/cargos", body);
       } else if (cat === "tariffs") {
-        const body = { name: formTf.name.trim(), rate_type: formTf.rate_type, amount: Number(formTf.amount), currency_id: formTf.currency_id ? Number(formTf.currency_id) : null, area_id: formTf.area_id ? Number(formTf.area_id) : null };
+        const tariffAreaId = isSuperadmin ? formTf.area_id : primaryAreaId;
+        const body = { name: formTf.name.trim(), rate_type: formTf.rate_type, amount: Number(formTf.amount), currency_id: formTf.currency_id ? Number(formTf.currency_id) : null, area_id: tariffAreaId ? Number(tariffAreaId) : null };
         if (!body.name) throw new Error("Nombre");
         if (editRow) await putJson(`/api/catalog/tariffs/${parseId(editRow)}`, body);
         else await postJson("/api/catalog/tariffs", body);
@@ -1257,12 +1379,12 @@ export function CatalogosAdminPage() {
             onClick={() => {
               setEditRow(null);
               setErr(null);
-              setFormFin({ name: "", type: "income" });
+              setFormFin({ name: "", type: "income", area_id: "" });
               setFormCur({ code: "", name: "", symbol: "" });
-              setFormSvc({ name: "", kind: "service", area_id: "", billing_cycle: "", base_price: "", description: "" });
+              setFormSvc({ name: "", kind: "service", area_id: isSuperadmin ? "" : primaryAreaId, billing_cycle: "", base_price: "", description: "" });
               setFormTx({ name: "", rate_percent: "" });
               setFormCg({ name: "" });
-              setFormTf({ name: "", rate_type: "hourly", amount: "", currency_id: "", area_id: "" });
+              setFormTf({ name: "", rate_type: "hourly", amount: "", currency_id: "", area_id: isSuperadmin ? "" : primaryAreaId });
               setFormSt({ category: "pipeline", code: "", label: "", sort_order: "0" });
               setFormPa({ name: "", type: "bank", bank_name: "", account_number: "", cci: "", currency: "PEN", holder_name: "", icon: "", is_active: true });
               setFormPm({ code: "", name: "", is_active: true });
@@ -1337,13 +1459,25 @@ export function CatalogosAdminPage() {
                 <SmartSelect
                   isLight={isLight}
                   value={formFin.type}
-                  onChange={(v) => setFormFin({ ...formFin, type: v as "income" | "expense" })}
+                  onChange={(v) => setFormFin({ ...formFin, type: v as "income" | "expense", area_id: v === "income" ? "" : (isSuperadmin ? formFin.area_id : primaryAreaId) })}
                   options={[
                     { value: "income", label: "Ingreso" },
-                    { value: "expense", label: "Gasto" },
+                    { value: "expense", label: "Costo" },
                   ]}
                 />
               </LabField>
+              {formFin.type === "expense" ? (
+                <LabField label="Empresa *" isLight={isLight} className="sm:col-span-2">
+                  <SmartSelect
+                    isLight={isLight}
+                    value={formFin.area_id}
+                    onChange={(v) => setFormFin({ ...formFin, area_id: v })}
+                    options={areas.map((a) => ({ value: a.id, label: a.name }))}
+                    disabled={!isSuperadmin}
+                    emptyLabel="Seleccionar empresa..."
+                  />
+                </LabField>
+              ) : null}
             </>
           ) : null}
           {cat === "currencies" ? (
@@ -1391,6 +1525,7 @@ export function CatalogosAdminPage() {
                   value={formSvc.area_id}
                   onChange={(v) => setFormSvc({ ...formSvc, area_id: v })}
                   options={areas.map((a) => ({ value: a.id, label: a.name }))}
+                  disabled={!isSuperadmin}
                   emptyLabel="—"
                 />
               </LabField>
@@ -1428,6 +1563,7 @@ export function CatalogosAdminPage() {
                   value={formTf.area_id}
                   onChange={(v) => setFormTf({ ...formTf, area_id: v })}
                   options={areas.map((a) => ({ value: a.id, label: a.name }))}
+                  disabled={!isSuperadmin}
                   emptyLabel="—"
                 />
               </LabField>

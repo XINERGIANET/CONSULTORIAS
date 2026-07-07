@@ -17,6 +17,7 @@ import {
 } from "../xpande/XpandeUi";
 import { LabCircleIconAction, circleRowActionClass } from "../xpande/LabTableKit";
 import { useApexTheme } from "../context/ThemeContext";
+import { useAuth } from "../context/AuthContext";
 
 type AreaRow = { id: number; name: string; slug: string; is_active?: boolean };
 
@@ -188,6 +189,7 @@ const emptyClientForm = () => ({
   address: "",
   rubro: "",
   pipeline_stage: "lead",
+  area_id: "" as "" | number,
   presentation_date: "",
   tentative_response_date: "",
   representative_contact_id: null as number | null,
@@ -207,8 +209,14 @@ const emptyClientForm = () => ({
 
 export function ClientsPage() {
   const { isLight } = useApexTheme();
+  const { user, isSuperadmin } = useAuth();
+  const userAreaIds = user?.area_ids ?? [];
+  const primaryAreaId = userAreaIds[0] ?? "";
   const [data, setData] = useState<LaravelPaginated<ClientLite> | null>(null);
   const [areas, setAreas] = useState<AreaRow[]>([]);
+  const scopedAreas = isSuperadmin ? areas : (userAreaIds.length ? areas.filter((a) => userAreaIds.includes(a.id)) : areas);
+  const lockedAreaId = primaryAreaId || (!isSuperadmin ? scopedAreas[0]?.id ?? "" : "");
+  const lockedAreaName = areas.find((a) => a.id === lockedAreaId)?.name ?? scopedAreas[0]?.name ?? "Empresa asignada";
   const [modal, setModal] = useState(false);
   const [editId, setEditId] = useState<number | null>(null);
   const [searchingRuc, setSearchingRuc] = useState(false);
@@ -230,7 +238,7 @@ export function ClientsPage() {
 
   const openCreate = () => {
     setEditId(null);
-    setForm(emptyClientForm());
+    setForm({ ...emptyClientForm(), area_id: isSuperadmin ? "" : lockedAreaId, billing_area_id: isSuperadmin ? "" : lockedAreaId });
     setErr(null);
     setModal(true);
   };
@@ -240,6 +248,7 @@ export function ClientsPage() {
     try {
       const full = await getJson<{ legal_name?: string; trade_name?: string | null; ruc?: string | null; address?: string | null; rubro?: string | null; pipeline_stage?: string; presentation_date?: string | null; tentative_response_date?: string | null; contacts?: CrmContact[] }>(`/api/clients/${c.id}`);
       const representative = full.contacts?.[0] ?? null;
+      const currentAreaId = c.areas?.[0]?.id ?? primaryAreaId;
       setForm({
         legal_name: full.legal_name ?? c.legal_name,
         trade_name: full.trade_name ?? "",
@@ -247,6 +256,7 @@ export function ClientsPage() {
         address: full.address ?? "",
         rubro: full.rubro ?? "",
         pipeline_stage: full.pipeline_stage ?? c.pipeline_stage,
+        area_id: isSuperadmin ? currentAreaId : lockedAreaId,
         presentation_date: full.presentation_date ? String(full.presentation_date).slice(0, 10) : "",
         tentative_response_date: full.tentative_response_date ? String(full.tentative_response_date).slice(0, 10) : "",
         representative_contact_id: representative?.id ?? null,
@@ -260,7 +270,7 @@ export function ClientsPage() {
         billing_installments: "12",
         billing_start: new Date().toISOString().slice(0, 10),
         billing_first_due: new Date(new Date().setMonth(new Date().getMonth() + 1)).toISOString().slice(0, 10),
-        billing_area_id: "",
+        billing_area_id: isSuperadmin ? "" : lockedAreaId,
         billing_title: "",
       });
       setEditId(c.id);
@@ -311,6 +321,10 @@ export function ClientsPage() {
       return;
     }
     try {
+      if ((isSuperadmin ? form.area_id : lockedAreaId) === "") {
+        setErr("Seleccione una empresa.");
+        return;
+      }
       const clientBody: Record<string, unknown> = {
         legal_name: form.legal_name,
         trade_name: form.trade_name,
@@ -321,6 +335,7 @@ export function ClientsPage() {
         presentation_date: form.pipeline_stage === "prospect" ? form.presentation_date || null : null,
         tentative_response_date: form.pipeline_stage === "prospect" ? form.tentative_response_date || null : null,
         is_active: form.pipeline_stage === "active_client",
+        area_id: isSuperadmin ? form.area_id : lockedAreaId,
       };
       if (form.billing_activate && form.pipeline_stage === "active_client" && form.billing_area_id !== "" && form.billing_total) {
         clientBody.billing = {
@@ -558,6 +573,19 @@ export function ClientsPage() {
           <LabField label="Rubro" isLight={isLight}>
             <input className={labInputClass(isLight)} value={form.rubro} onChange={(e) => setForm({ ...form, rubro: e.target.value })} />
           </LabField>
+          <LabField label="Empresa *" isLight={isLight}>
+            {isSuperadmin ? (
+              <SmartSelect
+                isLight={isLight}
+                value={form.area_id === "" ? "" : String(form.area_id)}
+                onChange={(v) => setForm({ ...form, area_id: v ? Number(v) : "" })}
+                options={scopedAreas.map((a) => ({ value: a.id, label: a.name }))}
+                emptyLabel="Seleccionar..."
+              />
+            ) : (
+              <input className={labInputClass(isLight)} value={lockedAreaName} disabled />
+            )}
+          </LabField>
           {form.pipeline_stage === "prospect" ? (
             <>
               <LabField label="Fecha de presentación" isLight={isLight}>
@@ -571,7 +599,7 @@ export function ClientsPage() {
           {form.pipeline_stage === "active_client" ? (
             <div className={"sm:col-span-2 rounded-xl border p-4 " + (isLight ? "border-[#E5E7EB] bg-[#F9FAFB]" : "border-white/[0.06] bg-[#0a0a0a]/50")}>
               <label className={["mb-3 flex items-center gap-2 text-sm font-semibold", isLight ? "text-[#111827]" : "text-zinc-100"].join(" ")}>
-                <input type="checkbox" checked={form.billing_activate} onChange={(e) => setForm({ ...form, billing_activate: e.target.checked })} />
+                <input type="checkbox" checked={form.billing_activate} onChange={(e) => setForm({ ...form, billing_activate: e.target.checked, billing_area_id: !isSuperadmin && e.target.checked ? lockedAreaId : form.billing_area_id })} />
                 Generar contrato y cuotas mensuales (cuentas por cobrar)
               </label>
               {form.billing_activate ? (
@@ -594,6 +622,7 @@ export function ClientsPage() {
                       value={form.billing_area_id === "" ? "" : String(form.billing_area_id)}
                       onChange={(v) => setForm({ ...form, billing_area_id: v ? Number(v) : "" })}
                       options={areas.map((a) => ({ value: a.id, label: a.name }))}
+                      disabled={!isSuperadmin}
                       emptyLabel="Seleccionar…"
                     />
                   </LabField>
@@ -1055,7 +1084,7 @@ export function RentabilidadPage() {
               <th className={th}>Proyecto</th>
               <th className={th}>Cliente</th>
               <th className={th + " text-right"}>Ingresos</th>
-              <th className={th + " text-right"}>Gastos dir.</th>
+              <th className={th + " text-right"}>Costos dir.</th>
               <th className={th + " text-right"}>Costo hh</th>
               <th className={th + " text-right"}>Utilidad</th>
               <th className={th + " text-right"}>% margen</th>
@@ -1095,7 +1124,7 @@ export function RentabilidadPage() {
               <th className={th}>Cliente</th>
               <th className={th}>Áreas</th>
               <th className={th + " text-right"}>Ingresos</th>
-              <th className={th + " text-right"}>Gastos decl.</th>
+              <th className={th + " text-right"}>Costos decl.</th>
               <th className={th + " text-right"}>Utilidad</th>
             </tr>
           </thead>
@@ -1132,7 +1161,7 @@ export function RentabilidadPage() {
             <tr>
               <th className={th}>Área</th>
               <th className={th + " text-right"}>Ingresos</th>
-              <th className={th + " text-right"}>Gastos</th>
+              <th className={th + " text-right"}>Costos</th>
               <th className={th + " text-right"}>Utilidad</th>
             </tr>
           </thead>

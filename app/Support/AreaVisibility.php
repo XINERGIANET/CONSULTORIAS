@@ -9,12 +9,7 @@ class AreaVisibility
 {
     public static function canSeeAll(User $user): bool
     {
-        if ($user->is_superadmin) {
-            return true;
-        }
-        $slug = $user->role !== null ? $user->role->slug : null;
-
-        return $slug === 'admin';
+        return $user->isSuperadmin();
     }
 
     /**
@@ -27,6 +22,57 @@ class AreaVisibility
         }
 
         return $user->areas->pluck('id')->all();
+    }
+
+    public static function firstUserAreaId(User $user): ?int
+    {
+        $id = self::userAreaIds($user)[0] ?? null;
+
+        return $id !== null ? (int) $id : null;
+    }
+
+    public static function userCanUseArea(User $user, int $areaId): bool
+    {
+        return self::canSeeAll($user) || in_array($areaId, array_map('intval', self::userAreaIds($user)), true);
+    }
+
+    public static function canManageOwnAreas(User $user): bool
+    {
+        return self::canSeeAll($user) || ($user->role !== null && $user->role->slug === 'admin');
+    }
+
+    /**
+     * @param  list<int|string>  $areaIds
+     * @return list<int>
+     */
+    public static function allowedAreaIdsOrFail(User $user, array $areaIds): array
+    {
+        $ids = array_values(array_unique(array_map('intval', $areaIds)));
+        if ($ids === []) {
+            abort(422, 'Empresa requerida.');
+        }
+
+        if (self::canSeeAll($user)) {
+            return $ids;
+        }
+
+        $allowed = array_map('intval', self::userAreaIds($user));
+        $denied = array_diff($ids, $allowed);
+        if ($denied !== []) {
+            abort(403, 'No puede operar con otra empresa.');
+        }
+
+        return $ids;
+    }
+
+    public static function resolveAreaIdOrFail(User $user, mixed $areaId): int
+    {
+        $id = $areaId !== null && $areaId !== '' ? (int) $areaId : self::firstUserAreaId($user);
+        if ($id === null) {
+            abort(422, 'Empresa requerida.');
+        }
+
+        return self::allowedAreaIdsOrFail($user, [$id])[0];
     }
 
     /** @param  Builder<\App\Models\Client>  $q */

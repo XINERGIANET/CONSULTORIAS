@@ -1,0 +1,24 @@
+<?php
+
+use Illuminate\Database\Migrations\Migration;
+use Illuminate\Database\Schema\Blueprint;
+use Illuminate\Support\Facades\Schema;
+
+return new class extends Migration
+{
+    public function up(): void
+    {
+        Schema::table('financial_categories', function (Blueprint $table): void {
+            $table->foreignId('area_id')->nullable()->after('type')->constrained()->nullOnDelete();
+            $table->index(['type', 'area_id']);
+        });
+    }
+
+    public function down(): void
+    {
+        Schema::table('financial_categories', function (Blueprint $table): void {
+            $table->dropIndex(['type', 'area_id']);
+            $table->dropConstrainedForeignId('area_id');
+        });
+    }
+};

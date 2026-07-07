@@ -3,12 +3,14 @@
 namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 class FinancialCategory extends Model
 {
     protected $fillable = [
         'name',
         'type',
+        'area_id',
         'is_active',
     ];
 
@@ -17,5 +19,11 @@ class FinancialCategory extends Model
         return [
             'is_active' => 'boolean',
         ];
+    }
+
+    /** @return BelongsTo<Area, FinancialCategory> */
+    public function area(): BelongsTo
+    {
+        return $this->belongsTo(Area::class);
     }
 }

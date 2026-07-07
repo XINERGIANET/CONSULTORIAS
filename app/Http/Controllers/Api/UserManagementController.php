@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
+use App\Models\Role;
 use App\Models\User;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -131,18 +132,26 @@ class UserManagementController extends Controller
             'permissions.*' => ['nullable', 'boolean'],
         ]);
 
-        if (isset($data['is_superadmin']) && $data['is_superadmin'] && !$user->is_superadmin) {
-            return response()->json([
-                'message' => 'No está permitido promover usuarios a superadministrador.',
-            ], 422);
-        }
-
         if (array_key_exists('is_superadmin', $data) && $user->is_superadmin && ! $data['is_superadmin']) {
             $superadmins = User::query()->where('is_superadmin', true)->count();
             if ($superadmins <= 1) {
                 return response()->json([
                     'message' => 'Debe existir al menos un superadmin.',
                 ], 422);
+            }
+        }
+
+        if (array_key_exists('is_superadmin', $data)) {
+            $superadminRole = Role::query()->where('slug', 'superadmin')->first();
+            if ($data['is_superadmin']) {
+                if ($superadminRole !== null) {
+                    $data['role_id'] = $superadminRole->id;
+                }
+            } elseif ($superadminRole !== null) {
+                $currentRoleId = array_key_exists('role_id', $data) ? $data['role_id'] : $user->role_id;
+                if ((int) $currentRoleId === (int) $superadminRole->id) {
+                    $data['role_id'] = null;
+                }
             }
         }
 

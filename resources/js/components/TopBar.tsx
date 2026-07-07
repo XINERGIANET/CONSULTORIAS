@@ -1,9 +1,13 @@
-import { AlertCircle, AlertTriangle, Bell, Clock, Info, Menu, Moon, Palette, Sun, X } from "lucide-react";
+import { AlertCircle, AlertTriangle, Bell, Clock, Info, KeyRound, LogOut, Menu, Moon, Palette, Sun, X } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
 import { useApexTheme } from "../context/ThemeContext";
-import { getJson } from "../xpande/http";
+import { getJson, postJson } from "../xpande/http";
+import { apiErrorMessage } from "../xpande/apiError";
+import { FormModal } from "../xpande/FormModal";
+import { LabNoticeModal } from "../xpande/LabTableKit";
+import { LabField, labGhostBtn, labInputClass, labPrimaryBtn } from "../xpande/XpandeUi";
 
 type NotifItem = {
   id: string;
@@ -31,13 +35,50 @@ function typeLabel(type: NotifItem["type"]) {
 
 export function TopBar({ setMobileMenuOpen }: { setMobileMenuOpen?: (v: boolean) => void }) {
   const { isLight, setMode } = useApexTheme();
-  const { user } = useAuth();
+  const { user, logout } = useAuth();
   const navigate = useNavigate();
 
   const [notifOpen, setNotifOpen]   = useState(false);
   const [notifs, setNotifs]         = useState<NotifItem[]>([]);
   const [notifCount, setNotifCount] = useState(0);
   const panelRef = useRef<HTMLDivElement>(null);
+
+  const [userMenuOpen, setUserMenuOpen] = useState(false);
+  const userMenuRef = useRef<HTMLDivElement>(null);
+
+  const [pwOpen, setPwOpen] = useState(false);
+  const [pwForm, setPwForm] = useState({ current_password: "", new_password: "", new_password_confirmation: "" });
+  const [pwErr, setPwErr] = useState<string | null>(null);
+  const [pwSaving, setPwSaving] = useState(false);
+  const [notice, setNotice] = useState<{ variant: "success" | "error"; title: string; message: string } | null>(null);
+
+  const closePwModal = () => {
+    setPwOpen(false);
+    setPwForm({ current_password: "", new_password: "", new_password_confirmation: "" });
+    setPwErr(null);
+  };
+
+  const savePassword = async () => {
+    setPwErr(null);
+    if (pwForm.new_password !== pwForm.new_password_confirmation) {
+      setPwErr("La confirmación no coincide con la nueva contraseña.");
+      return;
+    }
+    setPwSaving(true);
+    try {
+      await postJson("/api/auth/change-password", pwForm);
+      closePwModal();
+      setNotice({
+        variant: "success",
+        title: "Contraseña actualizada",
+        message: "Tu contraseña se cambió correctamente.",
+      });
+    } catch (e: unknown) {
+      setPwErr(apiErrorMessage(e, "No se pudo cambiar la contraseña."));
+    } finally {
+      setPwSaving(false);
+    }
+  };
 
   const fetchNotifs = () => {
     void getJson<NotifResponse>("/api/notifications").then((r) => {
@@ -63,6 +104,18 @@ export function TopBar({ setMobileMenuOpen }: { setMobileMenuOpen?: (v: boolean)
     document.addEventListener("mousedown", handler);
     return () => document.removeEventListener("mousedown", handler);
   }, [notifOpen]);
+
+  // close user menu on outside click
+  useEffect(() => {
+    if (!userMenuOpen) return;
+    const handler = (e: MouseEvent) => {
+      if (userMenuRef.current && !userMenuRef.current.contains(e.target as Node)) {
+        setUserMenuOpen(false);
+      }
+    };
+    document.addEventListener("mousedown", handler);
+    return () => document.removeEventListener("mousedown", handler);
+  }, [userMenuOpen]);
 
   const handleNotifClick = (item: NotifItem) => {
     setNotifOpen(false);
@@ -253,22 +306,117 @@ export function TopBar({ setMobileMenuOpen }: { setMobileMenuOpen?: (v: boolean)
           )}
         </div>
 
-        <div
-          className={[
-            "ml-1 flex h-9 w-9 items-center justify-center rounded-full text-xs font-bold",
-            isLight
-              ? "border border-[#B3D9FF] bg-[#007BFF] text-white"
-              : "border border-white/[0.1] bg-zinc-800 text-zinc-200",
-          ].join(" ")}
-        >
-          {(user?.name ?? "U")
-            .split(" ")
-            .filter(Boolean)
-            .slice(0, 2)
-            .map((x) => x[0]?.toUpperCase() ?? "")
-            .join("")}
+        <div className="relative" ref={userMenuRef}>
+          <button
+            type="button"
+            onClick={() => setUserMenuOpen((v) => !v)}
+            className={[
+              "ml-1 flex h-9 w-9 items-center justify-center rounded-full text-xs font-bold transition-opacity hover:opacity-90",
+              isLight
+                ? "border border-[#B3D9FF] bg-[#007BFF] text-white"
+                : "border border-white/[0.1] bg-zinc-800 text-zinc-200",
+            ].join(" ")}
+            title={user?.name ?? "Usuario"}
+          >
+            {(user?.name ?? "U")
+              .split(" ")
+              .filter(Boolean)
+              .slice(0, 2)
+              .map((x) => x[0]?.toUpperCase() ?? "")
+              .join("")}
+          </button>
+
+          {userMenuOpen && (
+            <div
+              className={[
+                "absolute right-0 top-[calc(100%+8px)] z-50 w-56 rounded-xl shadow-2xl ring-1 overflow-hidden",
+                isLight ? "bg-white ring-black/[0.06]" : "bg-[#111111] ring-white/[0.08]",
+              ].join(" ")}
+            >
+              <div className={["px-4 py-3 border-b", isLight ? "border-[#F3F4F6]" : "border-white/[0.06]"].join(" ")}>
+                <p className={["truncate text-sm font-medium", isLight ? "text-[#111827]" : "text-zinc-100"].join(" ")}>
+                  {user?.name ?? "Usuario"}
+                </p>
+                <p className={["text-xs", isLight ? "text-[#94A3B8]" : "text-zinc-500"].join(" ")}>
+                  {user?.role_name ?? (user?.is_superadmin ? "Superadmin" : "Colaborador")}
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => { setUserMenuOpen(false); setPwOpen(true); }}
+                className={[
+                  "flex w-full items-center gap-2 px-4 py-2.5 text-left text-sm transition-colors",
+                  isLight ? "text-[#374151] hover:bg-[#F9FAFB]" : "text-zinc-300 hover:bg-white/[0.04]",
+                ].join(" ")}
+              >
+                <KeyRound className="h-4 w-4" /> Cambiar contraseña
+              </button>
+              <button
+                type="button"
+                onClick={() => { setUserMenuOpen(false); void logout(); }}
+                className={[
+                  "flex w-full items-center gap-2 px-4 py-2.5 text-left text-sm transition-colors",
+                  isLight ? "text-red-600 hover:bg-red-50" : "text-red-400 hover:bg-red-500/10",
+                ].join(" ")}
+              >
+                <LogOut className="h-4 w-4" /> Cerrar sesión
+              </button>
+            </div>
+          )}
         </div>
       </div>
+
+      <FormModal
+        open={pwOpen}
+        title="Cambiar contraseña"
+        isLight={isLight}
+        onClose={closePwModal}
+        footer={
+          <div className="flex justify-end gap-2">
+            <button type="button" className={labGhostBtn(isLight)} onClick={closePwModal}>Cancelar</button>
+            <button type="button" className={labPrimaryBtn(isLight)} disabled={pwSaving} onClick={() => void savePassword()}>
+              {pwSaving ? "Guardando…" : "Guardar"}
+            </button>
+          </div>
+        }
+      >
+        <div className="grid gap-3">
+          <LabField label="Contraseña actual" isLight={isLight}>
+            <input
+              type="password"
+              className={labInputClass(isLight)}
+              value={pwForm.current_password}
+              onChange={(e) => setPwForm({ ...pwForm, current_password: e.target.value })}
+            />
+          </LabField>
+          <LabField label="Nueva contraseña" isLight={isLight}>
+            <input
+              type="password"
+              className={labInputClass(isLight)}
+              value={pwForm.new_password}
+              onChange={(e) => setPwForm({ ...pwForm, new_password: e.target.value })}
+            />
+          </LabField>
+          <LabField label="Confirmar nueva contraseña" isLight={isLight}>
+            <input
+              type="password"
+              className={labInputClass(isLight)}
+              value={pwForm.new_password_confirmation}
+              onChange={(e) => setPwForm({ ...pwForm, new_password_confirmation: e.target.value })}
+            />
+          </LabField>
+          {pwErr ? <p className="text-sm text-red-600">{pwErr}</p> : null}
+        </div>
+      </FormModal>
+
+      <LabNoticeModal
+        open={notice !== null}
+        variant={notice?.variant ?? "success"}
+        title={notice?.title ?? ""}
+        message={notice?.message ?? ""}
+        isLight={isLight}
+        onClose={() => setNotice(null)}
+      />
     </header>
   );
 }

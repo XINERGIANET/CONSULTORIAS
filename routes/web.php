@@ -42,6 +42,7 @@ Route::middleware('guest')->group(function (): void {
 Route::middleware('auth')->group(function (): void {
     Route::post('/api/auth/logout', [AuthController::class, 'logout']);
     Route::get('/api/auth/me', [AuthController::class, 'me']);
+    Route::post('/api/auth/change-password', [AuthController::class, 'changePassword']);
     Route::get('/api/notifications', [NotificationController::class, 'index']);
 
     $spaUi = DashboardController::class;

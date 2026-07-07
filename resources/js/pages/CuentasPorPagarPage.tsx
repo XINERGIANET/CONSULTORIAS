@@ -4,6 +4,7 @@ import { FormModal } from "../xpande/FormModal";
 import { LabNoticeModal } from "../xpande/LabTableKit";
 import { getJson, postJson, type LaravelPaginated } from "../xpande/http";
 import { SmartSelect } from "../components/SmartSelect";
+import { useAuth } from "../context/AuthContext";
 import {
   LabBreadcrumbs,
   LabField,
@@ -51,6 +52,7 @@ const PAYABLE_STATUS_LABELS: Record<string, string> = {
 
 export function CuentasPorPagarPage() {
   const { isLight } = useApexTheme();
+  const { user, isSuperadmin } = useAuth();
   const [rows, setRows] = useState<LaravelPaginated<PayableRow> | null>(null);
   const [areas, setAreas] = useState<AreaOpt[]>([]);
   const [paymentMethods, setPaymentMethods] = useState<PaymentMethodOpt[]>([]);
@@ -81,6 +83,8 @@ export function CuentasPorPagarPage() {
   });
 
   const load = () => void getJson<LaravelPaginated<PayableRow>>("/api/accounts-payable").then(setRows);
+  const primaryAreaId = user?.area_ids?.[0] ?? "";
+  const primaryAreaName = areas.find((a) => a.id === primaryAreaId)?.name ?? "Tu empresa asignada";
 
   useEffect(() => {
     load();
@@ -119,15 +123,16 @@ export function CuentasPorPagarPage() {
   };
 
   const saveNew = async () => {
-    if (!newForm.description.trim() || newForm.area_id === "" || !newForm.total_amount) {
-      setNotice({ variant: "error", title: "Datos incompletos", message: "Complete área, monto y descripción." });
+    const areaId = isSuperadmin ? newForm.area_id : primaryAreaId;
+    if (!newForm.description.trim() || areaId === "" || !newForm.total_amount) {
+      setNotice({ variant: "error", title: "Datos incompletos", message: "Complete empresa, monto y descripción." });
       return;
     }
     try {
       await postJson("/api/accounts-payable", {
         payable_type: newForm.payable_type,
         vendor_name: newForm.vendor_name || null,
-        area_id: newForm.area_id,
+        area_id: areaId,
         total_amount: Number(newForm.total_amount),
         projected_due_on: newForm.projected_due_on,
         requires_invoice: newForm.requires_invoice,
@@ -142,17 +147,21 @@ export function CuentasPorPagarPage() {
   };
 
   const generatePayroll = async () => {
-    if (payrollForm.area_id === "") {
-      setNotice({ variant: "error", title: "Área requerida", message: "Seleccione el área para generar planilla." });
+    const areaId = isSuperadmin ? payrollForm.area_id : primaryAreaId;
+    if (areaId === "") {
+      setNotice({ variant: "error", title: "Empresa requerida", message: "Tu usuario no tiene una empresa asignada." });
       return;
     }
     try {
-      const res = await postJson<{ created: number }>("/api/accounts-payable/generate-payroll", payrollForm);
+      const res = await postJson<{ created: number }>("/api/accounts-payable/generate-payroll", {
+        ...payrollForm,
+        area_id: areaId,
+      });
       load();
       setNotice({
         variant: "success",
         title: "Planilla generada",
-        message: `Se crearon ${res.created} cuentas por pagar (colaboradores con sueldo en el área).`,
+        message: `Se crearon ${res.created} cuentas por pagar (colaboradores con sueldo en la empresa).`,
       });
     } catch {
       setNotice({ variant: "error", title: "Error", message: "No se pudo generar la planilla." });
@@ -177,15 +186,24 @@ export function CuentasPorPagarPage() {
       />
 
       <div className={`mb-4 grid gap-3 rounded-xl border p-4 sm:grid-cols-4 ${isLight ? "border-[#E5E7EB] bg-white" : "border-white/[0.06] bg-[#121212]"}`}>
-        <LabField label="Área planilla" isLight={isLight}>
-          <SmartSelect
-            isLight={isLight}
-            value={payrollForm.area_id === "" ? "" : String(payrollForm.area_id)}
-            onChange={(v) => setPayrollForm({ ...payrollForm, area_id: v ? Number(v) : "" })}
-            options={areas.map((a) => ({ value: a.id, label: a.name }))}
-            emptyLabel="Seleccionar…"
-          />
-        </LabField>
+        {isSuperadmin ? (
+          <LabField label="Empresa planilla" isLight={isLight}>
+            <SmartSelect
+              isLight={isLight}
+              value={payrollForm.area_id === "" ? "" : String(payrollForm.area_id)}
+              onChange={(v) => setPayrollForm({ ...payrollForm, area_id: v ? Number(v) : "" })}
+              options={areas.map((a) => ({ value: a.id, label: a.name }))}
+              emptyLabel="Seleccionar..."
+            />
+          </LabField>
+        ) : (
+          <div className="flex flex-col justify-end">
+            <p className={["mb-1 text-[10px] font-semibold uppercase", isLight ? "text-[#6B7280]" : "text-zinc-500"].join(" ")}>Empresa planilla</p>
+            <p className={["rounded-lg border px-3 py-2 text-sm", isLight ? "border-[#E5E7EB] bg-slate-50 text-[#374151]" : "border-white/[0.08] bg-black/20 text-zinc-300"].join(" ")}>
+              {primaryAreaName}
+            </p>
+          </div>
+        )}
         <LabField label="Año" isLight={isLight}>
           <input type="number" className={labInputClass(isLight)} value={payrollForm.period_year} onChange={(e) => setPayrollForm({ ...payrollForm, period_year: Number(e.target.value) })} />
         </LabField>
@@ -288,15 +306,21 @@ export function CuentasPorPagarPage() {
             />
           </LabField>
           <LabField label="Proveedor / referencia" isLight={isLight}><input className={labInputClass(isLight)} value={newForm.vendor_name} onChange={(e) => setNewForm({ ...newForm, vendor_name: e.target.value })} /></LabField>
-          <LabField label="Área" isLight={isLight}>
-            <SmartSelect
-              isLight={isLight}
-              value={newForm.area_id === "" ? "" : String(newForm.area_id)}
-              onChange={(v) => setNewForm({ ...newForm, area_id: v ? Number(v) : "" })}
-              options={areas.map((a) => ({ value: a.id, label: a.name }))}
-              emptyLabel="Seleccionar…"
-            />
-          </LabField>
+          {isSuperadmin ? (
+            <LabField label="Empresa" isLight={isLight}>
+              <SmartSelect
+                isLight={isLight}
+                value={newForm.area_id === "" ? "" : String(newForm.area_id)}
+                onChange={(v) => setNewForm({ ...newForm, area_id: v ? Number(v) : "" })}
+                options={areas.map((a) => ({ value: a.id, label: a.name }))}
+                emptyLabel="Seleccionar..."
+              />
+            </LabField>
+          ) : (
+            <LabField label="Empresa" isLight={isLight}>
+              <input className={labInputClass(isLight)} value={primaryAreaName} disabled />
+            </LabField>
+          )}
           <LabField label="Monto" isLight={isLight}><input type="number" step="0.01" className={labInputClass(isLight)} value={newForm.total_amount} onChange={(e) => setNewForm({ ...newForm, total_amount: e.target.value })} /></LabField>
           <LabField label="Vencimiento proyectado" isLight={isLight}><input type="date" className={labInputClass(isLight)} value={newForm.projected_due_on} onChange={(e) => setNewForm({ ...newForm, projected_due_on: e.target.value })} /></LabField>
           <LabField label="Descripción" isLight={isLight} className="sm:col-span-2"><input className={labInputClass(isLight)} value={newForm.description} onChange={(e) => setNewForm({ ...newForm, description: e.target.value })} /></LabField>

@@ -45,6 +45,7 @@ class QuotationController extends Controller
             'tax_amount' => ['nullable', 'numeric', 'min:0'],
             'discount' => ['nullable', 'numeric', 'min:0'],
             'currency_id' => ['nullable', 'integer', 'exists:currencies,id'],
+            'area_id' => ['nullable', 'integer', 'exists:areas,id'],
             'valid_until' => ['nullable', 'date'],
             'opportunity_id' => ['nullable', 'integer', 'exists:opportunities,id'],
             'notes' => ['nullable', 'string'],
@@ -55,11 +56,11 @@ class QuotationController extends Controller
         ]);
 
         $this->assertClientVisible($request, (int) $data['client_id']);
+        $areaId = AreaVisibility::resolveAreaIdOrFail($request->user(), $data['area_id'] ?? null);
 
-        $quotation = DB::transaction(function () use ($request, $data) {
+        $quotation = DB::transaction(function () use ($request, $data, $areaId) {
             $lines = $data['lines'];
-            unset($data['lines']);
-            $areaIds = $request->user()->areas()->pluck('areas.id')->toArray();
+            unset($data['lines'], $data['area_id']);
 
             $data['tax_amount'] = $data['tax_amount'] ?? 0;
             $data['discount'] = $data['discount'] ?? 0;
@@ -73,7 +74,7 @@ class QuotationController extends Controller
 
             self::persistLinesAndTotals($qRow, $lines);
 
-            $qRow->areas()->sync($areaIds);
+            $qRow->areas()->sync([$areaId]);
 
             $qRow->number = 'COT-' . date('Y') . '-' . str_pad((string) $qRow->id, 6, '0', STR_PAD_LEFT);
             $qRow->save();
@@ -92,6 +93,7 @@ class QuotationController extends Controller
             'tax_amount' => ['sometimes', 'numeric', 'min:0'],
             'discount' => ['sometimes', 'numeric', 'min:0'],
             'currency_id' => ['nullable', 'integer', 'exists:currencies,id'],
+            'area_id' => ['nullable', 'integer', 'exists:areas,id'],
             'valid_until' => ['nullable', 'date'],
             'notes' => ['nullable', 'string'],
             'lines' => ['sometimes', 'array', 'min:1'],
@@ -100,15 +102,22 @@ class QuotationController extends Controller
             'lines.*.unit_price' => ['required', 'numeric', 'min:0'],
         ]);
 
-        DB::transaction(function () use ($quotation, $data) {
+        $areaId = array_key_exists('area_id', $data)
+            ? AreaVisibility::resolveAreaIdOrFail($request->user(), $data['area_id'])
+            : null;
+
+        DB::transaction(function () use ($quotation, $data, $areaId) {
             $linesData = $data['lines'] ?? null;
-            unset($data['lines']);
+            unset($data['lines'], $data['area_id']);
             foreach (['tax_amount', 'discount', 'currency_id', 'valid_until', 'status', 'notes'] as $key) {
                 if (array_key_exists($key, $data)) {
                     $quotation->{$key} = $data[$key];
                 }
             }
             $quotation->save();
+            if ($areaId !== null) {
+                $quotation->areas()->sync([$areaId]);
+            }
             if (is_array($linesData)) {
                 self::persistLinesAndTotals($quotation, $linesData);
             }
@@ -134,10 +143,10 @@ class QuotationController extends Controller
             'payment_notes'       => ['nullable', 'string'],
         ]);
 
-        $areaId = $request->user()?->areas()->first()?->id;
+        $areaId = $quotation->areas()->value('areas.id');
 
-        if (!empty($data['immediate_payment']) && $areaId === null) {
-            abort(422, 'Tu usuario no tiene área asignada. No se puede registrar el pago inmediato en finanzas.');
+        if ($areaId === null) {
+            abort(422, 'La cotizacion no tiene empresa asignada.');
         }
 
         $result = DB::transaction(function () use ($quotation, $request, $data, $areaId) {

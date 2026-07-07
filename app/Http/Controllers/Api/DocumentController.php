@@ -45,6 +45,19 @@ class DocumentController extends Controller
             'payment_reference' => ['nullable', 'string', 'max:255'],
         ]);
 
+        if (! empty($data['client_id'])) {
+            $this->assertClientVisible($request, (int) $data['client_id']);
+        }
+        if (! empty($data['project_id'])) {
+            $this->assertProjectVisible($request, (int) $data['project_id']);
+        }
+        $user = $request->user();
+        if ($user !== null && ! $user->isSuperadmin()) {
+            $data['area_id'] = AreaVisibility::resolveAreaIdOrFail($user, $data['area_id'] ?? null);
+        } elseif ($user !== null && isset($data['area_id']) && $data['area_id'] !== null) {
+            $data['area_id'] = AreaVisibility::resolveAreaIdOrFail($user, $data['area_id']);
+        }
+
         $path = $data['file']->store('xpande_documents', 'public');
         $doc = DB::transaction(function () use ($data, $path, $request, $receivableService) {
             $doc = Document::query()->create([
@@ -141,6 +154,24 @@ class DocumentController extends Controller
         $q = Document::query()->whereKey($document->id);
         AreaVisibility::applyDocumentScope($q, $request->user());
         if (!$q->exists()) {
+            abort(404);
+        }
+    }
+
+    private function assertClientVisible(Request $request, int $clientId): void
+    {
+        $q = \App\Models\Client::query()->whereKey($clientId);
+        AreaVisibility::applyClientScope($q, $request->user());
+        if (! $q->exists()) {
+            abort(404);
+        }
+    }
+
+    private function assertProjectVisible(Request $request, int $projectId): void
+    {
+        $q = \App\Models\Project::query()->whereKey($projectId);
+        AreaVisibility::applyProjectScope($q, $request->user());
+        if (! $q->exists()) {
             abort(404);
         }
     }

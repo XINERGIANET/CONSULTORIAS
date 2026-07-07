@@ -30,7 +30,7 @@ class AccountsPayableService
             };
 
             $category = FinancialCategory::query()->firstOrCreate(
-                ['name' => $categoryName, 'type' => 'expense'],
+                ['name' => $categoryName, 'type' => 'expense', 'area_id' => $account->area_id],
                 ['is_active' => true]
             );
 

@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Api;
 use App\Http\Controllers\Controller;
 use App\Http\Controllers\Api\Concerns\AuthorizesPrivileged;
 use App\Models\Service;
+use App\Support\AreaVisibility;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 
@@ -18,8 +19,12 @@ class ServiceCatalogController extends Controller
         if ($request->boolean('active_only', true)) {
             $q->where('is_active', true);
         }
+        if ($request->user() !== null && ! $request->user()->isSuperadmin()) {
+            $q->whereIn('area_id', AreaVisibility::userAreaIds($request->user()));
+        }
         if ($request->filled('area_id')) {
-            $q->where('area_id', (int) $request->input('area_id'));
+            $areaId = AreaVisibility::resolveAreaIdOrFail($request->user(), $request->input('area_id'));
+            $q->where('area_id', $areaId);
         }
         if ($request->filled('kind')) {
             $q->where('kind', $request->string('kind')->toString());
@@ -41,6 +46,11 @@ class ServiceCatalogController extends Controller
             'base_price' => ['nullable', 'numeric', 'min:0'],
             'is_active' => ['sometimes', 'boolean'],
         ]);
+        if (array_key_exists('area_id', $data) && $data['area_id'] !== null) {
+            $data['area_id'] = AreaVisibility::resolveAreaIdOrFail($request->user(), $data['area_id']);
+        } elseif (! $request->user()->isSuperadmin()) {
+            $data['area_id'] = AreaVisibility::resolveAreaIdOrFail($request->user(), null);
+        }
 
         return response()->json(Service::query()->create($data), 201);
     }
@@ -48,7 +58,7 @@ class ServiceCatalogController extends Controller
     public function update(Request $request, Service $service): JsonResponse
     {
         $this->authorizePrivileged($request);
-        $service->update($request->validate([
+        $data = $request->validate([
             'name' => ['sometimes', 'required', 'string', 'max:255'],
             'kind' => ['nullable', 'string', 'max:64'],
             'slug' => ['nullable', 'string', 'max:255', 'unique:services,slug,'.$service->id],
@@ -57,7 +67,14 @@ class ServiceCatalogController extends Controller
             'billing_cycle' => ['nullable', 'string', 'max:64'],
             'base_price' => ['nullable', 'numeric', 'min:0'],
             'is_active' => ['sometimes', 'boolean'],
-        ]));
+        ]);
+        if (! $request->user()->isSuperadmin() && $service->area_id !== null) {
+            AreaVisibility::resolveAreaIdOrFail($request->user(), $service->area_id);
+        }
+        if (array_key_exists('area_id', $data)) {
+            $data['area_id'] = AreaVisibility::resolveAreaIdOrFail($request->user(), $data['area_id']);
+        }
+        $service->update($data);
 
         return response()->json($service->fresh()->load('area'));
     }
@@ -65,6 +82,9 @@ class ServiceCatalogController extends Controller
     public function destroy(Request $request, Service $service): JsonResponse
     {
         $this->authorizePrivileged($request);
+        if (! $request->user()->isSuperadmin() && $service->area_id !== null) {
+            AreaVisibility::resolveAreaIdOrFail($request->user(), $service->area_id);
+        }
         $service->delete();
 
         return response()->json(null, 204);

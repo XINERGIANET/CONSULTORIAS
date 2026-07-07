@@ -17,6 +17,7 @@ import {
   labStatusPill,
 } from "../xpande/XpandeUi";
 import { useApexTheme } from "../context/ThemeContext";
+import { useAuth } from "../context/AuthContext";
 
 type AreaOpt = { id: number; name: string };
 type SaasRow = {
@@ -49,6 +50,8 @@ function cycleLabel(value?: string | null): string {
 
 export function SaasProductsPage() {
   const { isLight } = useApexTheme();
+  const { user, isSuperadmin } = useAuth();
+  const primaryAreaId = user?.area_ids?.[0] ?? "";
   const [rows, setRows] = useState<SaasRow[]>([]);
   const [areas, setAreas] = useState<AreaOpt[]>([]);
   const [query, setQuery] = useState("");
@@ -86,7 +89,7 @@ export function SaasProductsPage() {
 
   const startCreate = () => {
     setEditRow(null);
-    setForm(blankForm);
+    setForm({ ...blankForm, area_id: isSuperadmin ? "" : primaryAreaId });
     setErr(null);
     setOpen(true);
   };
@@ -108,7 +111,7 @@ export function SaasProductsPage() {
   const close = () => {
     setOpen(false);
     setEditRow(null);
-    setForm(blankForm);
+    setForm({ ...blankForm, area_id: isSuperadmin ? "" : primaryAreaId });
     setErr(null);
   };
 
@@ -121,7 +124,7 @@ export function SaasProductsPage() {
     const body = {
       name: form.name.trim(),
       kind: "saas",
-      area_id: form.area_id === "" ? null : form.area_id,
+      area_id: (isSuperadmin ? form.area_id : primaryAreaId) === "" ? null : (isSuperadmin ? form.area_id : primaryAreaId),
       billing_cycle: form.billing_cycle || null,
       base_price: form.base_price ? Number(form.base_price) : null,
       description: form.description.trim() || null,
@@ -270,6 +273,7 @@ export function SaasProductsPage() {
               onChange={(v) => setForm({ ...form, area_id: v ? Number(v) : "" })}
               options={areas.map((area) => ({ value: area.id, label: area.name }))}
               emptyLabel="Sin area"
+              disabled={!isSuperadmin}
             />
           </LabField>
           <LabField label="Ciclo de cobro" isLight={isLight}>

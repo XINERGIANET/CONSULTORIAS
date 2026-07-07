@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Models\AccountPayable;
 use App\Services\AccountsPayableService;
 use App\Support\AreaVisibility;
+use App\Models\User;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 
@@ -68,6 +69,7 @@ class AccountPayableController extends Controller
             'period_year' => ['nullable', 'integer'],
             'period_month' => ['nullable', 'integer', 'min:1', 'max:12'],
         ]);
+        $data['area_id'] = $this->resolveAreaId($request);
 
         $account = AccountPayable::query()->create(array_merge($data, [
             'paid_amount' => 0,
@@ -119,9 +121,10 @@ class AccountPayableController extends Controller
             'period_year' => ['required', 'integer', 'min:2020', 'max:2100'],
             'period_month' => ['required', 'integer', 'min:1', 'max:12'],
         ]);
+        $areaId = $this->resolveAreaId($request);
 
         $rows = $service->generatePayroll(
-            (int) $data['area_id'],
+            $areaId,
             (int) $data['period_year'],
             (int) $data['period_month'],
             (int) $request->user()->id
@@ -144,7 +147,7 @@ class AccountPayableController extends Controller
 
     private function applyScope($q, Request $request): void
     {
-        if (AreaVisibility::canSeeAll($request->user())) {
+        if ($request->user()?->isSuperadmin()) {
             return;
         }
         $ids = AreaVisibility::userAreaIds($request->user());
@@ -154,5 +157,29 @@ class AccountPayableController extends Controller
             return;
         }
         $q->whereIn('area_id', $ids);
+    }
+
+    private function resolveAreaId(Request $request): int
+    {
+        $user = $request->user();
+        if (! $user instanceof User) {
+            abort(401);
+        }
+
+        $areaId = $request->integer('area_id');
+        if ($areaId <= 0) {
+            abort(422, 'Seleccione la empresa de la cuenta por pagar.');
+        }
+
+        if ($user->isSuperadmin()) {
+            return $areaId;
+        }
+
+        $ids = AreaVisibility::userAreaIds($user);
+        if (! in_array($areaId, $ids, true)) {
+            abort(403, 'No puedes registrar cuentas por pagar de otra empresa.');
+        }
+
+        return $areaId;
     }
 }

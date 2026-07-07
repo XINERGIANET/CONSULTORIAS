@@ -80,6 +80,7 @@ class ClientController extends Controller
             'is_active' => ['sometimes', 'boolean'],
             'notes' => ['nullable', 'string'],
             'billing' => ['sometimes', 'array'],
+            'area_id' => ['nullable', 'integer', 'exists:areas,id'],
             'billing.activate' => ['sometimes', 'boolean'],
             'billing.total_amount' => ['required_with:billing.activate', 'numeric', 'min:0.01'],
             'billing.installments_count' => ['required_with:billing.activate', 'integer', 'min:1', 'max:360'],
@@ -92,10 +93,17 @@ class ClientController extends Controller
         ]);
 
         $billingPayload = $data['billing'] ?? null;
+        $requestedAreaId = $data['area_id'] ?? null;
         unset($data['billing']);
+        unset($data['area_id']);
+        if (! empty($billingPayload['activate'])) {
+            $billingPayload['area_id'] = AreaVisibility::resolveAreaIdOrFail($request->user(), $billingPayload['area_id'] ?? null);
+        }
 
-        $client = DB::transaction(function () use ($data, $request, $billing, $billingPayload) {
-            $areaIds = $request->user()->areas()->pluck('areas.id')->toArray();
+        $client = DB::transaction(function () use ($data, $request, $billing, $billingPayload, $requestedAreaId) {
+            $areaIds = $request->user()->isSuperadmin()
+                ? [AreaVisibility::resolveAreaIdOrFail($request->user(), $requestedAreaId)]
+                : [AreaVisibility::resolveAreaIdOrFail($request->user(), null)];
             $c = Client::query()->create($data);
             $c->areas()->sync($areaIds);
 
@@ -140,6 +148,7 @@ class ClientController extends Controller
             'is_active' => ['sometimes', 'boolean'],
             'notes' => ['nullable', 'string'],
             'billing' => ['sometimes', 'array'],
+            'area_id' => ['nullable', 'integer', 'exists:areas,id'],
             'billing.activate' => ['sometimes', 'boolean'],
             'billing.total_amount' => ['required_with:billing.activate', 'numeric', 'min:0.01'],
             'billing.installments_count' => ['required_with:billing.activate', 'integer', 'min:1', 'max:360'],
@@ -152,10 +161,20 @@ class ClientController extends Controller
         ]);
 
         $billingPayload = $data['billing'] ?? null;
+        $requestedAreaId = $data['area_id'] ?? null;
         unset($data['billing']);
+        unset($data['area_id']);
+        if (! empty($billingPayload['activate'])) {
+            $billingPayload['area_id'] = AreaVisibility::resolveAreaIdOrFail($request->user(), $billingPayload['area_id'] ?? null);
+        }
 
-        DB::transaction(function () use ($client, $data, $request, $billing, $billingPayload) {
+        DB::transaction(function () use ($client, $data, $request, $billing, $billingPayload, $requestedAreaId) {
             $client->update($data);
+            if ($request->user()->isSuperadmin() && $requestedAreaId !== null) {
+                $client->areas()->sync([AreaVisibility::resolveAreaIdOrFail($request->user(), $requestedAreaId)]);
+            } elseif (! $request->user()->isSuperadmin()) {
+                $client->areas()->sync([AreaVisibility::resolveAreaIdOrFail($request->user(), null)]);
+            }
 
             $shouldBill = ! empty($billingPayload['activate']);
             $isActive = ($data['pipeline_stage'] ?? $client->pipeline_stage) === 'active_client';

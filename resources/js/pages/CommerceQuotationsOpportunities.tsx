@@ -7,8 +7,10 @@ import { FormModal } from "../xpande/FormModal";
 import { deleteJson, getJson, postJson, putJson, type LaravelPaginated } from "../xpande/http";
 import { LabBreadcrumbs, LabField, LabPageHeader, labCrudMainClass, labGhostBtn, labInputClass, labPanelClass, labPrimaryBtn } from "../xpande/XpandeUi";
 import { useApexTheme } from "../context/ThemeContext";
+import { useAuth } from "../context/AuthContext";
 
 type ClientOpt = { id: number; legal_name: string };
+type AreaOpt = { id: number; name: string };
 
 const QUOTATION_STATUS_LABELS: Record<string, string> = {
   draft: "Borrador",
@@ -34,8 +36,12 @@ type QLineUI = { description: string; quantity: string; unit_price: string };
 
 export function QuotationsPage() {
   const { isLight } = useApexTheme();
+  const { user, isSuperadmin } = useAuth();
+  const primaryAreaId = user?.area_ids?.[0] ?? "";
   const [rows, setRows] = useState<LaravelPaginated<Record<string, unknown>> | null>(null);
   const [clients, setClients] = useState<ClientOpt[]>([]);
+  const [areas, setAreas] = useState<AreaOpt[]>([]);
+  const scopedAreas = isSuperadmin ? areas : areas.filter((a) => user?.area_ids?.includes(a.id));
   const [currencies, setCurrencies] = useState<CurrOpt[]>([]);
   const [paymentMethods, setPaymentMethods] = useState<PaymentMethodOpt[]>([]);
   const [open, setOpen] = useState(false);
@@ -44,6 +50,7 @@ export function QuotationsPage() {
   const [err, setErr] = useState<string | null>(null);
   const [form, setForm] = useState({
     client_id: "" as "" | number,
+    area_id: "" as "" | number,
     status: "draft",
     currency_id: "" as "" | number,
     tax_amount: "0",
@@ -71,6 +78,7 @@ export function QuotationsPage() {
   useEffect(() => {
     load();
     void getJson<LaravelPaginated<ClientOpt>>("/api/clients", { per_page: 120 }).then((r) => setClients(r.data));
+    void getJson<AreaOpt[]>("/api/areas", { active_only: false }).then(setAreas);
     void getJson<CurrOpt[]>("/api/catalog/currencies").then(setCurrencies);
     void getJson<PaymentMethodOpt[]>("/api/catalog/payment-methods", { active_only: true }).then(setPaymentMethods);
   }, []);
@@ -78,6 +86,7 @@ export function QuotationsPage() {
   const resetForm = () => {
     setForm({
       client_id: "",
+      area_id: isSuperadmin ? "" : primaryAreaId,
       status: "draft",
       currency_id: "",
       tax_amount: "0",
@@ -100,6 +109,7 @@ export function QuotationsPage() {
       setEditId(id);
       setForm({
         client_id: typeof q.client_id === "number" ? q.client_id : "",
+        area_id: Array.isArray(q.areas) && typeof (q.areas[0] as { id?: unknown } | undefined)?.id === "number" ? Number((q.areas[0] as { id: number }).id) : (isSuperadmin ? "" : primaryAreaId),
         status: String(q.status ?? "draft"),
         currency_id: typeof q.currency_id === "number" ? q.currency_id : "",
         tax_amount: String(q.tax_amount ?? "0"),
@@ -127,6 +137,10 @@ export function QuotationsPage() {
       setErr("Seleccione un cliente.");
       return;
     }
+    if ((isSuperadmin ? form.area_id : primaryAreaId) === "") {
+      setErr("Seleccione una empresa.");
+      return;
+    }
     const lines = form.lines
       .filter((l) => l.description.trim())
       .map((l) => ({
@@ -141,6 +155,7 @@ export function QuotationsPage() {
     try {
       const body: Record<string, unknown> = {
         client_id: form.client_id,
+        area_id: isSuperadmin ? form.area_id : primaryAreaId,
         status: form.status,
         tax_amount: Number(form.tax_amount) || 0,
         discount: Number(form.discount) || 0,
@@ -333,6 +348,16 @@ export function QuotationsPage() {
               onChange={(v) => setForm({ ...form, client_id: v ? Number(v) : "" })}
               options={clients.map((c) => ({ value: c.id, label: c.legal_name }))}
               emptyLabel="Seleccionar…"
+            />
+          </LabField>
+          <LabField label="Empresa *" isLight={isLight} className="sm:col-span-2">
+            <SmartSelect
+              isLight={isLight}
+              value={form.area_id === "" ? "" : String(form.area_id)}
+              onChange={(v) => setForm({ ...form, area_id: v ? Number(v) : "" })}
+              options={scopedAreas.map((a) => ({ value: a.id, label: a.name }))}
+              emptyLabel="Seleccionar..."
+              disabled={!isSuperadmin}
             />
           </LabField>
           <LabField label="Estado" isLight={isLight}>

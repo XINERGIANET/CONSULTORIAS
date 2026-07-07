@@ -112,7 +112,7 @@ class ReportsController extends Controller
 
         return response()->json([
             'data' => array_slice($payload, 0, 100),
-            'formula' => 'Utilidad estimada = Ingresos del proyecto − (Gastos directos + Horas registradas × costo/hora)',
+            'formula' => 'Utilidad estimada = Ingresos del proyecto − (Costos directos + Horas registradas × costo/hora)',
         ]);
     }
 
@@ -153,7 +153,7 @@ class ReportsController extends Controller
 
         return response()->json([
             'data' => array_slice($payload, 0, 100),
-            'formula' => 'Rentabilidad = Ingresos asociados al cliente − Gastos registrados contra el cliente',
+            'formula' => 'Rentabilidad = Ingresos asociados al cliente − Costos registrados contra el cliente',
         ]);
     }
 
