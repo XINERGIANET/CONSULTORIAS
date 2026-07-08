@@ -3,6 +3,12 @@ import { useEffect, useState } from "react";
 import { useApexTheme } from "../context/ThemeContext";
 import { getJson, type LaravelPaginated } from "../xpande/http";
 
+function formatDate(v?: string | null): string {
+  if (!v) return "—";
+  const d = new Date(v);
+  return Number.isNaN(d.getTime()) ? String(v).slice(0, 10) : d.toLocaleDateString("es-PE");
+}
+
 type ProjectRow = {
   id: number;
   name: string;
@@ -139,7 +145,7 @@ export function RecentOrdersTable() {
                       <p className={["mt-0.5 pl-12 text-xs", isLight ? "text-[#6B7280]" : "text-zinc-500"].join(" ")}>{p.name}</p>
                     </td>
                     <td className={["py-3 pr-3 font-mono text-xs", isLight ? "text-[#6B7280]" : "text-zinc-400"].join(" ")}>#{p.id}</td>
-                    <td className={["py-3 pr-3", isLight ? "text-[#6B7280]" : "text-zinc-500"].join(" ")}>{p.start_date ? String(p.start_date) : "—"}</td>
+                    <td className={["py-3 pr-3", isLight ? "text-[#6B7280]" : "text-zinc-500"].join(" ")}>{formatDate(p.start_date)}</td>
                     <td className="py-3 pr-3">
                       <span className={["inline-flex rounded-full px-2.5 py-0.5 text-xs font-semibold", statusPill(p.status, isLight)].join(" ")}>
                         {statusLabel(p.status)}

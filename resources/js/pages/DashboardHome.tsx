@@ -1,10 +1,10 @@
+import { AlertsCard } from "../components/AlertsCard";
+import { CostComparisonCard } from "../components/CostComparisonCard";
 import { KpiCards } from "../components/KpiCards";
-import { MonthlyGoalsCard } from "../components/MonthlyGoalsCard";
 import { OverviewChart } from "../components/OverviewChart";
 import { OrdersByStatus } from "../components/OrdersByStatus";
 import { RecentActivityList } from "../components/RecentActivityList";
 import { RecentOrdersTable } from "../components/RecentOrdersTable";
-import { RevenueLineChart } from "../components/RevenueLineChart";
 import { useApexTheme } from "../context/ThemeContext";
 import { useAuth } from "../context/AuthContext";
 
@@ -53,10 +53,10 @@ export function DashboardHome() {
       </div>
       <div className="mt-4 grid gap-4 lg:grid-cols-5">
         <div className="lg:col-span-3">
-          <RevenueLineChart />
+          <CostComparisonCard />
         </div>
         <div className="lg:col-span-2">
-          <MonthlyGoalsCard />
+          <AlertsCard />
         </div>
       </div>
       <div className="mt-4 grid gap-4 lg:grid-cols-1 xl:grid-cols-2">

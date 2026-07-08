@@ -202,6 +202,8 @@ Route::middleware('auth')->group(function (): void {
         Route::get('reports/profitability-areas', [ReportsController::class, 'profitabilityAreas']);
         Route::get('reports/consultant-workload', [ReportsController::class, 'consultantWorkload']);
         Route::get('reports/insights', [ReportsController::class, 'insights']);
+        Route::get('reports/cost-comparison', [ReportsController::class, 'costComparison']);
+        Route::get('reports/recent-activity', [ReportsController::class, 'recentActivity']);
 
         Route::get('catalog/financial-categories', [FinancialCategoryController::class, 'index']);
         Route::post('catalog/financial-categories', [FinancialCategoryController::class, 'store']);

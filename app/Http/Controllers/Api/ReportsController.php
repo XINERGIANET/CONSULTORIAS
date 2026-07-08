@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Api;
 use App\Http\Controllers\Controller;
 use App\Models\Area;
 use App\Models\Client;
+use App\Models\CrmActivity;
 use App\Models\Expense;
 use App\Models\Income;
 use App\Models\Project;
@@ -17,6 +18,82 @@ use Illuminate\Http\Request;
 
 class ReportsController extends Controller
 {
+    /** Comparacion de costos: mes actual vs mes anterior, con desglose por categoria. */
+    public function costComparison(Request $request): JsonResponse
+    {
+        $user = $request->user();
+        if ($user === null) {
+            abort(401);
+        }
+
+        $curStart = Carbon::now()->startOfMonth();
+        $curEnd = Carbon::now()->endOfMonth();
+        $prevStart = Carbon::now()->subMonthNoOverflow()->startOfMonth();
+        $prevEnd = Carbon::now()->subMonthNoOverflow()->endOfMonth();
+
+        $curQ = Expense::query()->whereBetween('recorded_on', [$curStart->toDateString(), $curEnd->toDateString()]);
+        AreaVisibility::applyExpenseScope($curQ, $user);
+        $curTotal = (float) $curQ->clone()->sum('amount');
+
+        $prevQ = Expense::query()->whereBetween('recorded_on', [$prevStart->toDateString(), $prevEnd->toDateString()]);
+        AreaVisibility::applyExpenseScope($prevQ, $user);
+        $prevTotal = (float) $prevQ->clone()->sum('amount');
+
+        $deltaPct = $prevTotal > 0 ? round((($curTotal - $prevTotal) / $prevTotal) * 100, 1) : ($curTotal > 0 ? 100.0 : 0.0);
+
+        $curByCat = $curQ->clone()
+            ->selectRaw('financial_category_id, SUM(amount) as total')
+            ->groupBy('financial_category_id')
+            ->pluck('total', 'financial_category_id');
+
+        $prevByCat = $prevQ->clone()
+            ->selectRaw('financial_category_id, SUM(amount) as total')
+            ->groupBy('financial_category_id')
+            ->pluck('total', 'financial_category_id');
+
+        $catIds = $curByCat->keys()->merge($prevByCat->keys())->unique()->filter();
+        $catNames = \App\Models\FinancialCategory::query()->whereIn('id', $catIds)->pluck('name', 'id');
+
+        $categories = $catIds->map(function ($id) use ($curByCat, $prevByCat, $catNames) {
+            return [
+                'name' => $catNames[$id] ?? 'Sin categoria',
+                'current' => (float) ($curByCat[$id] ?? 0),
+                'previous' => (float) ($prevByCat[$id] ?? 0),
+            ];
+        })->sortByDesc('current')->values()->take(5);
+
+        return response()->json([
+            'current_total' => $curTotal,
+            'previous_total' => $prevTotal,
+            'delta_pct' => $deltaPct,
+            'categories' => $categories,
+        ]);
+    }
+
+    /** Ultima actividad CRM real (llamadas, reuniones, notas) dentro del alcance del usuario. */
+    public function recentActivity(Request $request): JsonResponse
+    {
+        $user = $request->user();
+        if ($user === null) {
+            abort(401);
+        }
+
+        $q = CrmActivity::query()->with(['client:id,legal_name', 'user:id,name'])->orderByDesc('occurred_at');
+        AreaVisibility::applyCrmActivityScope($q, $user);
+        $rows = $q->limit(6)->get();
+
+        $items = $rows->map(fn (CrmActivity $a) => [
+            'id' => $a->id,
+            'type' => $a->type,
+            'subject' => $a->subject ?? $a->client?->legal_name ?? 'Actividad',
+            'client' => $a->client?->legal_name,
+            'user' => $a->user?->name,
+            'occurred_at' => optional($a->occurred_at)->toIso8601String(),
+        ]);
+
+        return response()->json(['items' => $items]);
+    }
+
     public function cashFlow(Request $request): JsonResponse
     {
         $request->validate([
