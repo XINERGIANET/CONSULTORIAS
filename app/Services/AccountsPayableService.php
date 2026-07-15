@@ -139,8 +139,8 @@ class AccountsPayableService
                     'projected_due_on' => $due,
                     'requires_invoice' => false,
                     'status' => 'pending',
-                    'description' => sprintf('Planilla %02d/%04d — %s', $month, $year, $user->name),
-                    'notes' => 'Generado automáticamente. Practantes/contrato laboral opcional.',
+                    'description' => 'Sueldo '.$user->name,
+                    'notes' => 'Generado automaticamente. Practicantes/contrato laboral opcional.',
                     'period_year' => $year,
                     'period_month' => $month,
                 ]);

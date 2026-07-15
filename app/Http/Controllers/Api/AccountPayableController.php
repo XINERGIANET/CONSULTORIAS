@@ -114,6 +114,19 @@ class AccountPayableController extends Controller
         return response()->json($accountPayable->fresh());
     }
 
+    public function destroy(Request $request, AccountPayable $accountPayable): JsonResponse
+    {
+        $this->assertAccount($request, $accountPayable);
+
+        if ($accountPayable->payments()->exists()) {
+            abort(422, 'No se puede eliminar una cuenta por pagar con pagos registrados.');
+        }
+
+        $accountPayable->delete();
+
+        return response()->json(null, 204);
+    }
+
     public function generatePayroll(Request $request, AccountsPayableService $service): JsonResponse
     {
         $data = $request->validate([

@@ -110,14 +110,27 @@ export function FinanzasHubPage() {
     void getJson<AreaOpt[]>("/api/areas", { active_only: true }).then(setAreas);
     void getJson<LaravelPaginated<ClientOpt>>("/api/clients", { per_page: 100 }).then((r) => setClients(r.data));
     void getJson<LaravelPaginated<ProjOpt>>("/api/projects", { per_page: 100 }).then((r) => setProjects(r.data));
-    void getJson<FinCat[]>("/api/catalog/financial-categories", { type: "income" }).then(setCatsIncome);
     void getJson<PaymentMethodOpt[]>("/api/catalog/payment-methods", { active_only: true }).then(setPaymentMethods);
   }, []);
 
   useEffect(() => {
+    const areaId = isSuperadmin ? inForm.area_id : user?.area_ids?.[0];
+    if (!areaId) {
+      setCatsIncome([]);
+      return;
+    }
+
+    void getJson<FinCat[]>("/api/catalog/financial-categories", { type: "income", area_id: areaId }).then(setCatsIncome);
+  }, [isSuperadmin, inForm.area_id, user?.area_ids]);
+
+  useEffect(() => {
     const areaId = isSuperadmin ? outForm.area_id : user?.area_ids?.[0];
-    const params = areaId ? { type: "expense", area_id: areaId } : { type: "expense" };
-    void getJson<FinCat[]>("/api/catalog/financial-categories", params).then((list) => {
+    if (!areaId) {
+      setCatsExpense([]);
+      return;
+    }
+
+    void getJson<FinCat[]>("/api/catalog/financial-categories", { type: "expense", area_id: areaId }).then((list) => {
       if (editingCategory && !list.some((c) => c.id === editingCategory.id)) {
         setCatsExpense([...list, editingCategory]);
       } else {
@@ -285,13 +298,14 @@ export function FinanzasHubPage() {
       payment_method: outForm.payment_method || null,
     };
     if (!editOutId && outForm.schedule_payable) {
+      const categoryName = catsExpense.find((c) => c.id === outForm.financial_category_id)?.name;
       body.schedule_payable = true;
       body.payable_type = outForm.payable_type;
       body.payable_frequency = outForm.payable_frequency;
       body.vendor_name = outForm.vendor_name || null;
       body.projected_due_on = outForm.projected_due_on;
       body.requires_invoice = outForm.requires_invoice;
-      body.payable_description = outForm.payable_description || outForm.observation || "Cuenta por pagar";
+      body.payable_description = outForm.payable_description || outForm.observation || outForm.vendor_name || categoryName || "Cuenta por pagar";
     }
     try {
       if (editOutId) await putJson(`/api/expenses/${editOutId}`, body);
@@ -441,7 +455,7 @@ export function FinanzasHubPage() {
               <SmartSelect
                 isLight={isLight}
                 value={inForm.area_id === "" ? "" : String(inForm.area_id)}
-                onChange={(v) => setInForm({ ...inForm, area_id: v ? Number(v) : "" })}
+                onChange={(v) => setInForm({ ...inForm, area_id: v ? Number(v) : "", financial_category_id: "" })}
                 options={areas.map((a) => ({ value: a.id, label: a.name }))}
                 emptyLabel="Seleccionar empresa..."
               />
@@ -450,6 +464,7 @@ export function FinanzasHubPage() {
           <LabField label="Categoría (ingreso) *" isLight={isLight}>
             <SmartSelect
               isLight={isLight}
+              disabled={isSuperadmin && inForm.area_id === ""}
               value={inForm.financial_category_id === "" ? "" : String(inForm.financial_category_id)}
               onChange={(v) => setInForm({ ...inForm, financial_category_id: v ? Number(v) : "" })}
               options={catsIncome.map((c) => ({ value: c.id, label: c.name }))}
@@ -1215,7 +1230,7 @@ export function CatalogosAdminPage() {
   interface PaRow { name: string; type: string; bank_name: string; account_number: string; cci: string; currency: string; holder_name: string; icon: string; is_active: boolean }
   interface PmRow { code: string; name: string; is_active: boolean }
 
-  const [formFin, setFormFin] = useState<FiRow>({ name: "", type: "income", area_id: "" });
+  const [formFin, setFormFin] = useState<FiRow>({ name: "", type: "income", area_id: isSuperadmin ? "" : primaryAreaId });
   const [formCur, setFormCur] = useState<CurRow>({ code: "", name: "", symbol: "" });
   const [formSvc, setFormSvc] = useState<SvcRow>({ name: "", kind: "service", area_id: "", billing_cycle: "", base_price: "", description: "" });
   const [formTx, setFormTx] = useState<TxRow>({ name: "", rate_percent: "" });
@@ -1248,7 +1263,7 @@ export function CatalogosAdminPage() {
     setOpen(false);
     setEditRow(null);
     setErr(null);
-    setFormFin({ name: "", type: "income", area_id: "" });
+    setFormFin({ name: "", type: "income", area_id: isSuperadmin ? "" : primaryAreaId });
     setFormCur({ code: "", name: "", symbol: "" });
     setFormSvc({ name: "", kind: "service", area_id: isSuperadmin ? "" : primaryAreaId, billing_cycle: "", base_price: "", description: "" });
     setFormTx({ name: "", rate_percent: "" });
@@ -1281,9 +1296,9 @@ export function CatalogosAdminPage() {
     try {
       if (cat === "financial-categories") {
         const finAreaId = isSuperadmin ? formFin.area_id : primaryAreaId;
-        const body = { name: formFin.name.trim(), type: formFin.type, area_id: formFin.type === "expense" && finAreaId ? Number(finAreaId) : null };
+        const body = { name: formFin.name.trim(), type: formFin.type, area_id: finAreaId ? Number(finAreaId) : null };
         if (!body.name) throw new Error("Nombre requerido");
-        if (body.type === "expense" && body.area_id === null) throw new Error("Empresa requerida");
+        if (body.area_id === null) throw new Error("Empresa requerida");
         if (editRow) await putJson(`/api/catalog/financial-categories/${parseId(editRow)}`, body);
         else await postJson("/api/catalog/financial-categories", body);
       } else if (cat === "currencies") {
@@ -1388,7 +1403,7 @@ export function CatalogosAdminPage() {
             onClick={() => {
               setEditRow(null);
               setErr(null);
-              setFormFin({ name: "", type: "income", area_id: "" });
+              setFormFin({ name: "", type: "income", area_id: isSuperadmin ? "" : primaryAreaId });
               setFormCur({ code: "", name: "", symbol: "" });
               setFormSvc({ name: "", kind: "service", area_id: isSuperadmin ? "" : primaryAreaId, billing_cycle: "", base_price: "", description: "" });
               setFormTx({ name: "", rate_percent: "" });
@@ -1468,25 +1483,23 @@ export function CatalogosAdminPage() {
                 <SmartSelect
                   isLight={isLight}
                   value={formFin.type}
-                  onChange={(v) => setFormFin({ ...formFin, type: v as "income" | "expense", area_id: v === "income" ? "" : (isSuperadmin ? formFin.area_id : primaryAreaId) })}
+                  onChange={(v) => setFormFin({ ...formFin, type: v as "income" | "expense", area_id: isSuperadmin ? formFin.area_id : primaryAreaId })}
                   options={[
                     { value: "income", label: "Ingreso" },
                     { value: "expense", label: "Costo" },
                   ]}
                 />
               </LabField>
-              {formFin.type === "expense" ? (
-                <LabField label="Empresa *" isLight={isLight} className="sm:col-span-2">
-                  <SmartSelect
-                    isLight={isLight}
-                    value={formFin.area_id}
-                    onChange={(v) => setFormFin({ ...formFin, area_id: v })}
-                    options={areas.map((a) => ({ value: a.id, label: a.name }))}
-                    disabled={!isSuperadmin}
-                    emptyLabel="Seleccionar empresa..."
-                  />
-                </LabField>
-              ) : null}
+              <LabField label="Empresa *" isLight={isLight} className="sm:col-span-2">
+                <SmartSelect
+                  isLight={isLight}
+                  value={formFin.area_id}
+                  onChange={(v) => setFormFin({ ...formFin, area_id: v })}
+                  options={areas.map((a) => ({ value: a.id, label: a.name }))}
+                  disabled={!isSuperadmin}
+                  emptyLabel="Seleccionar empresa..."
+                />
+              </LabField>
             </>
           ) : null}
           {cat === "currencies" ? (

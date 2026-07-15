@@ -163,11 +163,11 @@ class ExpenseController extends Controller
     private function assertCostCategoryBelongsToArea(int $categoryId, int $areaId): void
     {
         $category = FinancialCategory::query()->find($categoryId);
-        if ($category === null || $category->type !== 'expense') {
+        if ($category === null || $category->type !== 'expense' || ! $category->is_active) {
             abort(422, 'Seleccione una categoria de costos valida.');
         }
 
-        if ($category->area_id !== null && (int) $category->area_id !== $areaId) {
+        if ((int) $category->area_id !== $areaId) {
             abort(422, 'La categoria de costos no pertenece a la empresa seleccionada.');
         }
     }

@@ -77,12 +77,47 @@ class XpandeSeeder extends Seeder
         Currency::query()->updateOrCreate(['code' => 'PEN'], ['name' => 'Sol peruano', 'symbol' => 'S/.', 'is_active' => true]);
         TaxRate::query()->updateOrCreate(['name' => 'IGV 18%'], ['rate_percent' => 18, 'is_active' => true]);
 
-        foreach (['Servicio mensual', 'Suscripcion SaaS', 'Proyecto cerrado', 'Consultoria por hora', 'Desarrollo de software', 'Campana de marketing', 'Mantenimiento', 'Pago de contrato', 'Otro'] as $n) {
-            FinancialCategory::query()->updateOrCreate(['name' => $n, 'type' => 'income'], ['is_active' => true]);
-        }
+        $xingeria = Area::query()->where('slug', 'xingeria')->first();
+        $xpande = Area::query()->where('slug', 'xpande')->first();
+        $xango = Area::query()->where('slug', 'xango')->first();
+        $areaIds = collect([$xingeria?->id, $xpande?->id, $xango?->id])->filter()->values()->all();
+        $financialCategories = [
+            'income' => [
+                'Servicio mensual' => $areaIds,
+                'Suscripcion SaaS' => collect([$xingeria?->id])->filter()->all(),
+                'Proyecto cerrado' => collect([$xingeria?->id, $xpande?->id])->filter()->all(),
+                'Consultoria por hora' => collect([$xpande?->id])->filter()->all(),
+                'Desarrollo de software' => collect([$xingeria?->id])->filter()->all(),
+                'Campana de marketing' => collect([$xango?->id])->filter()->all(),
+                'Mantenimiento' => collect([$xingeria?->id])->filter()->all(),
+                'Pago de contrato' => $areaIds,
+                'Otro' => $areaIds,
+            ],
+            'expense' => [
+                'Sueldos' => $areaIds,
+                'Publicidad' => collect([$xango?->id])->filter()->all(),
+                'Software' => collect([$xingeria?->id])->filter()->all(),
+                'Hosting' => collect([$xingeria?->id])->filter()->all(),
+                'Dominio' => collect([$xingeria?->id])->filter()->all(),
+                'Transporte' => $areaIds,
+                'Viaticos' => $areaIds,
+                'Diseno' => collect([$xango?->id])->filter()->all(),
+                'Produccion audiovisual' => collect([$xango?->id])->filter()->all(),
+                'Herramientas digitales' => $areaIds,
+                'Servicios externos' => $areaIds,
+                'Otros' => $areaIds,
+            ],
+        ];
 
-        foreach (['Sueldos', 'Publicidad', 'Software', 'Hosting', 'Dominio', 'Transporte', 'Viaticos', 'Diseno', 'Produccion audiovisual', 'Herramientas digitales', 'Servicios externos', 'Otros'] as $n) {
-            FinancialCategory::query()->updateOrCreate(['name' => $n, 'type' => 'expense'], ['is_active' => true]);
+        foreach ($financialCategories as $type => $categories) {
+            foreach ($categories as $name => $ids) {
+                foreach ($ids as $areaId) {
+                    FinancialCategory::query()->updateOrCreate(
+                        ['name' => $name, 'type' => $type, 'area_id' => $areaId],
+                        ['is_active' => true]
+                    );
+                }
+            }
         }
 
         $statusRows = [
