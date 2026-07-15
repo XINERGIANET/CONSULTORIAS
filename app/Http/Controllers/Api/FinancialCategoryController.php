@@ -22,14 +22,13 @@ class FinancialCategoryController extends Controller
         $user = $request->user();
         if ($request->filled('area_id')) {
             $areaId = AreaVisibility::resolveAreaIdOrFail($user, $request->input('area_id'));
-            $q->where(function ($w) use ($areaId): void {
-                $w->where('area_id', $areaId)->orWhereNull('area_id');
-            });
-        } elseif ($request->input('type') === 'expense' && $user !== null && ! $user->isSuperadmin()) {
+            $q->where('area_id', $areaId);
+        } elseif ($user !== null && ! $user->isSuperadmin()) {
             $areaIds = AreaVisibility::userAreaIds($user);
-            $q->where(function ($w) use ($areaIds): void {
-                $w->whereIn('area_id', $areaIds)->orWhereNull('area_id');
-            });
+            $q->whereIn('area_id', $areaIds);
+        }
+        if (! $request->boolean('include_inactive')) {
+            $q->where('is_active', true);
         }
 
         return response()->json($q->get());
@@ -44,9 +43,9 @@ class FinancialCategoryController extends Controller
             'area_id' => ['nullable', 'integer', 'exists:areas,id'],
             'is_active' => ['sometimes', 'boolean'],
         ]);
-        $data['area_id'] = $data['type'] === 'expense' ? AreaVisibility::resolveAreaIdOrFail($user, $data['area_id'] ?? null) : null;
-        if ($data['type'] === 'expense' && $data['area_id'] === null) {
-            abort(422, 'Seleccione la empresa para la categoria de costos.');
+        $data['area_id'] = AreaVisibility::resolveAreaIdOrFail($user, $data['area_id'] ?? null);
+        if ($data['area_id'] === null) {
+            abort(422, 'Seleccione la empresa para la categoria financiera.');
         }
 
         return response()->json(FinancialCategory::query()->create($data), 201);
@@ -62,16 +61,12 @@ class FinancialCategoryController extends Controller
             'is_active' => ['sometimes', 'boolean'],
         ]);
         $type = $data['type'] ?? $financialCategory->type;
-        if ($type === 'income') {
-            $data['area_id'] = null;
-        } else {
-            $data['area_id'] = AreaVisibility::resolveAreaIdOrFail($user, $data['area_id'] ?? $financialCategory->area_id);
-        }
+        $data['area_id'] = AreaVisibility::resolveAreaIdOrFail($user, $data['area_id'] ?? $financialCategory->area_id);
         $areaId = (int) ($data['area_id'] ?? $financialCategory->area_id);
-        if ($type === 'expense' && ! $user->isSuperadmin()) {
+        if (! $user->isSuperadmin()) {
             $areaIds = AreaVisibility::userAreaIds($user);
             if (! in_array($areaId, $areaIds, true)) {
-                abort(403, 'No puedes editar categorias de costos de otra empresa.');
+                abort(403, 'No puedes editar categorias financieras de otra empresa.');
             }
         }
         $financialCategory->update($data);
@@ -82,7 +77,7 @@ class FinancialCategoryController extends Controller
     public function destroy(Request $request, FinancialCategory $financialCategory): JsonResponse
     {
         $user = $this->authorizePrivileged($request);
-        if ($financialCategory->type === 'expense') {
+        if ($financialCategory->area_id !== null) {
             AreaVisibility::resolveAreaIdOrFail($user, $financialCategory->area_id);
         }
         $financialCategory->update(['is_active' => false]);

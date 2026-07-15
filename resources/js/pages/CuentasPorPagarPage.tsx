@@ -1,8 +1,9 @@
 import { Wallet } from "lucide-react";
 import { useEffect, useState } from "react";
+import { ConfirmModal } from "../components/ConfirmModal";
 import { FormModal } from "../xpande/FormModal";
-import { LabNoticeModal } from "../xpande/LabTableKit";
-import { getJson, postJson, type LaravelPaginated } from "../xpande/http";
+import { LabCircleIconAction, LabNoticeModal } from "../xpande/LabTableKit";
+import { deleteJson, getJson, postJson, type LaravelPaginated } from "../xpande/http";
 import { SmartSelect } from "../components/SmartSelect";
 import { useAuth } from "../context/AuthContext";
 import {
@@ -59,6 +60,7 @@ export function CuentasPorPagarPage() {
   const [payModal, setPayModal] = useState(false);
   const [createModal, setCreateModal] = useState(false);
   const [payRow, setPayRow] = useState<PayableRow | null>(null);
+  const [deleteRow, setDeleteRow] = useState<PayableRow | null>(null);
   const [notice, setNotice] = useState<{ variant: "success" | "error"; title: string; message: string } | null>(null);
   const [payForm, setPayForm] = useState({
     amount: "",
@@ -168,6 +170,18 @@ export function CuentasPorPagarPage() {
     }
   };
 
+  const removePayable = async () => {
+    if (!deleteRow) return;
+    try {
+      await deleteJson(`/api/accounts-payable/${deleteRow.id}`);
+      setDeleteRow(null);
+      load();
+      setNotice({ variant: "success", title: "Cuenta eliminada", message: "La cuenta por pagar fue eliminada." });
+    } catch {
+      setNotice({ variant: "error", title: "No se pudo eliminar", message: "Solo se pueden eliminar cuentas por pagar sin pagos registrados." });
+    }
+  };
+
   const th = "pb-2 pr-3 text-[10px] font-semibold uppercase " + (isLight ? "text-[#6B7280]" : "text-zinc-500");
   const td = "py-2.5 pr-3 text-xs " + (isLight ? "text-[#374151]" : "text-zinc-300");
 
@@ -248,11 +262,20 @@ export function CuentasPorPagarPage() {
                     <td className={td}>{r.balance_amount}</td>
                     <td className={td}>{PAYABLE_STATUS_LABELS[r.status] ?? r.status}</td>
                     <td className="py-2 text-right">
-                      {Number(r.balance_amount) > 0 ? (
-                        <button type="button" className={labPrimaryBtn(isLight)} onClick={() => openPay(r)}>
-                          Pagar
-                        </button>
-                      ) : null}
+                      <div className="flex justify-end gap-2">
+                        {Number(r.balance_amount) > 0 ? (
+                          <button type="button" className={labPrimaryBtn(isLight)} onClick={() => openPay(r)}>
+                            Pagar
+                          </button>
+                        ) : null}
+                        <LabCircleIconAction
+                          variant="delete"
+                          tooltip="Eliminar"
+                          ariaLabel={`Eliminar ${r.description}`}
+                          disabled={Number(r.paid_amount) > 0}
+                          onClick={() => setDeleteRow(r)}
+                        />
+                      </div>
                     </td>
                   </tr>
                 ))}
@@ -263,6 +286,16 @@ export function CuentasPorPagarPage() {
       </div>
 
       <LabNoticeModal open={notice !== null} variant={notice?.variant ?? "success"} title={notice?.title ?? ""} message={notice?.message ?? ""} isLight={isLight} onClose={() => setNotice(null)} />
+      <ConfirmModal
+        open={deleteRow !== null}
+        title="Eliminar cuenta por pagar"
+        message={deleteRow ? `Confirma eliminar "${deleteRow.description}"? Esta accion no puede deshacerse.` : ""}
+        confirmText="Eliminar"
+        danger
+        isLight={isLight}
+        onConfirm={() => void removePayable()}
+        onCancel={() => setDeleteRow(null)}
+      />
 
       <FormModal open={payModal} title="Registrar pago" isLight={isLight} onClose={() => setPayModal(false)} footer={
         <div className="flex justify-end gap-2">

@@ -59,7 +59,7 @@ class IncomeController extends Controller
             'description' => ['nullable', 'string'],
         ]);
         $data['area_id'] = $this->resolveAreaId($request);
-        $this->assertIncomeCategory((int) $data['financial_category_id']);
+        $this->assertIncomeCategory((int) $data['financial_category_id'], (int) $data['area_id']);
 
         return response()->json(Income::query()->create($data), 201);
     }
@@ -81,8 +81,11 @@ class IncomeController extends Controller
         if (array_key_exists('area_id', $data)) {
             $data['area_id'] = $this->resolveAreaId($request);
         }
-        if (array_key_exists('financial_category_id', $data)) {
-            $this->assertIncomeCategory((int) $data['financial_category_id']);
+        if (array_key_exists('financial_category_id', $data) || array_key_exists('area_id', $data)) {
+            $this->assertIncomeCategory(
+                (int) ($data['financial_category_id'] ?? $income->financial_category_id),
+                (int) ($data['area_id'] ?? $income->area_id)
+            );
         }
         $income->update($data);
 
@@ -130,11 +133,14 @@ class IncomeController extends Controller
         return (int) $areaId;
     }
 
-    private function assertIncomeCategory(int $categoryId): void
+    private function assertIncomeCategory(int $categoryId, int $areaId): void
     {
         $category = FinancialCategory::query()->find($categoryId);
-        if ($category === null || $category->type !== 'income') {
+        if ($category === null || $category->type !== 'income' || ! $category->is_active) {
             abort(422, 'Seleccione una categoria de ingresos valida.');
+        }
+        if ((int) $category->area_id !== $areaId) {
+            abort(422, 'La categoria de ingresos no pertenece a la empresa seleccionada.');
         }
     }
 

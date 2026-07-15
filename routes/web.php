@@ -178,6 +178,7 @@ Route::middleware('auth')->group(function (): void {
         Route::get('accounts-payable/{accountPayable}', [AccountPayableController::class, 'show'])->middleware('permission:view_finances');
         Route::post('accounts-payable/{accountPayable}/payments', [AccountPayableController::class, 'registerPayment'])->middleware('permission:register_payments');
         Route::post('accounts-payable/{accountPayable}/invoice', [AccountPayableController::class, 'markInvoiced'])->middleware('permission:register_payments');
+        Route::delete('accounts-payable/{accountPayable}', [AccountPayableController::class, 'destroy'])->middleware('permission:register_payments');
 
         Route::get('expenses', [ExpenseController::class, 'index']);
         Route::post('expenses', [ExpenseController::class, 'store']);

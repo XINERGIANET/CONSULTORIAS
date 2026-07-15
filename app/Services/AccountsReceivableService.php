@@ -23,7 +23,7 @@ class AccountsReceivableService
             }
 
             $category = FinancialCategory::query()->firstOrCreate(
-                ['name' => 'Pago de contrato', 'type' => 'income'],
+                ['name' => 'Pago de contrato', 'type' => 'income', 'area_id' => $account->area_id],
                 ['is_active' => true]
             );
 
