@@ -722,9 +722,6 @@ export function ProjectsPage() {
               ]}
             />
           </LabField>
-          <LabField label="Tipo de servicio" isLight={isLight}>
-            <input className={labInputClass(isLight)} value={form.service_type} onChange={(e) => setForm({ ...form, service_type: e.target.value })} />
-          </LabField>
           <LabField label="Estado" isLight={isLight}>
             <SmartSelect
               isLight={isLight}
@@ -750,7 +747,7 @@ export function ProjectsPage() {
               <input type="date" className={labInputClass(isLight)} value={form.renewal_date} onChange={(e) => setForm({ ...form, renewal_date: e.target.value })} />
             </LabField>
           ) : null}
-          <LabField label="Presupuesto *" isLight={isLight}>
+          <LabField label="Monto del servicio *" isLight={isLight}>
             <input type="number" step="0.01" className={labInputClass(isLight)} value={form.budget} onChange={(e) => setForm({ ...form, budget: e.target.value })} />
           </LabField>
           <LabField label="Inicio de Pago" isLight={isLight}>

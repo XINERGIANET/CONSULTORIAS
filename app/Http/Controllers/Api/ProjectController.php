@@ -3,7 +3,9 @@
 namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
+use App\Models\AccountReceivable;
 use App\Models\Client;
+use App\Models\ClientContract;
 use App\Models\Project;
 use App\Services\ContractBillingService;
 use App\Support\AreaVisibility;
@@ -122,27 +124,7 @@ class ProjectController extends Controller
             $p->users()->sync($uids);
             $p->services()->sync($sids);
 
-            $start = Carbon::parse($p->start_date)->startOfDay();
-            $paymentStart = $p->payment_start_date ? Carbon::parse($p->payment_start_date)->startOfDay() : $start->copy();
-            $end = Carbon::parse($p->end_estimated)->startOfDay();
-
-            $billingType = $p->billing_type ?? 'mensual';
-            $frequency = 'monthly';
-            $installments = 1;
-
-            if ($billingType === 'mensual') {
-                $frequency = 'monthly';
-                $installments = max(1, ((int) $paymentStart->copy()->startOfMonth()->diffInMonths($end->copy()->startOfMonth())) + 1);
-            } elseif ($billingType === 'anual') {
-                $frequency = 'yearly';
-                $installments = max(1, ((int) $paymentStart->diffInYears($end)) + 1);
-            } elseif ($billingType === 'único') {
-                $frequency = 'monthly';
-                $installments = 1;
-            } elseif ($billingType === 'por partes') {
-                $frequency = 'monthly';
-                $installments = max(1, $instCount);
-            }
+            $schedule = $this->computeBillingSchedule($p, $instCount);
 
             $billing->createContractAndSchedule(
                 Client::query()->findOrFail($p->client_id),
@@ -151,11 +133,11 @@ class ProjectController extends Controller
                     'area_id' => (int) $aids[0],
                     'project_id' => $p->id,
                     'title' => 'Proyecto — '.$p->name,
-                    'total_amount' => $p->budget,
-                    'installments_count' => $installments,
-                    'start_date' => $paymentStart->toDateString(),
-                    'first_due_on' => $paymentStart->toDateString(),
-                    'billing_frequency' => $frequency,
+                    'total_amount' => $schedule['total'],
+                    'installments_count' => $schedule['installments'],
+                    'start_date' => $schedule['paymentStart']->toDateString(),
+                    'first_due_on' => $schedule['paymentStart']->toDateString(),
+                    'billing_frequency' => $schedule['frequency'],
                     'notes' => 'Cronograma generado automáticamente al crear el proyecto.',
                 ],
                 $request->user()?->id,
@@ -184,6 +166,7 @@ class ProjectController extends Controller
             'renewal_date' => ['nullable', 'date'],
             'budget' => ['nullable', 'numeric', 'min:0'],
             'billing_type' => ['nullable', 'string', 'in:mensual,anual,único,por partes'],
+            'installments_count' => ['nullable', 'integer', 'min:1'],
             'lead_user_id' => ['nullable', 'integer', 'exists:users,id'],
             'description' => ['nullable', 'string'],
             'objectives' => ['nullable', 'string'],
@@ -204,8 +187,18 @@ class ProjectController extends Controller
         DB::transaction(function () use ($project, $data, $aids) {
             $uids = $data['user_ids'] ?? null;
             $sids = $data['service_ids'] ?? null;
-            unset($data['area_ids'], $data['user_ids'], $data['service_ids']);
+            $instCount = $data['installments_count'] ?? null;
+            unset($data['area_ids'], $data['user_ids'], $data['service_ids'], $data['installments_count']);
+
+            $scheduleFields = ['payment_start_date', 'start_date', 'end_estimated', 'billing_type', 'budget'];
+            $scheduleChanged = array_intersect(array_keys($data), $scheduleFields) !== [] || $instCount !== null;
+
             $project->update($data);
+
+            if ($scheduleChanged) {
+                $this->resyncReceivableSchedule($project, $instCount);
+            }
+
             if (is_array($aids)) {
                 $project->areas()->sync($aids);
             }
@@ -226,6 +219,146 @@ class ProjectController extends Controller
         $project->update(['status' => 'cancelled']);
 
         return response()->json(null, 204);
+    }
+
+    /**
+     * Recalcula la cantidad de cuotas, monto y fechas segun los datos actuales del proyecto
+     * (mismas reglas que al crearlo). No decide que hacer con lo ya generado, solo dice
+     * "como deberia verse" el cronograma ahora mismo.
+     *
+     * @return array{frequency:string, installments:int, total:float, perInstallment:float, recurring:bool, paymentStart:Carbon}
+     */
+    private function computeBillingSchedule(Project $p, int $instCount): array
+    {
+        $start = Carbon::parse($p->start_date)->startOfDay();
+        $paymentStart = $p->payment_start_date ? Carbon::parse($p->payment_start_date)->startOfDay() : $start->copy();
+        $end = Carbon::parse($p->end_estimated)->startOfDay();
+
+        $billingType = $p->billing_type ?? 'mensual';
+        $frequency = 'monthly';
+        $installments = 1;
+        $recurring = false;
+
+        if ($billingType === 'mensual') {
+            $frequency = 'monthly';
+            $installments = max(1, ((int) $paymentStart->copy()->startOfMonth()->diffInMonths($end->copy()->startOfMonth())) + 1);
+            $recurring = true;
+        } elseif ($billingType === 'anual') {
+            $frequency = 'yearly';
+            $installments = max(1, ((int) $paymentStart->diffInYears($end)) + 1);
+            $recurring = true;
+        } elseif ($billingType === 'único') {
+            $frequency = 'monthly';
+            $installments = 1;
+        } elseif ($billingType === 'por partes') {
+            $frequency = 'monthly';
+            $installments = max(1, $instCount);
+        }
+
+        $perInstallment = round((float) $p->budget, 2);
+        $total = $recurring ? round($perInstallment * $installments, 2) : $perInstallment;
+
+        return [
+            'frequency' => $frequency,
+            'installments' => $installments,
+            'total' => $total,
+            'perInstallment' => $perInstallment,
+            'recurring' => $recurring,
+            'paymentStart' => $paymentStart,
+        ];
+    }
+
+    /**
+     * Si cambian fechas/monto/tipo de cobranza del proyecto, recalcula las cuentas por
+     * cobrar. Las cuotas que ya tienen un pago registrado (paid_amount > 0) nunca se
+     * tocan; solo se regeneran las cuotas todavia libres (pendientes, sin ningun abono).
+     */
+    private function resyncReceivableSchedule(Project $project, ?int $instCount = null): void
+    {
+        $contract = ClientContract::query()->where('project_id', $project->id)->latest('id')->first();
+        if ($contract === null) {
+            return;
+        }
+
+        $schedule = $this->computeBillingSchedule($project, $instCount ?? $contract->installments_count);
+
+        $existing = AccountReceivable::query()
+            ->where('project_id', $project->id)
+            ->orderBy('installment_number')
+            ->get();
+
+        $locked = $existing->filter(fn (AccountReceivable $ar) => (float) $ar->paid_amount > 0)->values();
+        $free = $existing->filter(fn (AccountReceivable $ar) => (float) $ar->paid_amount <= 0)->values();
+
+        $lockedCount = $locked->count();
+        $lockedTotal = (float) $locked->sum('total_amount');
+        $targetInstallments = max($schedule['installments'], $lockedCount);
+
+        foreach ($free as $ar) {
+            $ar->delete();
+        }
+
+        $remaining = $targetInstallments - $lockedCount;
+        $contractTotal = $lockedTotal;
+
+        if ($remaining > 0) {
+            $remainingTotal = $schedule['recurring']
+                ? round($schedule['perInstallment'] * $remaining, 2)
+                : max(0.0, round($schedule['total'] - $lockedTotal, 2));
+
+            $base = round($remainingTotal / $remaining, 2);
+            $rem = round($remainingTotal - ($base * $remaining), 2);
+            $issuedOn = now()->toDateString();
+
+            for ($i = 0; $i < $remaining; $i++) {
+                $installmentIndex = $lockedCount + $i;
+                $due = $schedule['frequency'] === 'yearly'
+                    ? $schedule['paymentStart']->copy()->addYears($installmentIndex)
+                    : $schedule['paymentStart']->copy()->addMonths($installmentIndex);
+                $amount = $i === $remaining - 1 ? round($base + $rem, 2) : $base;
+
+                AccountReceivable::query()->create([
+                    'client_id' => $project->client_id,
+                    'document_id' => $contract->document_id,
+                    'client_contract_id' => $contract->id,
+                    'project_id' => $project->id,
+                    'area_id' => $contract->area_id,
+                    'installment_number' => $installmentIndex + 1,
+                    'total_amount' => $amount,
+                    'paid_amount' => 0,
+                    'balance_amount' => $amount,
+                    'issued_on' => $issuedOn,
+                    'due_on' => $due->toDateString(),
+                    'projected_due_on' => $due->toDateString(),
+                    'collected_on' => null,
+                    'status' => 'pending',
+                    'notes' => sprintf(
+                        'Cuota %d/%d del contrato #%d — vencimiento proyectado %s (recalculada)',
+                        $installmentIndex + 1,
+                        $targetInstallments,
+                        $contract->id,
+                        $due->format('d/m/Y')
+                    ),
+                ]);
+                $contractTotal += $amount;
+            }
+        }
+
+        $lastDue = $targetInstallments > 0
+            ? ($schedule['frequency'] === 'yearly'
+                ? $schedule['paymentStart']->copy()->addYears($targetInstallments - 1)
+                : $schedule['paymentStart']->copy()->addMonths($targetInstallments - 1))
+            : $schedule['paymentStart']->copy();
+
+        $contract->update([
+            'total_amount' => round($contractTotal, 2),
+            'installment_amount' => $schedule['perInstallment'],
+            'installments_count' => $targetInstallments,
+            'billing_frequency' => $schedule['frequency'],
+            'start_date' => $schedule['paymentStart']->toDateString(),
+            'first_due_on' => $schedule['paymentStart']->toDateString(),
+            'end_date' => $lastDue->toDateString(),
+        ]);
     }
 
     private function assertProject(Request $request, Project $project): void
