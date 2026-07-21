@@ -34,6 +34,20 @@ function RequireSuperadmin({ children }: { children: React.ReactElement }) {
   return children;
 }
 
+// Superadmin ve el catalogo maestro completo; un admin de area solo administra
+// las categorias de ingresos/costos de su propia empresa (la pagina misma restringe
+// las pestanas segun el rol).
+function RequireCatalogAccess({ children }: { children: React.ReactElement }) {
+  const { isAuthenticated, isSuperadmin, user } = useAuth();
+  if (!isAuthenticated) {
+    return <Navigate to="/login" replace />;
+  }
+  if (!isSuperadmin && user?.role_slug !== "admin") {
+    return <Navigate to="/" replace />;
+  }
+  return children;
+}
+
 function App() {
   return (
     <BrowserRouter>
@@ -124,17 +138,17 @@ function App() {
           <Route
             path="/admin/catalogos"
             element={
-              <RequireSuperadmin>
+              <RequireCatalogAccess>
                 <CatalogosAdminPage />
-              </RequireSuperadmin>
+              </RequireCatalogAccess>
             }
           />
           <Route
             path="/admin/catalogos/*"
             element={
-              <RequireSuperadmin>
+              <RequireCatalogAccess>
                 <CatalogosAdminPage />
-              </RequireSuperadmin>
+              </RequireCatalogAccess>
             }
           />
 

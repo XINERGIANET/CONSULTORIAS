@@ -1377,7 +1377,7 @@ export function CatalogosAdminPage() {
     }
   };
 
-  const tabButtons: [CatSlug, string][] = [
+  const allTabButtons: [CatSlug, string][] = [
     ["financial-categories", "Categorías"],
     ["currencies", "Monedas"],
     ["services", "Servicios"],
@@ -1388,13 +1388,18 @@ export function CatalogosAdminPage() {
     ["payment-accounts", "Cuentas de pago"],
     ["payment-methods", "Metodos de pago"],
   ];
+  // Los admins de area solo administran las categorias de ingresos/costos de su propia empresa;
+  // el resto del catalogo maestro (monedas, impuestos, cargos, etc.) sigue siendo exclusivo del superadmin.
+  const tabButtons: [CatSlug, string][] = isSuperadmin
+    ? allTabButtons
+    : allTabButtons.filter(([id]) => id === "financial-categories");
 
   return (
     <main className={labCrudMainClass(isLight)}>
       <LabBreadcrumbs items={[{ label: "Dashboard", to: "/" }, { label: "Catálogos" }]} isLight={isLight} />
       <LabPageHeader
-        title="Catálogo maestro"
-        subtitle="ABM por tipo (requiere rol superadmin en API)."
+        title={isSuperadmin ? "Catálogo maestro" : "Categorías de ingresos y costos"}
+        subtitle={isSuperadmin ? "ABM por tipo (requiere rol superadmin en API)." : "Administra las categorías de tu propia empresa."}
         isLight={isLight}
         action={
           <button
