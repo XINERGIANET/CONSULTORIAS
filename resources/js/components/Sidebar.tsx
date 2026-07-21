@@ -105,9 +105,10 @@ export function Sidebar({ mobileMenuOpen, setMobileMenuOpen }: { mobileMenuOpen?
     { label: "Integraciones", to: "/integraciones", icon: Plug },
     { label: "Usuarios y permisos", to: "/usuarios", icon: Users },
   ];
-  // Un admin de area (no superadmin) solo administra las categorias de su propia empresa.
+  // Un admin de area (no superadmin) solo administra las categorias y metodos de pago
+  // de su propia empresa.
   const areaAdminConfig: NavLink[] = !isSuperadmin && user?.role_slug === "admin"
-    ? [{ label: "Categorías", to: "/admin/catalogos", icon: Settings2 }]
+    ? [{ label: "Categorías y pagos", to: "/admin/catalogos", icon: Settings2 }]
     : [];
 
   const dashActive = loc.pathname === "/";

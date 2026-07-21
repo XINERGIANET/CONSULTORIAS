@@ -1,7 +1,7 @@
 import { HandCoins } from "lucide-react";
 import { useEffect, useState } from "react";
 import { FormModal } from "../xpande/FormModal";
-import { getJson, postJson, type LaravelPaginated } from "../xpande/http";
+import { getJson, postJson, putJson, type LaravelPaginated } from "../xpande/http";
 import { SmartSelect } from "../components/SmartSelect";
 import {
   LabBreadcrumbs,
@@ -31,9 +31,13 @@ type AccountRow = {
   collected_on?: string | null;
   status: string;
   notes?: string | null;
+  area_id?: number | null;
+  mora_dias?: number;
 };
 
 type PaymentMethodOpt = { id: number; code: string; name: string };
+type ClientOpt = { id: number; legal_name: string };
+type ProjectOpt = { id: number; name: string };
 
 const STATUS_LABELS: Record<string, string> = {
   pending: "Pendiente",
@@ -69,9 +73,12 @@ export function CuentasPorCobrarPage() {
   const { isLight } = useApexTheme();
   const [rows, setRows] = useState<LaravelPaginated<AccountRow> | null>(null);
   const [paymentMethods, setPaymentMethods] = useState<PaymentMethodOpt[]>([]);
+  const [clients, setClients] = useState<ClientOpt[]>([]);
+  const [projects, setProjects] = useState<ProjectOpt[]>([]);
   const [payModal, setPayModal] = useState(false);
   const [payAccount, setPayAccount] = useState<AccountRow | null>(null);
   const [err, setErr] = useState<string | null>(null);
+  const [filters, setFilters] = useState({ client_id: "", project_id: "", status: "", from: "", to: "" });
   const [payForm, setPayForm] = useState({
     amount: "",
     paid_on: new Date().toISOString().slice(0, 10),
@@ -80,13 +87,27 @@ export function CuentasPorCobrarPage() {
     notes: "",
   });
 
-  const load = () =>
-    void getJson<LaravelPaginated<AccountRow>>("/api/accounts-receivable").then(setRows);
+  const load = () => {
+    const params: Record<string, unknown> = {};
+    if (filters.client_id) params.client_id = filters.client_id;
+    if (filters.project_id) params.project_id = filters.project_id;
+    if (filters.status) params.status = filters.status;
+    if (filters.from) params.from = filters.from;
+    if (filters.to) params.to = filters.to;
+    void getJson<LaravelPaginated<AccountRow>>("/api/accounts-receivable", params).then(setRows);
+  };
 
-  useEffect(() => { 
-    load(); 
-    void getJson<PaymentMethodOpt[]>("/api/catalog/payment-methods", { active_only: true }).then(setPaymentMethods);
+  useEffect(() => {
+    void getJson<LaravelPaginated<ClientOpt>>("/api/clients", { per_page: 200 }).then((r) => setClients(r.data));
+    void getJson<LaravelPaginated<ProjectOpt>>("/api/projects", { per_page: 200 }).then((r) => setProjects(r.data));
   }, []);
+
+  useEffect(() => {
+    load();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [filters]);
+
+  const resetFilters = () => setFilters({ client_id: "", project_id: "", status: "", from: "", to: "" });
 
   const openPayment = (r: AccountRow) => {
     setPayAccount(r);
@@ -99,6 +120,19 @@ export function CuentasPorCobrarPage() {
     });
     setErr(null);
     setPayModal(true);
+    void getJson<PaymentMethodOpt[]>("/api/catalog/payment-methods", {
+      active_only: true,
+      ...(r.area_id ? { area_id: r.area_id } : {}),
+    }).then(setPaymentMethods);
+  };
+
+  const updateCollectedOn = async (r: AccountRow, value: string) => {
+    try {
+      await putJson(`/api/accounts-receivable/${r.id}`, { collected_on: value || null });
+      load();
+    } catch {
+      setErr("No se pudo actualizar la fecha de cobro.");
+    }
   };
 
   const savePayment = async () => {
@@ -139,6 +173,52 @@ export function CuentasPorCobrarPage() {
 
       {err && !payModal ? <p className="mb-4 text-sm text-red-600">{err}</p> : null}
 
+      <div className={`mb-4 grid gap-3 rounded-xl border p-4 sm:grid-cols-5 ${isLight ? "border-[#E5E7EB] bg-white" : "border-white/[0.06] bg-[#121212]"}`}>
+        <LabField label="Cliente" isLight={isLight}>
+          <SmartSelect
+            isLight={isLight}
+            value={filters.client_id}
+            onChange={(v) => setFilters({ ...filters, client_id: v })}
+            options={clients.map((c) => ({ value: c.id, label: c.legal_name }))}
+            emptyLabel="Todos"
+          />
+        </LabField>
+        <LabField label="Proyecto" isLight={isLight}>
+          <SmartSelect
+            isLight={isLight}
+            value={filters.project_id}
+            onChange={(v) => setFilters({ ...filters, project_id: v })}
+            options={projects.map((p) => ({ value: p.id, label: p.name }))}
+            emptyLabel="Todos"
+          />
+        </LabField>
+        <LabField label="Estado" isLight={isLight}>
+          <SmartSelect
+            isLight={isLight}
+            value={filters.status}
+            onChange={(v) => setFilters({ ...filters, status: v })}
+            options={[
+              { value: "pending", label: "Pendiente" },
+              { value: "partial", label: "Pago parcial" },
+              { value: "paid", label: "Pagado" },
+              { value: "overdue", label: "Vencido" },
+            ]}
+            emptyLabel="Todos"
+          />
+        </LabField>
+        <LabField label="Desde" isLight={isLight}>
+          <input type="date" className={labInputClass(isLight)} value={filters.from} onChange={(e) => setFilters({ ...filters, from: e.target.value })} />
+        </LabField>
+        <LabField label="Hasta" isLight={isLight}>
+          <input type="date" className={labInputClass(isLight)} value={filters.to} onChange={(e) => setFilters({ ...filters, to: e.target.value })} />
+        </LabField>
+        {filters.client_id || filters.project_id || filters.status || filters.from || filters.to ? (
+          <div className="sm:col-span-5">
+            <button type="button" className={labGhostBtn(isLight)} onClick={resetFilters}>Limpiar filtros</button>
+          </div>
+        ) : null}
+      </div>
+
       <div className={labPanelClass(isLight)}>
         {!rows ? (
           <p className="py-8 text-center text-sm text-zinc-500">Cargando…</p>
@@ -157,6 +237,7 @@ export function CuentasPorCobrarPage() {
                   <th className={th + " text-right"}>Saldo</th>
                   <th className={th}>Venc. proyectado</th>
                   <th className={th}>Cobro real</th>
+                  <th className={th + " text-right"}>Mora</th>
                   <th className={th}>Estado</th>
                   <th className={th + " text-right"} />
                 </tr>
@@ -180,7 +261,24 @@ export function CuentasPorCobrarPage() {
                       S/. {String(r.balance_amount)}
                     </td>
                     <td className={td}>{(r.projected_due_on ?? r.due_on) ? String(r.projected_due_on ?? r.due_on).slice(0, 10) : "—"}</td>
-                    <td className={td}>{r.collected_on ? String(r.collected_on).slice(0, 10) : "—"}</td>
+                    <td className={td}>
+                      {r.collected_on ? (
+                        <input
+                          type="date"
+                          className={labInputClass(isLight) + " !w-auto !py-1 text-xs"}
+                          value={String(r.collected_on).slice(0, 10)}
+                          onChange={(e) => void updateCollectedOn(r, e.target.value)}
+                        />
+                      ) : (
+                        "—"
+                      )}
+                    </td>
+                    <td className={
+                      td + " text-right font-semibold" +
+                      ((r.mora_dias ?? 0) > 0 ? (isLight ? " text-red-600" : " text-red-400") : "")
+                    }>
+                      {r.mora_dias ?? 0} d
+                    </td>
                     <td className="py-2.5 pr-3">
                       <span className={statusPill(r.status, isLight)}>
                         {STATUS_LABELS[r.status] ?? r.status}

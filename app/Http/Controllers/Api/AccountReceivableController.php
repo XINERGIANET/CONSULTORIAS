@@ -32,6 +32,9 @@ class AccountReceivableController extends Controller
         if ($request->filled('client_id')) {
             $q->where('client_id', (int) $request->input('client_id'));
         }
+        if ($request->filled('project_id')) {
+            $q->where('project_id', (int) $request->input('project_id'));
+        }
         if ($request->filled('from')) {
             $q->whereDate('issued_on', '>=', $request->input('from'));
         }
@@ -77,6 +80,19 @@ class AccountReceivableController extends Controller
         ]));
 
         return response()->json($account->load(['client', 'document', 'project', 'area']), 201);
+    }
+
+    public function update(Request $request, AccountReceivable $accountReceivable): JsonResponse
+    {
+        $this->assertAccount($request, $accountReceivable);
+
+        $data = $request->validate([
+            'collected_on' => ['nullable', 'date'],
+        ]);
+
+        $accountReceivable->update($data);
+
+        return response()->json($accountReceivable->fresh()->load(['client', 'document', 'project', 'area']));
     }
 
     public function registerPayment(Request $request, AccountReceivable $accountReceivable, AccountsReceivableService $service): JsonResponse

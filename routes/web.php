@@ -170,6 +170,7 @@ Route::middleware('auth')->group(function (): void {
         Route::get('accounts-receivable', [AccountReceivableController::class, 'index'])->middleware('permission:view_finances');
         Route::post('accounts-receivable', [AccountReceivableController::class, 'store'])->middleware('permission:register_payments');
         Route::get('accounts-receivable/{accountReceivable}', [AccountReceivableController::class, 'show'])->middleware('permission:view_finances');
+        Route::put('accounts-receivable/{accountReceivable}', [AccountReceivableController::class, 'update'])->middleware('permission:register_payments');
         Route::post('accounts-receivable/{accountReceivable}/payments', [AccountReceivableController::class, 'registerPayment'])->middleware('permission:register_payments');
 
         Route::get('accounts-payable', [AccountPayableController::class, 'index'])->middleware('permission:view_finances');

@@ -211,6 +211,16 @@ html[data-apex-theme="light"] body {
   background: rgba(255, 255, 255, 0.26);
 }
 
+/* Icono nativo del selector de fecha: por defecto es oscuro y se pierde sobre fondos
+   oscuros. Se aclara por defecto (tema oscuro) y se revierte en tema claro. */
+input[type="date"]::-webkit-calendar-picker-indicator {
+  filter: invert(1) brightness(1.6);
+  cursor: pointer;
+}
+html[data-apex-theme="light"] input[type="date"]::-webkit-calendar-picker-indicator {
+  filter: none;
+}
+
 * {
   box-sizing: border-box;
 }

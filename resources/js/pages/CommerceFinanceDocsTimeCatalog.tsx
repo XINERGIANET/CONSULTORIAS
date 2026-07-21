@@ -1,6 +1,6 @@
 import { Clock, Database, FileText, Landmark, Receipt, Trash2, Wallet } from "lucide-react";
 import { LabCircleIconAction } from "../xpande/LabTableKit";
-import { useEffect, useMemo, useState, type ReactNode } from "react";
+import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { SmartSelect } from "../components/SmartSelect";
 import { useAuth } from "../context/AuthContext";
 import { FormModal } from "../xpande/FormModal";
@@ -1115,7 +1115,7 @@ function catalogColumnTitles(cat: CatSlug): string[] {
     case "payment-accounts":
       return ["ID", "Nombre", "Tipo", "Banco", "Nro. Cuenta", "CCI", "Icono"];
     case "payment-methods":
-      return ["ID", "Codigo", "Nombre", "Activo"];
+      return ["ID", "Codigo", "Nombre", "Empresa", "Activo"];
     default:
       return ["ID"];
   }
@@ -1197,13 +1197,16 @@ function catalogRowCells(cat: CatSlug, r: Record<string, unknown>, td: string, i
         <td key="cci" className={td}>{String(r.cci ?? "—")}</td>,
         <td key="ic" className={td}>{String(r.icon ?? "—")}</td>,
       ];
-    case "payment-methods":
+    case "payment-methods": {
+      const pmArea = r.area as { name?: string } | undefined;
       return [
         <td key="i" className={td + " " + mono}>{id}</td>,
         <td key="c" className={td}>{String(r.code ?? "")}</td>,
         <td key="n" className={td + " font-medium"}>{String(r.name ?? "")}</td>,
+        <td key="ar" className={td}>{pmArea?.name ?? "—"}</td>,
         <td key="a" className={td}>{r.is_active === false ? "No" : "Si"}</td>,
       ];
+    }
     default:
       return [<td key="x" className={td}>{id}</td>];
   }
@@ -1214,6 +1217,8 @@ export function CatalogosAdminPage() {
   const { user, isSuperadmin } = useAuth();
   const primaryAreaId = user?.area_ids?.[0] != null ? String(user.area_ids[0]) : "";
   const [cat, setCat] = useState<CatSlug>("financial-categories");
+  const catRef = useRef(cat);
+  catRef.current = cat;
   const [rows, setRows] = useState<Record<string, unknown>[]>([]);
   const [areas, setAreas] = useState<AreaOpt[]>([]);
   const [curr, setCurr] = useState<CurrOpt[]>([]);
@@ -1228,7 +1233,7 @@ export function CatalogosAdminPage() {
   interface TfRow { name: string; rate_type: string; amount: string; currency_id: string; area_id: string }
   interface StRow { category: string; code: string; label: string; sort_order: string }
   interface PaRow { name: string; type: string; bank_name: string; account_number: string; cci: string; currency: string; holder_name: string; icon: string; is_active: boolean }
-  interface PmRow { code: string; name: string; is_active: boolean }
+  interface PmRow { code: string; name: string; area_id: string; is_active: boolean }
 
   const [formFin, setFormFin] = useState<FiRow>({ name: "", type: "income", area_id: isSuperadmin ? "" : primaryAreaId });
   const [formCur, setFormCur] = useState<CurRow>({ code: "", name: "", symbol: "" });
@@ -1238,7 +1243,7 @@ export function CatalogosAdminPage() {
   const [formTf, setFormTf] = useState<TfRow>({ name: "", rate_type: "hourly", amount: "", currency_id: "", area_id: "" });
   const [formSt, setFormSt] = useState<StRow>({ category: "pipeline", code: "", label: "", sort_order: "0" });
   const [formPa, setFormPa] = useState<PaRow>({ name: "", type: "bank", bank_name: "", account_number: "", cci: "", currency: "PEN", holder_name: "", icon: "", is_active: true });
-  const [formPm, setFormPm] = useState<PmRow>({ code: "", name: "", is_active: true });
+  const [formPm, setFormPm] = useState<PmRow>({ code: "", name: "", area_id: isSuperadmin ? "" : primaryAreaId, is_active: true });
 
   const catalogUrl = (slug: CatSlug) => `/api/catalog/${slug === "statuses" ? "statuses" : slug}`;
 
@@ -1248,13 +1253,18 @@ export function CatalogosAdminPage() {
   }, []);
 
   const loadCatalog = () => {
-    void getJson<unknown>(catalogUrl(cat)).then((raw) => {
+    const requestedCat = cat;
+    void getJson<unknown>(catalogUrl(requestedCat)).then((raw) => {
+      // Si el usuario ya cambio de pestana mientras esta respuesta viajaba, se descarta
+      // para no pintar filas de otra pestana (ej. metodos de pago bajo "Categorias").
+      if (requestedCat !== catRef.current) return;
       const arr = Array.isArray(raw) ? raw : [];
       setRows(arr as Record<string, unknown>[]);
     });
   };
 
   useEffect(() => {
+    setRows([]);
     loadCatalog();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [cat]);
@@ -1271,7 +1281,7 @@ export function CatalogosAdminPage() {
     setFormTf({ name: "", rate_type: "hourly", amount: "", currency_id: "", area_id: isSuperadmin ? "" : primaryAreaId });
     setFormSt({ category: "pipeline", code: "", label: "", sort_order: "0" });
     setFormPa({ name: "", type: "bank", bank_name: "", account_number: "", cci: "", currency: "PEN", holder_name: "", icon: "", is_active: true });
-    setFormPm({ code: "", name: "", is_active: true });
+    setFormPm({ code: "", name: "", area_id: isSuperadmin ? "" : primaryAreaId, is_active: true });
   };
 
   const parseId = (r: Record<string, unknown>): number => Number(r.id);
@@ -1286,7 +1296,7 @@ export function CatalogosAdminPage() {
     if (cat === "tariffs") setFormTf({ name: String(r.name ?? ""), rate_type: String(r.rate_type ?? "hourly"), amount: String(r.amount ?? ""), currency_id: r.currency_id != null ? String(r.currency_id) : "", area_id: r.area_id != null ? String(r.area_id) : "" });
     if (cat === "statuses") setFormSt({ category: String(r.category ?? "pipeline"), code: String(r.code ?? ""), label: String(r.label ?? ""), sort_order: String(r.sort_order ?? "0") });
     if (cat === "payment-accounts") setFormPa({ name: String(r.name ?? ""), type: String(r.type ?? "bank"), bank_name: String(r.bank_name ?? ""), account_number: String(r.account_number ?? ""), cci: String(r.cci ?? ""), currency: String(r.currency ?? "PEN"), holder_name: String(r.holder_name ?? ""), icon: String(r.icon ?? ""), is_active: Boolean(r.is_active ?? true) });
-    if (cat === "payment-methods") setFormPm({ code: String(r.code ?? ""), name: String(r.name ?? ""), is_active: Boolean(r.is_active ?? true) });
+    if (cat === "payment-methods") setFormPm({ code: String(r.code ?? ""), name: String(r.name ?? ""), area_id: r.area_id != null ? String(r.area_id) : "", is_active: Boolean(r.is_active ?? true) });
     setErr(null);
     setOpen(true);
   };
@@ -1346,8 +1356,10 @@ export function CatalogosAdminPage() {
         else await postJson("/api/catalog/payment-accounts", body);
       }
       if (cat === "payment-methods") {
-        const body = { code: formPm.code.trim(), name: formPm.name.trim(), is_active: formPm.is_active };
+        const pmAreaId = isSuperadmin ? formPm.area_id : primaryAreaId;
+        const body = { code: formPm.code.trim(), name: formPm.name.trim(), area_id: pmAreaId ? Number(pmAreaId) : null, is_active: formPm.is_active };
         if (!body.code || !body.name) throw new Error("Campos incompletos");
+        if (body.area_id === null) throw new Error("Empresa requerida");
         if (editRow) await putJson(`/api/catalog/payment-methods/${parseId(editRow)}`, body);
         else await postJson("/api/catalog/payment-methods", body);
       }
@@ -1388,18 +1400,20 @@ export function CatalogosAdminPage() {
     ["payment-accounts", "Cuentas de pago"],
     ["payment-methods", "Metodos de pago"],
   ];
-  // Los admins de area solo administran las categorias de ingresos/costos de su propia empresa;
-  // el resto del catalogo maestro (monedas, impuestos, cargos, etc.) sigue siendo exclusivo del superadmin.
+  // Los admins de area solo administran las categorias y metodos de pago de su propia
+  // empresa; el resto del catalogo maestro (monedas, impuestos, cargos, etc.) sigue
+  // siendo exclusivo del superadmin.
+  const areaAdminTabs: CatSlug[] = ["financial-categories", "payment-methods"];
   const tabButtons: [CatSlug, string][] = isSuperadmin
     ? allTabButtons
-    : allTabButtons.filter(([id]) => id === "financial-categories");
+    : allTabButtons.filter(([id]) => areaAdminTabs.includes(id));
 
   return (
     <main className={labCrudMainClass(isLight)}>
       <LabBreadcrumbs items={[{ label: "Dashboard", to: "/" }, { label: "Catálogos" }]} isLight={isLight} />
       <LabPageHeader
-        title={isSuperadmin ? "Catálogo maestro" : "Categorías de ingresos y costos"}
-        subtitle={isSuperadmin ? "ABM por tipo (requiere rol superadmin en API)." : "Administra las categorías de tu propia empresa."}
+        title={isSuperadmin ? "Catálogo maestro" : "Categorías y métodos de pago"}
+        subtitle={isSuperadmin ? "ABM por tipo (requiere rol superadmin en API)." : "Administra las categorías y métodos de pago de tu propia empresa."}
         isLight={isLight}
         action={
           <button
@@ -1416,7 +1430,7 @@ export function CatalogosAdminPage() {
               setFormTf({ name: "", rate_type: "hourly", amount: "", currency_id: "", area_id: isSuperadmin ? "" : primaryAreaId });
               setFormSt({ category: "pipeline", code: "", label: "", sort_order: "0" });
               setFormPa({ name: "", type: "bank", bank_name: "", account_number: "", cci: "", currency: "PEN", holder_name: "", icon: "", is_active: true });
-              setFormPm({ code: "", name: "", is_active: true });
+              setFormPm({ code: "", name: "", area_id: isSuperadmin ? "" : primaryAreaId, is_active: true });
               setOpen(true);
             }}
           >
@@ -1662,6 +1676,16 @@ export function CatalogosAdminPage() {
               </LabField>
               <LabField label="Nombre *" isLight={isLight}>
                 <input className={labInputClass(isLight)} placeholder="Ej: Transferencia bancaria" value={formPm.name} onChange={(e) => setFormPm({ ...formPm, name: e.target.value })} />
+              </LabField>
+              <LabField label="Empresa *" isLight={isLight} className="sm:col-span-2">
+                <SmartSelect
+                  isLight={isLight}
+                  value={formPm.area_id}
+                  onChange={(v) => setFormPm({ ...formPm, area_id: v })}
+                  options={areas.map((a) => ({ value: a.id, label: a.name }))}
+                  disabled={!isSuperadmin}
+                  emptyLabel="Seleccionar empresa..."
+                />
               </LabField>
               <label className={["flex items-center gap-2 text-sm sm:col-span-2", isLight ? "text-[#374151]" : "text-zinc-200"].join(" ")}>
                 <input type="checkbox" checked={formPm.is_active} onChange={(e) => setFormPm({ ...formPm, is_active: e.target.checked })} />
