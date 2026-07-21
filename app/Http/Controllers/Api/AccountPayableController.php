@@ -30,6 +30,9 @@ class AccountPayableController extends Controller
         if ($request->filled('payable_type')) {
             $q->where('payable_type', $request->input('payable_type'));
         }
+        if ($request->filled('project_id')) {
+            $q->where('project_id', (int) $request->input('project_id'));
+        }
         if ($request->filled('from')) {
             $q->whereDate('projected_due_on', '>=', $request->input('from'));
         }

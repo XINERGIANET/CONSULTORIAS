@@ -83,16 +83,27 @@ export function CuentasPorPagarPage() {
     period_year: new Date().getFullYear(),
     period_month: new Date().getMonth() + 1,
   });
+  const [filters, setFilters] = useState({ from: "", to: "" });
 
-  const load = () => void getJson<LaravelPaginated<PayableRow>>("/api/accounts-payable").then(setRows);
+  const load = () => {
+    const params: Record<string, unknown> = {};
+    if (filters.from) params.from = filters.from;
+    if (filters.to) params.to = filters.to;
+    void getJson<LaravelPaginated<PayableRow>>("/api/accounts-payable", params).then(setRows);
+  };
   const primaryAreaId = user?.area_ids?.[0] ?? "";
   const primaryAreaName = areas.find((a) => a.id === primaryAreaId)?.name ?? "Tu empresa asignada";
+  const resetFilters = () => setFilters({ from: "", to: "" });
 
   useEffect(() => {
-    load();
     void getJson<AreaOpt[]>("/api/areas", { active_only: false }).then(setAreas);
     void getJson<PaymentMethodOpt[]>("/api/catalog/payment-methods", { active_only: true }).then(setPaymentMethods);
   }, []);
+
+  useEffect(() => {
+    load();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [filters]);
 
   const openPay = (r: PayableRow) => {
     setPayRow(r);
@@ -199,35 +210,61 @@ export function CuentasPorPagarPage() {
         }
       />
 
-      <div className={`mb-4 grid gap-3 rounded-xl border p-4 sm:grid-cols-4 ${isLight ? "border-[#E5E7EB] bg-white" : "border-white/[0.06] bg-[#121212]"}`}>
-        {isSuperadmin ? (
-          <LabField label="Empresa planilla" isLight={isLight}>
-            <SmartSelect
-              isLight={isLight}
-              value={payrollForm.area_id === "" ? "" : String(payrollForm.area_id)}
-              onChange={(v) => setPayrollForm({ ...payrollForm, area_id: v ? Number(v) : "" })}
-              options={areas.map((a) => ({ value: a.id, label: a.name }))}
-              emptyLabel="Seleccionar..."
-            />
-          </LabField>
-        ) : (
-          <div className="flex flex-col justify-end">
-            <p className={["mb-1 text-[10px] font-semibold uppercase", isLight ? "text-[#6B7280]" : "text-zinc-500"].join(" ")}>Empresa planilla</p>
-            <p className={["rounded-lg border px-3 py-2 text-sm", isLight ? "border-[#E5E7EB] bg-slate-50 text-[#374151]" : "border-white/[0.08] bg-black/20 text-zinc-300"].join(" ")}>
-              {primaryAreaName}
-            </p>
+      <div className={`mb-4 rounded-xl border ${isLight ? "border-[#E5E7EB] bg-white" : "border-white/[0.06] bg-[#121212]"}`}>
+        <div className="p-4">
+          <p className={["mb-3 text-[10px] font-semibold uppercase tracking-wide", isLight ? "text-[#6B7280]" : "text-zinc-500"].join(" ")}>
+            Generar planilla
+          </p>
+          <div className="grid gap-3 sm:grid-cols-4">
+            {isSuperadmin ? (
+              <LabField label="Empresa planilla" isLight={isLight}>
+                <SmartSelect
+                  isLight={isLight}
+                  value={payrollForm.area_id === "" ? "" : String(payrollForm.area_id)}
+                  onChange={(v) => setPayrollForm({ ...payrollForm, area_id: v ? Number(v) : "" })}
+                  options={areas.map((a) => ({ value: a.id, label: a.name }))}
+                  emptyLabel="Seleccionar..."
+                />
+              </LabField>
+            ) : (
+              <div className="flex flex-col justify-end">
+                <p className={["mb-1 text-[10px] font-semibold uppercase", isLight ? "text-[#6B7280]" : "text-zinc-500"].join(" ")}>Empresa planilla</p>
+                <p className={["rounded-lg border px-3 py-2 text-sm", isLight ? "border-[#E5E7EB] bg-slate-50 text-[#374151]" : "border-white/[0.08] bg-black/20 text-zinc-300"].join(" ")}>
+                  {primaryAreaName}
+                </p>
+              </div>
+            )}
+            <LabField label="Año" isLight={isLight}>
+              <input type="number" className={labInputClass(isLight)} value={payrollForm.period_year} onChange={(e) => setPayrollForm({ ...payrollForm, period_year: Number(e.target.value) })} />
+            </LabField>
+            <LabField label="Mes" isLight={isLight}>
+              <input type="number" min={1} max={12} className={labInputClass(isLight)} value={payrollForm.period_month} onChange={(e) => setPayrollForm({ ...payrollForm, period_month: Number(e.target.value) })} />
+            </LabField>
+            <div className="flex items-end">
+              <button type="button" className={labGhostBtn(isLight)} onClick={() => void generatePayroll()}>
+                Generar planilla mensual
+              </button>
+            </div>
           </div>
-        )}
-        <LabField label="Año" isLight={isLight}>
-          <input type="number" className={labInputClass(isLight)} value={payrollForm.period_year} onChange={(e) => setPayrollForm({ ...payrollForm, period_year: Number(e.target.value) })} />
-        </LabField>
-        <LabField label="Mes" isLight={isLight}>
-          <input type="number" min={1} max={12} className={labInputClass(isLight)} value={payrollForm.period_month} onChange={(e) => setPayrollForm({ ...payrollForm, period_month: Number(e.target.value) })} />
-        </LabField>
-        <div className="flex items-end">
-          <button type="button" className={labGhostBtn(isLight)} onClick={() => void generatePayroll()}>
-            Generar planilla mensual
-          </button>
+        </div>
+
+        <div className={`border-t p-4 ${isLight ? "border-[#F3F4F6]" : "border-white/[0.06]"}`}>
+          <p className={["mb-3 text-[10px] font-semibold uppercase tracking-wide", isLight ? "text-[#6B7280]" : "text-zinc-500"].join(" ")}>
+            Filtrar listado
+          </p>
+          <div className="grid gap-3 sm:grid-cols-4">
+            <LabField label="Desde" isLight={isLight}>
+              <input type="date" className={labInputClass(isLight)} value={filters.from} onChange={(e) => setFilters({ ...filters, from: e.target.value })} />
+            </LabField>
+            <LabField label="Hasta" isLight={isLight}>
+              <input type="date" className={labInputClass(isLight)} value={filters.to} onChange={(e) => setFilters({ ...filters, to: e.target.value })} />
+            </LabField>
+            {filters.from || filters.to ? (
+              <div className="flex items-end">
+                <button type="button" className={labGhostBtn(isLight)} onClick={resetFilters}>Limpiar filtros</button>
+              </div>
+            ) : null}
+          </div>
         </div>
       </div>
 

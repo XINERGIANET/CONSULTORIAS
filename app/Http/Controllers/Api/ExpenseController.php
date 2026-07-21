@@ -22,6 +22,9 @@ class ExpenseController extends Controller
         if ($request->filled('area_id')) {
             $q->where('area_id', (int) $request->input('area_id'));
         }
+        if ($request->filled('client_id')) {
+            $q->where('client_id', (int) $request->input('client_id'));
+        }
         if ($request->filled('project_id')) {
             $q->where('project_id', (int) $request->input('project_id'));
         }

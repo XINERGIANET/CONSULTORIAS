@@ -84,6 +84,8 @@ export function FinanzasHubPage() {
   const [editInId, setEditInId] = useState<number | null>(null);
   const [editOutId, setEditOutId] = useState<number | null>(null);
   const [err, setErr] = useState<string | null>(null);
+  const [inFilters, setInFilters] = useState({ client_id: "", project_id: "", from: "", to: "" });
+  const [outFilters, setOutFilters] = useState({ client_id: "", project_id: "", from: "", to: "" });
   const [inForm, setInForm] = useState({
     financial_category_id: "" as "" | number,
     amount: "",
@@ -146,18 +148,39 @@ export function FinanzasHubPage() {
     });
   }, [isSuperadmin, outForm.area_id, user?.area_ids, editingCategory]);
 
+  const loadIncomes = () => {
+    const params: Record<string, unknown> = {};
+    if (inFilters.client_id) params.client_id = inFilters.client_id;
+    if (inFilters.project_id) params.project_id = inFilters.project_id;
+    if (inFilters.from) params.from = inFilters.from;
+    if (inFilters.to) params.to = inFilters.to;
+    void getJson<LaravelPaginated<Record<string, unknown>>>("/api/incomes", params).then(setIncomes);
+  };
+
+  const loadExpenses = () => {
+    const params: Record<string, unknown> = {};
+    if (outFilters.client_id) params.client_id = outFilters.client_id;
+    if (outFilters.project_id) params.project_id = outFilters.project_id;
+    if (outFilters.from) params.from = outFilters.from;
+    if (outFilters.to) params.to = outFilters.to;
+    void getJson<LaravelPaginated<Record<string, unknown>>>("/api/expenses", params).then(setExpenses);
+    // Costos programados como "cuenta por pagar" (sin egreso inmediato): se muestran aqui
+    // tambien, con estado pendiente, en vez de quedar invisibles hasta que se paguen.
+    const payableParams: Record<string, unknown> = { per_page: 100 };
+    if (outFilters.project_id) payableParams.project_id = outFilters.project_id;
+    if (outFilters.from) payableParams.from = outFilters.from;
+    if (outFilters.to) payableParams.to = outFilters.to;
+    void getJson<LaravelPaginated<Record<string, unknown>>>("/api/accounts-payable", payableParams).then((r) =>
+      setPendingPayables(r.data.filter((p) => p.financial_category_id != null && p.status !== "paid")),
+    );
+  };
+
   useEffect(() => {
-    if (tab === "in") void getJson<LaravelPaginated<Record<string, unknown>>>("/api/incomes").then(setIncomes);
-    if (tab === "out") {
-      void getJson<LaravelPaginated<Record<string, unknown>>>("/api/expenses").then(setExpenses);
-      // Costos programados como "cuenta por pagar" (sin egreso inmediato): se muestran aqui
-      // tambien, con estado pendiente, en vez de quedar invisibles hasta que se paguen.
-      void getJson<LaravelPaginated<Record<string, unknown>>>("/api/accounts-payable", { per_page: 100 }).then((r) =>
-        setPendingPayables(r.data.filter((p) => p.financial_category_id != null && p.status !== "paid")),
-      );
-    }
+    if (tab === "in") loadIncomes();
+    if (tab === "out") loadExpenses();
     if (tab === "flow") void getJson<Record<string, unknown>>("/api/reports/cash-flow").then(setCash);
-  }, [tab]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [tab, inFilters, outFilters]);
 
   const resetIn = () => {
     setEditInId(null);
@@ -244,7 +267,7 @@ export function FinanzasHubPage() {
       else await postJson("/api/incomes", body);
       setInModal(false);
       resetIn();
-      void getJson<LaravelPaginated<Record<string, unknown>>>("/api/incomes").then(setIncomes);
+      loadIncomes();
     } catch {
       setErr("Error al guardar ingreso.");
     }
@@ -254,7 +277,7 @@ export function FinanzasHubPage() {
     if (!confirm("¿Anular este ingreso?")) return;
     try {
       await deleteJson(`/api/incomes/${id}`);
-      void getJson<LaravelPaginated<Record<string, unknown>>>("/api/incomes").then(setIncomes);
+      loadIncomes();
     } catch {
       setErr("No se pudo anular.");
     }
@@ -326,7 +349,7 @@ export function FinanzasHubPage() {
       else await postJson("/api/expenses", body);
       setOutModal(false);
       resetOut();
-      void getJson<LaravelPaginated<Record<string, unknown>>>("/api/expenses").then(setExpenses);
+      loadExpenses();
     } catch {
       setErr("Error al guardar costo.");
     }
@@ -336,7 +359,7 @@ export function FinanzasHubPage() {
     if (!confirm("¿Eliminar costo permanentemente?")) return;
     try {
       await deleteJson(`/api/expenses/${id}`);
-      void getJson<LaravelPaginated<Record<string, unknown>>>("/api/expenses").then(setExpenses);
+      loadExpenses();
     } catch {
       setErr("No se pudo eliminar.");
     }
@@ -373,6 +396,66 @@ export function FinanzasHubPage() {
           </button>
         ) : null}
       </div>
+      {(tab === "in" || tab === "out") ? (
+        <div className={`mb-4 grid gap-3 rounded-xl border p-4 sm:grid-cols-5 ${isLight ? "border-[#E5E7EB] bg-white" : "border-white/[0.06] bg-[#121212]"}`}>
+          <LabField label="Cliente" isLight={isLight}>
+            <SmartSelect
+              isLight={isLight}
+              value={tab === "in" ? inFilters.client_id : outFilters.client_id}
+              onChange={(v) =>
+                tab === "in" ? setInFilters({ ...inFilters, client_id: v }) : setOutFilters({ ...outFilters, client_id: v })
+              }
+              options={clients.map((c) => ({ value: c.id, label: c.legal_name }))}
+              emptyLabel="Todos"
+            />
+          </LabField>
+          <LabField label="Proyecto" isLight={isLight}>
+            <SmartSelect
+              isLight={isLight}
+              value={tab === "in" ? inFilters.project_id : outFilters.project_id}
+              onChange={(v) =>
+                tab === "in" ? setInFilters({ ...inFilters, project_id: v }) : setOutFilters({ ...outFilters, project_id: v })
+              }
+              options={projects.map((p) => ({ value: p.id, label: p.name }))}
+              emptyLabel="Todos"
+            />
+          </LabField>
+          <LabField label="Desde" isLight={isLight}>
+            <input
+              type="date"
+              className={labInputClass(isLight)}
+              value={tab === "in" ? inFilters.from : outFilters.from}
+              onChange={(e) =>
+                tab === "in" ? setInFilters({ ...inFilters, from: e.target.value }) : setOutFilters({ ...outFilters, from: e.target.value })
+              }
+            />
+          </LabField>
+          <LabField label="Hasta" isLight={isLight}>
+            <input
+              type="date"
+              className={labInputClass(isLight)}
+              value={tab === "in" ? inFilters.to : outFilters.to}
+              onChange={(e) =>
+                tab === "in" ? setInFilters({ ...inFilters, to: e.target.value }) : setOutFilters({ ...outFilters, to: e.target.value })
+              }
+            />
+          </LabField>
+          <div className="flex items-end">
+            <button
+              type="button"
+              className={labGhostBtn(isLight)}
+              onClick={() =>
+                tab === "in"
+                  ? setInFilters({ client_id: "", project_id: "", from: "", to: "" })
+                  : setOutFilters({ client_id: "", project_id: "", from: "", to: "" })
+              }
+            >
+              Limpiar filtros
+            </button>
+          </div>
+        </div>
+      ) : null}
+
       {err && !(inModal || outModal) ? <p className="mb-4 text-sm text-red-600">{err}</p> : null}
 
       <div className={labPanelClass(isLight)}>
