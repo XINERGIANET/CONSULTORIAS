@@ -16,6 +16,7 @@ class AccountPayable extends Model
         'user_id',
         'area_id',
         'project_id',
+        'financial_category_id',
         'expense_id',
         'document_id',
         'total_amount',
@@ -67,5 +68,11 @@ class AccountPayable extends Model
     public function project(): BelongsTo
     {
         return $this->belongsTo(Project::class);
+    }
+
+    /** @return BelongsTo<FinancialCategory, AccountPayable> */
+    public function financialCategory(): BelongsTo
+    {
+        return $this->belongsTo(FinancialCategory::class);
     }
 }

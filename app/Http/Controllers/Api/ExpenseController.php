@@ -214,6 +214,7 @@ class ExpenseController extends Controller
                     'user_id' => $data['responsible_user_id'] ?? null,
                     'area_id' => $data['area_id'],
                     'project_id' => $data['project_id'] ?? null,
+                    'financial_category_id' => $data['financial_category_id'],
                     'total_amount' => $amount,
                     'paid_amount' => 0,
                     'balance_amount' => $amount,

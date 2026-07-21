@@ -23,22 +23,25 @@ class AccountsPayableService
                 abort(422, 'El pago debe ser mayor a cero y no puede exceder el saldo pendiente.');
             }
 
-            $categoryName = match ($account->payable_type) {
-                'payroll' => 'Planilla / nómina',
-                'supplier' => 'Pago a proveedor',
-                default => 'Cuenta por pagar',
-            };
+            $categoryId = $account->financial_category_id;
+            if ($categoryId === null) {
+                $categoryName = match ($account->payable_type) {
+                    'payroll' => 'Planilla / nómina',
+                    'supplier' => 'Pago a proveedor',
+                    default => 'Cuenta por pagar',
+                };
 
-            $category = FinancialCategory::query()->firstOrCreate(
-                ['name' => $categoryName, 'type' => 'expense', 'area_id' => $account->area_id],
-                ['is_active' => true]
-            );
+                $categoryId = FinancialCategory::query()->firstOrCreate(
+                    ['name' => $categoryName, 'type' => 'expense', 'area_id' => $account->area_id],
+                    ['is_active' => true]
+                )->id;
+            }
 
             $expense = Expense::query()->create([
                 'area_id' => $account->area_id,
                 'project_id' => $account->project_id,
                 'client_id' => null,
-                'financial_category_id' => $category->id,
+                'financial_category_id' => $categoryId,
                 'amount' => $amount,
                 'recorded_on' => $data['paid_on'],
                 'responsible_user_id' => $account->user_id ?? $userId,

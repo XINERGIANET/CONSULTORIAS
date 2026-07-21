@@ -20,7 +20,7 @@ class AccountPayableController extends Controller
             ->update(['status' => 'overdue']);
 
         $q = AccountPayable::query()
-            ->with(['user:id,name', 'area:id,name', 'project:id,name']);
+            ->with(['user:id,name', 'area:id,name', 'project:id,name', 'financialCategory:id,name']);
 
         $this->applyScope($q, $request);
 

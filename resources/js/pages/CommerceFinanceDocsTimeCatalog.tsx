@@ -10,7 +10,7 @@ import { useApexTheme } from "../context/ThemeContext";
 
 type AreaOpt = { id: number; name: string };
 type ClientOpt = { id: number; legal_name: string };
-type ProjOpt = { id: number; name: string; areas?: { id: number; name: string }[] };
+type ProjOpt = { id: number; name: string; client_id?: number | null; areas?: { id: number; name: string }[] };
 type FinCat = { id: number; name: string; type: string; area_id?: number | null; area?: { name?: string } | null };
 type CurrOpt = { id: number; code: string };
 type PaymentMethodOpt = { id: number; code: string; name: string };
@@ -42,6 +42,12 @@ const PAYMENT_ACCOUNT_TYPE_LABELS: Record<string, string> = {
   other: "Otro",
 };
 
+function formatDatePE(v?: string | null): string {
+  if (!v) return "—";
+  const d = new Date(v);
+  return Number.isNaN(d.getTime()) ? String(v).slice(0, 10) : d.toLocaleDateString("es-PE");
+}
+
 function canApproveTimes(user: { is_superadmin?: boolean; role_slug?: string | null } | null): boolean {
   if (!user) return false;
   if (user.is_superadmin) return true;
@@ -64,6 +70,7 @@ export function FinanzasHubPage() {
   const [tab, setTab] = useState<"in" | "out" | "flow">("in");
   const [incomes, setIncomes] = useState<LaravelPaginated<Record<string, unknown>> | null>(null);
   const [expenses, setExpenses] = useState<LaravelPaginated<Record<string, unknown>> | null>(null);
+  const [pendingPayables, setPendingPayables] = useState<Record<string, unknown>[]>([]);
   const [cash, setCash] = useState<Record<string, unknown> | null>(null);
   const [areas, setAreas] = useState<AreaOpt[]>([]);
   const [clients, setClients] = useState<ClientOpt[]>([]);
@@ -141,7 +148,14 @@ export function FinanzasHubPage() {
 
   useEffect(() => {
     if (tab === "in") void getJson<LaravelPaginated<Record<string, unknown>>>("/api/incomes").then(setIncomes);
-    if (tab === "out") void getJson<LaravelPaginated<Record<string, unknown>>>("/api/expenses").then(setExpenses);
+    if (tab === "out") {
+      void getJson<LaravelPaginated<Record<string, unknown>>>("/api/expenses").then(setExpenses);
+      // Costos programados como "cuenta por pagar" (sin egreso inmediato): se muestran aqui
+      // tambien, con estado pendiente, en vez de quedar invisibles hasta que se paguen.
+      void getJson<LaravelPaginated<Record<string, unknown>>>("/api/accounts-payable", { per_page: 100 }).then((r) =>
+        setPendingPayables(r.data.filter((p) => p.financial_category_id != null && p.status !== "paid")),
+      );
+    }
     if (tab === "flow") void getJson<Record<string, unknown>>("/api/reports/cash-flow").then(setCash);
   }, [tab]);
 
@@ -380,8 +394,8 @@ export function FinanzasHubPage() {
             <table className="w-full min-w-[520px] text-left text-xs">
               <thead>
                 <tr className={isLight ? "text-[#6B7280]" : "text-zinc-500"}>
-                  <th className="pb-2 uppercase">Fecha</th>
-                  <th className="pb-2 uppercase">Detalle</th>
+                  <th className="pb-2 pr-3 uppercase">Fecha</th>
+                  <th className="pb-2 pr-3 uppercase">Detalle</th>
                   <th className="pb-2 text-right uppercase">Monto</th>
                   <th className="pb-2 text-right uppercase"></th>
                 </tr>
@@ -389,8 +403,8 @@ export function FinanzasHubPage() {
               <tbody>
                 {incomes.data.map((r) => (
                   <tr key={Number(r.id)} className={"border-t " + (isLight ? "border-[#F3F4F6]" : "border-white/[0.06]")}>
-                    <td className="py-2">{String(r.recorded_on ?? "")}</td>
-                    <td className="py-2">{String(r.description ?? "—")}</td>
+                    <td className="py-2 pr-3">{formatDatePE(r.recorded_on as string | null)}</td>
+                    <td className="py-2 pr-3">{String(r.description ?? "—")}</td>
                     <td className="py-2 text-right">S/. {String(r.amount ?? "")}</td>
                     <td className="py-2 text-right align-middle">
                       <div className="flex justify-end gap-2">
@@ -406,29 +420,48 @@ export function FinanzasHubPage() {
         ) : null}
         {tab === "out" && expenses ? (
           <div className={["overflow-x-auto", isLight ? "apex-table-scroll--light" : "apex-table-scroll--dark"].join(" ")}>
-            <table className="w-full min-w-[520px] text-left text-xs">
+            <table className="w-full min-w-[560px] text-left text-xs">
               <thead>
                 <tr className={isLight ? "text-[#6B7280]" : "text-zinc-500"}>
-                  <th className="pb-2 uppercase">Fecha</th>
-                  <th className="pb-2 uppercase">Obs.</th>
-                  <th className="pb-2 text-right uppercase">Monto</th>
+                  <th className="pb-2 pr-3 uppercase">Fecha</th>
+                  <th className="pb-2 pr-3 uppercase">Obs.</th>
+                  <th className="pb-2 pr-8 text-right uppercase">Monto</th>
+                  <th className="pb-2 pr-3 uppercase">Estado</th>
                   <th className="pb-2 text-right uppercase"></th>
                 </tr>
               </thead>
               <tbody>
-                {expenses.data.map((r) => (
-                  <tr key={Number(r.id)} className={"border-t " + (isLight ? "border-[#F3F4F6]" : "border-white/[0.06]")}>
-                    <td className="py-2">{String(r.recorded_on ?? "")}</td>
-                    <td className="py-2">{String(r.observation ?? "—")}</td>
-                    <td className="py-2 text-right">S/. {String(r.amount ?? "")}</td>
-                    <td className="py-2 text-right align-middle">
-                      <div className="flex justify-end gap-2">
-                        <LabCircleIconAction variant="edit" tooltip="Editar" ariaLabel="Editar costo" onClick={() => void fillOutEdit(Number(r.id))} />
-                        <LabCircleIconAction variant="delete" tooltip="Eliminar" ariaLabel="Eliminar costo" onClick={() => void delOut(Number(r.id))} />
-                      </div>
-                    </td>
-                  </tr>
-                ))}
+                {(
+                  [
+                    ...expenses.data.map((r) => ({ ...r, _pending: false as const })),
+                    ...pendingPayables.map((r) => ({ ...r, _pending: true as const })),
+                  ] as (Record<string, unknown> & { _pending: boolean })[]
+                )
+                  .sort((a, b) => {
+                    const da = String((a._pending ? a.projected_due_on : a.recorded_on) ?? "");
+                    const db = String((b._pending ? b.projected_due_on : b.recorded_on) ?? "");
+                    return db.localeCompare(da);
+                  })
+                  .map((r) => (
+                    <tr key={(r._pending ? "p" : "e") + String(r.id)} className={"border-t " + (isLight ? "border-[#F3F4F6]" : "border-white/[0.06]")}>
+                      <td className="py-2 pr-3">{formatDatePE((r._pending ? r.projected_due_on : r.recorded_on) as string | null)}</td>
+                      <td className="py-2 pr-3">{String((r._pending ? r.description : r.observation) ?? "—")}</td>
+                      <td className="py-2 pr-8 text-right whitespace-nowrap">S/. {String((r._pending ? r.total_amount : r.amount) ?? "")}</td>
+                      <td className="py-2 pr-3">
+                        <span className={labStatusPill(r._pending ? "warn" : "ok", isLight)}>
+                          {r._pending ? "Pendiente" : "Registrado"}
+                        </span>
+                      </td>
+                      <td className="py-2 text-right align-middle">
+                        {r._pending ? null : (
+                          <div className="flex justify-end gap-2">
+                            <LabCircleIconAction variant="edit" tooltip="Editar" ariaLabel="Editar costo" onClick={() => void fillOutEdit(Number(r.id))} />
+                            <LabCircleIconAction variant="delete" tooltip="Eliminar" ariaLabel="Eliminar costo" onClick={() => void delOut(Number(r.id))} />
+                          </div>
+                        )}
+                      </td>
+                    </tr>
+                  ))}
               </tbody>
             </table>
           </div>
@@ -561,7 +594,7 @@ export function FinanzasHubPage() {
             <SmartSelect
               isLight={isLight}
               value={outForm.client_id === "" ? "" : String(outForm.client_id)}
-              onChange={(v) => setOutForm({ ...outForm, client_id: v ? Number(v) : "" })}
+              onChange={(v) => setOutForm({ ...outForm, client_id: v ? Number(v) : "", project_id: "" })}
               options={clients.map((c) => ({ value: c.id, label: c.legal_name }))}
               emptyLabel="—"
             />
@@ -571,8 +604,11 @@ export function FinanzasHubPage() {
               isLight={isLight}
               value={outForm.project_id === "" ? "" : String(outForm.project_id)}
               onChange={(v) => setOutForm({ ...outForm, project_id: v ? Number(v) : "" })}
-              options={projects.map((p) => ({ value: p.id, label: p.name }))}
-              emptyLabel="—"
+              options={projects
+                .filter((p) => outForm.client_id === "" || p.client_id === outForm.client_id)
+                .map((p) => ({ value: p.id, label: p.name }))}
+              emptyLabel={outForm.client_id === "" ? "Seleccione un cliente primero" : "—"}
+              disabled={outForm.client_id === ""}
             />
           </LabField>
           <LabField label="Método de pago (opc.)" isLight={isLight}>
