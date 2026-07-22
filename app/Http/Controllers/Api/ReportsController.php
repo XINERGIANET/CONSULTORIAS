@@ -137,6 +137,118 @@ class ReportsController extends Controller
         ]);
     }
 
+    /**
+     * Flujo mensual detallado (Ene-Dic) con desglose de ingresos/egresos por categoria,
+     * total neto por mes y saldo acumulado corriendo mes a mes.
+     */
+    public function cashFlowMonthly(Request $request): JsonResponse
+    {
+        $request->validate([
+            'year' => ['nullable', 'integer', 'min:2000', 'max:2100'],
+            'area_id' => ['nullable', 'integer', 'exists:areas,id'],
+        ]);
+
+        $user = $request->user();
+        if ($user === null) {
+            abort(401);
+        }
+
+        $year = (int) ($request->input('year') ?: Carbon::now()->year);
+
+        $incomeQ = Income::query()->whereYear('recorded_on', $year);
+        AreaVisibility::applyIncomeScope($incomeQ, $user);
+        if ($request->filled('area_id')) {
+            $incomeQ->where('area_id', (int) $request->input('area_id'));
+        }
+
+        $expenseQ = Expense::query()->whereYear('recorded_on', $year);
+        AreaVisibility::applyExpenseScope($expenseQ, $user);
+        if ($request->filled('area_id')) {
+            $expenseQ->where('area_id', (int) $request->input('area_id'));
+        }
+
+        $incomeRows = $incomeQ->selectRaw('financial_category_id, MONTH(recorded_on) as m, SUM(amount) as total')
+            ->groupBy('financial_category_id', 'm')
+            ->get();
+
+        $expenseRows = $expenseQ->selectRaw('financial_category_id, MONTH(recorded_on) as m, SUM(amount) as total')
+            ->groupBy('financial_category_id', 'm')
+            ->get();
+
+        $buildByCategory = function ($rows): array {
+            $byCategory = [];
+            foreach ($rows as $r) {
+                $catId = (int) ($r->financial_category_id ?? 0);
+                if (! isset($byCategory[$catId])) {
+                    $byCategory[$catId] = array_fill(1, 12, 0.0);
+                }
+                $byCategory[$catId][(int) $r->m] = (float) $r->total;
+            }
+
+            return $byCategory;
+        };
+
+        $incomeByCategory = $buildByCategory($incomeRows);
+        $expenseByCategory = $buildByCategory($expenseRows);
+
+        $catIds = array_values(array_unique(array_merge(array_keys($incomeByCategory), array_keys($expenseByCategory))));
+        $catNames = \App\Models\FinancialCategory::query()->whereIn('id', $catIds)->pluck('name', 'id');
+
+        $toCategoryList = function (array $byCategory) use ($catNames): array {
+            $list = [];
+            foreach ($byCategory as $catId => $monthly) {
+                $list[] = [
+                    'id' => $catId,
+                    'name' => $catId > 0 ? ($catNames[$catId] ?? 'Sin categoría') : 'Sin categoría',
+                    'monthly' => array_map(fn ($v) => round($v, 2), array_values($monthly)),
+                ];
+            }
+            usort($list, fn ($a, $b) => strcmp($a['name'], $b['name']));
+
+            return $list;
+        };
+
+        $incomeCategories = $toCategoryList($incomeByCategory);
+        $expenseCategories = $toCategoryList($expenseByCategory);
+
+        $sumMonthly = function (array $categories): array {
+            $totals = array_fill(0, 12, 0.0);
+            foreach ($categories as $c) {
+                foreach ($c['monthly'] as $i => $v) {
+                    $totals[$i] += $v;
+                }
+            }
+
+            return array_map(fn ($v) => round($v, 2), $totals);
+        };
+
+        $incomeTotal = $sumMonthly($incomeCategories);
+        $expenseTotal = $sumMonthly($expenseCategories);
+
+        $netTotal = [];
+        for ($i = 0; $i < 12; $i++) {
+            $netTotal[] = round($incomeTotal[$i] - $expenseTotal[$i], 2);
+        }
+
+        $cumulative = [];
+        $running = 0.0;
+        foreach ($netTotal as $v) {
+            $running += $v;
+            $cumulative[] = round($running, 2);
+        }
+
+        return response()->json([
+            'year' => $year,
+            'months' => ['Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio', 'Julio', 'Agosto', 'Setiembre', 'Octubre', 'Noviembre', 'Diciembre'],
+            'income_categories' => $incomeCategories,
+            'income_total' => $incomeTotal,
+            'expense_categories' => $expenseCategories,
+            'expense_total' => $expenseTotal,
+            'net_total' => $netTotal,
+            'cumulative' => $cumulative,
+        ]);
+    }
+
     public function profitabilityProjects(Request $request): JsonResponse
     {
         $q = Project::query()->with([

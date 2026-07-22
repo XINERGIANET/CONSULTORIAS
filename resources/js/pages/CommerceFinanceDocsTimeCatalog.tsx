@@ -14,6 +14,17 @@ type ProjOpt = { id: number; name: string; client_id?: number | null; areas?: { 
 type FinCat = { id: number; name: string; type: string; area_id?: number | null; area?: { name?: string } | null };
 type CurrOpt = { id: number; code: string };
 type PaymentMethodOpt = { id: number; code: string; name: string };
+type FlowCategoryRow = { id: number; name: string; monthly: number[] };
+type CashFlowMonthly = {
+  year: number;
+  months: string[];
+  income_categories: FlowCategoryRow[];
+  income_total: number[];
+  expense_categories: FlowCategoryRow[];
+  expense_total: number[];
+  net_total: number[];
+  cumulative: number[];
+};
 
 const TIME_STATUS_LABELS: Record<string, string> = {
   pending: "Pendiente",
@@ -41,6 +52,10 @@ const PAYMENT_ACCOUNT_TYPE_LABELS: Record<string, string> = {
   cash: "Efectivo",
   other: "Otro",
 };
+
+function fmtMoney(v: number): string {
+  return v.toLocaleString("es-PE", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+}
 
 function formatDatePE(v?: string | null): string {
   if (!v) return "—";
@@ -71,7 +86,9 @@ export function FinanzasHubPage() {
   const [incomes, setIncomes] = useState<LaravelPaginated<Record<string, unknown>> | null>(null);
   const [expenses, setExpenses] = useState<LaravelPaginated<Record<string, unknown>> | null>(null);
   const [pendingPayables, setPendingPayables] = useState<Record<string, unknown>[]>([]);
-  const [cash, setCash] = useState<Record<string, unknown> | null>(null);
+  const [flowYear, setFlowYear] = useState(new Date().getFullYear());
+  const [flowAreaId, setFlowAreaId] = useState<"" | number>("");
+  const [flowData, setFlowData] = useState<CashFlowMonthly | null>(null);
   const [areas, setAreas] = useState<AreaOpt[]>([]);
   const [clients, setClients] = useState<ClientOpt[]>([]);
   const [projects, setProjects] = useState<ProjOpt[]>([]);
@@ -178,9 +195,15 @@ export function FinanzasHubPage() {
   useEffect(() => {
     if (tab === "in") loadIncomes();
     if (tab === "out") loadExpenses();
-    if (tab === "flow") void getJson<Record<string, unknown>>("/api/reports/cash-flow").then(setCash);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [tab, inFilters, outFilters]);
+
+  useEffect(() => {
+    if (tab !== "flow") return;
+    const params: Record<string, unknown> = { year: flowYear };
+    if (flowAreaId) params.area_id = flowAreaId;
+    void getJson<CashFlowMonthly>("/api/reports/cash-flow-monthly", params).then(setFlowData);
+  }, [tab, flowYear, flowAreaId]);
 
   const resetIn = () => {
     setEditInId(null);
@@ -455,22 +478,115 @@ export function FinanzasHubPage() {
           </div>
         </div>
       ) : null}
+      {tab === "flow" ? (
+        <div className={`mb-4 grid gap-3 rounded-xl border p-4 sm:grid-cols-4 ${isLight ? "border-[#E5E7EB] bg-white" : "border-white/[0.06] bg-[#121212]"}`}>
+          <LabField label="Año" isLight={isLight}>
+            <input
+              type="number"
+              className={labInputClass(isLight)}
+              value={flowYear}
+              onChange={(e) => setFlowYear(Number(e.target.value) || new Date().getFullYear())}
+            />
+          </LabField>
+          {isSuperadmin ? (
+            <LabField label="Empresa" isLight={isLight}>
+              <SmartSelect
+                isLight={isLight}
+                value={flowAreaId === "" ? "" : String(flowAreaId)}
+                onChange={(v) => setFlowAreaId(v ? Number(v) : "")}
+                options={areas.map((a) => ({ value: a.id, label: a.name }))}
+                emptyLabel="Todas las empresas"
+              />
+            </LabField>
+          ) : null}
+        </div>
+      ) : null}
 
       {err && !(inModal || outModal) ? <p className="mb-4 text-sm text-red-600">{err}</p> : null}
 
       <div className={labPanelClass(isLight)}>
-        {tab === "flow" && cash ? (
-          <div className={"text-sm " + (isLight ? "text-[#374151]" : "text-zinc-300")}>
-            <p>
-              Ingresos totales: <strong>{String((cash.totales as Record<string, unknown>)?.ingresos ?? "")}</strong>
-            </p>
-            <p>
-              Costos totales: <strong>{String((cash.totales as Record<string, unknown>)?.gastos ?? "")}</strong>
-            </p>
-            <p>
-              Balance: <strong>{String((cash.totales as Record<string, unknown>)?.balance ?? "")}</strong>
-            </p>
-          </div>
+        {tab === "flow" ? (
+          flowData ? (
+            <div>
+              <p className={"mb-2 text-[11px] " + (isLight ? "text-[#9CA3AF]" : "text-zinc-600")}>Montos expresados en soles (S/.)</p>
+              <div className={["overflow-x-auto", isLight ? "apex-table-scroll--light" : "apex-table-scroll--dark"].join(" ")}>
+                <table className="w-full text-left text-[11px]">
+                  <thead>
+                    <tr className={isLight ? "text-[#6B7280]" : "text-zinc-500"}>
+                      <th className="max-w-[9rem] truncate pb-2 pr-2 uppercase">{flowData.year}</th>
+                      {flowData.months.map((m) => (
+                        <th key={m} className="whitespace-nowrap pb-2 pr-2 text-right uppercase">{m.slice(0, 3)}</th>
+                      ))}
+                    </tr>
+                  </thead>
+                  <tbody>
+                    <tr className={"border-t font-semibold " + (isLight ? "border-[#F3F4F6] text-emerald-700" : "border-white/[0.06] text-emerald-400")}>
+                      <td className="max-w-[9rem] truncate py-2 pr-2">Ingresos</td>
+                      {flowData.income_total.map((v, i) => (
+                        <td key={i} className="whitespace-nowrap py-2 pr-2 text-right">{fmtMoney(v)}</td>
+                      ))}
+                    </tr>
+                    {flowData.income_categories.map((c) => (
+                      <tr key={"in-" + c.id} className={"border-t " + (isLight ? "border-[#F3F4F6]" : "border-white/[0.06]")}>
+                        <td className="max-w-[9rem] truncate py-2 pr-2 pl-3" title={c.name}>{c.name}</td>
+                        {c.monthly.map((v, i) => (
+                          <td key={i} className="whitespace-nowrap py-2 pr-2 text-right">{v ? fmtMoney(v) : "—"}</td>
+                        ))}
+                      </tr>
+                    ))}
+                    {flowData.income_categories.length === 0 ? (
+                      <tr className={"border-t " + (isLight ? "border-[#F3F4F6]" : "border-white/[0.06]")}>
+                        <td className="py-2 pr-2 pl-3 text-zinc-500" colSpan={13}>Sin ingresos registrados en {flowData.year}.</td>
+                      </tr>
+                    ) : null}
+
+                    <tr aria-hidden><td className="py-2" colSpan={13}></td></tr>
+
+                    <tr className={"border-t font-semibold " + (isLight ? "border-[#F3F4F6] text-amber-700" : "border-white/[0.06] text-amber-400")}>
+                      <td className="max-w-[9rem] truncate py-2 pr-2">Egresos</td>
+                      {flowData.expense_total.map((v, i) => (
+                        <td key={i} className="whitespace-nowrap py-2 pr-2 text-right">{fmtMoney(v)}</td>
+                      ))}
+                    </tr>
+                    {flowData.expense_categories.map((c) => (
+                      <tr key={"out-" + c.id} className={"border-t " + (isLight ? "border-[#F3F4F6]" : "border-white/[0.06]")}>
+                        <td className="max-w-[9rem] truncate py-2 pr-2 pl-3" title={c.name}>{c.name}</td>
+                        {c.monthly.map((v, i) => (
+                          <td key={i} className="whitespace-nowrap py-2 pr-2 text-right">{v ? fmtMoney(v) : "—"}</td>
+                        ))}
+                      </tr>
+                    ))}
+                    {flowData.expense_categories.length === 0 ? (
+                      <tr className={"border-t " + (isLight ? "border-[#F3F4F6]" : "border-white/[0.06]")}>
+                        <td className="py-2 pr-2 pl-3 text-zinc-500" colSpan={13}>Sin costos registrados en {flowData.year}.</td>
+                      </tr>
+                    ) : null}
+
+                    <tr aria-hidden><td className="py-2" colSpan={13}></td></tr>
+
+                    <tr className={"border-t-2 font-bold " + (isLight ? "border-[#111827] text-[#111827]" : "border-white/20 text-white")}>
+                      <td className="max-w-[9rem] truncate py-2 pr-2">Total por mes</td>
+                      {flowData.net_total.map((v, i) => (
+                        <td key={i} className={"whitespace-nowrap py-2 pr-2 text-right" + (v < 0 ? (isLight ? " text-red-600" : " text-red-400") : "")}>
+                          {fmtMoney(v)}
+                        </td>
+                      ))}
+                    </tr>
+                    <tr className={"border-t font-semibold " + (isLight ? "border-[#F3F4F6]" : "border-white/[0.06]")}>
+                      <td className="max-w-[9rem] truncate py-2 pr-2">Acumulativo</td>
+                      {flowData.cumulative.map((v, i) => (
+                        <td key={i} className={"whitespace-nowrap py-2 pr-2 text-right" + (v < 0 ? (isLight ? " text-red-600" : " text-red-400") : "")}>
+                          {fmtMoney(v)}
+                        </td>
+                      ))}
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          ) : (
+            <p className="text-sm text-zinc-500">Cargando…</p>
+          )
         ) : null}
         {tab === "in" && incomes ? (
           <div className={["overflow-x-auto", isLight ? "apex-table-scroll--light" : "apex-table-scroll--dark"].join(" ")}>

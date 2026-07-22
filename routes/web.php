@@ -199,6 +199,7 @@ Route::middleware('auth')->group(function (): void {
         Route::delete('documents/{document}', [DocumentController::class, 'destroy']);
 
         Route::get('reports/cash-flow', [ReportsController::class, 'cashFlow']);
+        Route::get('reports/cash-flow-monthly', [ReportsController::class, 'cashFlowMonthly']);
         Route::get('reports/profitability-projects', [ReportsController::class, 'profitabilityProjects']);
         Route::get('reports/profitability-clients', [ReportsController::class, 'profitabilityClients']);
         Route::get('reports/profitability-areas', [ReportsController::class, 'profitabilityAreas']);
