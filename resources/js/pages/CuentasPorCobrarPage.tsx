@@ -44,6 +44,7 @@ const STATUS_LABELS: Record<string, string> = {
   partial: "Pago parcial",
   paid: "Pagado",
   overdue: "Vencido",
+  cancelled: "Anulado",
 };
 
 function statusPill(status: string, isLight: boolean): string {
@@ -63,6 +64,10 @@ function statusPill(status: string, isLight: boolean): string {
     overdue: {
       light: "inline-flex rounded-full bg-red-50 px-2.5 py-0.5 text-xs font-semibold text-red-700 ring-1 ring-red-200",
       dark:  "inline-flex rounded-full bg-red-500/20 px-2.5 py-0.5 text-xs font-semibold text-red-300 ring-1 ring-red-500/30",
+    },
+    cancelled: {
+      light: "inline-flex rounded-full bg-slate-100 px-2.5 py-0.5 text-xs font-semibold text-slate-600 ring-1 ring-slate-200",
+      dark:  "inline-flex rounded-full bg-white/10 px-2.5 py-0.5 text-xs font-semibold text-zinc-400 ring-1 ring-white/10",
     },
   };
   const v = variants[status] ?? variants.pending;
@@ -202,6 +207,7 @@ export function CuentasPorCobrarPage() {
               { value: "partial", label: "Pago parcial" },
               { value: "paid", label: "Pagado" },
               { value: "overdue", label: "Vencido" },
+              { value: "cancelled", label: "Anulado" },
             ]}
             emptyLabel="Todos"
           />
@@ -285,7 +291,7 @@ export function CuentasPorCobrarPage() {
                       </span>
                     </td>
                     <td className="py-2.5 text-right">
-                      {r.status !== "paid" ? (
+                      {r.status !== "paid" && r.status !== "cancelled" ? (
                         <span className="group relative inline-flex">
                           <button
                             type="button"

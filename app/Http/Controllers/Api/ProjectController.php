@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
+use App\Models\AccountPayable;
 use App\Models\AccountReceivable;
 use App\Models\Client;
 use App\Models\ClientContract;
@@ -199,6 +200,10 @@ class ProjectController extends Controller
                 $this->resyncReceivableSchedule($project, $instCount);
             }
 
+            if (($data['status'] ?? null) === 'cancelled') {
+                $this->annulPendingObligations($project);
+            }
+
             if (is_array($aids)) {
                 $project->areas()->sync($aids);
             }
@@ -213,12 +218,56 @@ class ProjectController extends Controller
         return response()->json($project->fresh()->load(['areas', 'users', 'client', 'services']));
     }
 
+    /**
+     * Un proyecto nunca se borra de la base de datos: siempre se cancela (soft) y se
+     * anulan sus cuentas por cobrar/pagar pendientes, para no perder nunca el historial
+     * ni el rastro de que el proyecto existió.
+     */
     public function destroy(Request $request, Project $project): JsonResponse
     {
         $this->assertProject($request, $project);
-        $project->update(['status' => 'cancelled']);
 
-        return response()->json(null, 204);
+        $project->update(['status' => 'cancelled']);
+        $this->annulPendingObligations($project);
+
+        return response()->json([
+            'deleted' => false,
+            'message' => 'El proyecto se canceló y sus cuentas por cobrar/pagar pendientes se anularon.',
+        ]);
+    }
+
+    /**
+     * Anula (no borra) las cuotas de cuentas por cobrar/pagar de un proyecto que aun
+     * estaban pendientes/parciales/vencidas al momento de cancelar el proyecto. Lo ya
+     * cobrado/pagado (paid_amount) se conserva intacto como historial.
+     */
+    private function annulPendingObligations(Project $project): void
+    {
+        $note = 'Anulado automáticamente: el proyecto "'.$project->name.'" fue cancelado el '.now()->toDateString().'.';
+
+        AccountReceivable::query()
+            ->where('project_id', $project->id)
+            ->whereIn('status', ['pending', 'partial', 'overdue'])
+            ->get()
+            ->each(function (AccountReceivable $ar) use ($note): void {
+                $ar->update([
+                    'status' => 'cancelled',
+                    'balance_amount' => 0,
+                    'notes' => trim(($ar->notes ? $ar->notes."\n" : '').$note),
+                ]);
+            });
+
+        AccountPayable::query()
+            ->where('project_id', $project->id)
+            ->whereIn('status', ['pending', 'partial', 'overdue'])
+            ->get()
+            ->each(function (AccountPayable $ap) use ($note): void {
+                $ap->update([
+                    'status' => 'cancelled',
+                    'balance_amount' => 0,
+                    'notes' => trim(($ap->notes ? $ap->notes."\n" : '').$note),
+                ]);
+            });
     }
 
     /**

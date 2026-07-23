@@ -319,9 +319,13 @@ export function ProjectsPage() {
     const title = row.name;
     setPendingCancel(null);
     try {
-      await deleteJson(`/api/projects/${row.id}`);
+      const res = await deleteJson<{ message?: string }>(`/api/projects/${row.id}`);
       await fetchProjects(page);
-      setNotice({ variant: "success", title: "Proyecto cancelado / eliminado", message: `«${title}» fue dado de baja.` });
+      setNotice({
+        variant: "success",
+        title: "Proyecto cancelado",
+        message: res.message ?? `«${title}» se canceló y sus cuentas por cobrar/pagar pendientes se anularon.`,
+      });
     } catch (e: unknown) {
       setNotice({ variant: "error", title: "Error", message: apiErrorMessage(e, "No se pudo completar la acción.") });
     }
@@ -590,7 +594,7 @@ export function ProjectsPage() {
                             </span>
                           </span>
                         ) : null}
-                        <LabCircleIconAction variant="cancel" tooltip="Eliminar proyecto" ariaLabel={`Eliminar ${p.name}`} onClick={() => setPendingCancel(p)} />
+                        <LabCircleIconAction variant="cancel" tooltip="Cancelar proyecto" ariaLabel={`Cancelar ${p.name}`} onClick={() => setPendingCancel(p)} />
                       </div>
                     </td>
                   </tr>
@@ -629,9 +633,13 @@ export function ProjectsPage() {
 
       <ConfirmModal
         open={pendingCancel !== null}
-        title="Eliminar proyecto"
-        message={pendingCancel ? `¿Confirma eliminar «${pendingCancel.name}»? Esta acción no puede deshacerse.` : ""}
-        confirmText="Eliminar"
+        title="Cancelar proyecto"
+        message={
+          pendingCancel
+            ? `¿Confirma cancelar «${pendingCancel.name}»? El proyecto no se borra del sistema, queda marcado como "Cancelado" y sus cuentas por cobrar/pagar pendientes se anulan (lo ya cobrado/pagado se conserva).`
+            : ""
+        }
+        confirmText="Cancelar proyecto"
         danger
         isLight={isLight}
         onConfirm={() => void execCancelProj()}

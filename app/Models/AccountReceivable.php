@@ -87,7 +87,7 @@ class AccountReceivable extends Model
     public function getMoraDiasAttribute(): int
     {
         $due = $this->projected_due_on ?? $this->due_on;
-        if ($due === null) {
+        if ($due === null || $this->status === 'cancelled') {
             return 0;
         }
 
