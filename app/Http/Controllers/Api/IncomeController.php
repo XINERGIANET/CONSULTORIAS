@@ -95,7 +95,7 @@ class IncomeController extends Controller
     public function destroy(Request $request, Income $income): JsonResponse
     {
         $this->assertIncome($request, $income);
-        $income->update(['payment_status' => 'annulled']);
+        $income->delete();
 
         return response()->json(null, 204);
     }

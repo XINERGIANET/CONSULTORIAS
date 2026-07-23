@@ -321,9 +321,9 @@ export function ProjectsPage() {
     try {
       await deleteJson(`/api/projects/${row.id}`);
       await fetchProjects(page);
-      setNotice({ variant: "success", title: "Proyecto cancelado / eliminado", message: `«${title}» fue dado de baja.` });
+      setNotice({ variant: "success", title: "Proyecto eliminado", message: `«${title}» fue eliminado correctamente.` });
     } catch (e: unknown) {
-      setNotice({ variant: "error", title: "Error", message: apiErrorMessage(e, "No se pudo completar la acción.") });
+      setNotice({ variant: "error", title: "Error", message: apiErrorMessage(e, "No se pudo eliminar el proyecto.") });
     }
   };
 

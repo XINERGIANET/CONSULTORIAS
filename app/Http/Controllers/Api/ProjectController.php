@@ -216,7 +216,13 @@ class ProjectController extends Controller
     public function destroy(Request $request, Project $project): JsonResponse
     {
         $this->assertProject($request, $project);
-        $project->update(['status' => 'cancelled']);
+
+        DB::transaction(function () use ($project) {
+            $project->areas()->detach();
+            $project->users()->detach();
+            $project->services()->detach();
+            $project->delete();
+        });
 
         return response()->json(null, 204);
     }

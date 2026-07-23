@@ -211,7 +211,12 @@ class QuotationController extends Controller
     public function destroy(Request $request, Quotation $quotation): JsonResponse
     {
         $this->assertQuotation($request, $quotation);
-        $quotation->update(['status' => 'rejected']);
+
+        DB::transaction(function () use ($quotation) {
+            QuotationLine::query()->where('quotation_id', $quotation->id)->delete();
+            $quotation->areas()->detach();
+            $quotation->delete();
+        });
 
         return response()->json(null, 204);
     }
