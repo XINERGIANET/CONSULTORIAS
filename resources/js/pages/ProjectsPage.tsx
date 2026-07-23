@@ -327,7 +327,7 @@ export function ProjectsPage() {
         message: res.message ?? `«${title}» se canceló y sus cuentas por cobrar/pagar pendientes se anularon.`,
       });
     } catch (e: unknown) {
-      setNotice({ variant: "error", title: "Error", message: apiErrorMessage(e, "No se pudo completar la acción.") });
+      setNotice({ variant: "error", title: "Error", message: apiErrorMessage(e, "No se pudo cancelar el proyecto.") });
     }
   };
 
