@@ -25,7 +25,11 @@ class AccountPayableController extends Controller
         $this->applyScope($q, $request);
 
         if ($request->filled('status')) {
-            $q->where('status', $request->input('status'));
+            if ($request->input('status') !== 'all') {
+                $q->where('status', $request->input('status'));
+            }
+        } else {
+            $q->where('status', '!=', 'cancelled');
         }
         if ($request->filled('payable_type')) {
             $q->where('payable_type', $request->input('payable_type'));

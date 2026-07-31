@@ -5,7 +5,7 @@ import { useParams } from "react-router-dom";
 import { SmartSelect } from "../components/SmartSelect";
 import { FormModal } from "../xpande/FormModal";
 import { deleteJson, getJson, postJson, putJson, type LaravelPaginated } from "../xpande/http";
-import { LabBreadcrumbs, LabField, LabPageHeader, labCrudMainClass, labGhostBtn, labInputClass, labPanelClass, labPrimaryBtn } from "../xpande/XpandeUi";
+import { LabBreadcrumbs, LabField, LabPageHeader, StatusBadge, labCrudMainClass, labGhostBtn, labInputClass, labPanelClass, labPrimaryBtn } from "../xpande/XpandeUi";
 import { useApexTheme } from "../context/ThemeContext";
 import { useAuth } from "../context/AuthContext";
 
@@ -267,7 +267,7 @@ export function QuotationsPage() {
                     <tr key={Number(q.id)} className={"border-t " + (isLight ? "border-[#F3F4F6]" : "border-white/[0.06]")}>
                       <td className="py-2 pr-3 font-mono text-xs">{String(q.number)}</td>
                       <td className="py-2 pr-3 text-xs">{c?.legal_name ?? "—"}</td>
-                      <td className="py-2 pr-3 text-xs">{QUOTATION_STATUS_LABELS[st] ?? st}</td>
+                      <td className="py-2 pr-3 text-xs"><StatusBadge status={st} label={QUOTATION_STATUS_LABELS[st] ?? st} /></td>
                       <td className="py-2 pr-3 text-right text-xs">S/. {String(q.total ?? "")}</td>
                       <td className="py-2 text-right align-middle">
                         <div className="flex flex-wrap justify-end gap-2">
@@ -651,7 +651,7 @@ export function OpportunitiesPage() {
                     <tr key={Number(o.id)} className={"border-t " + (isLight ? "border-[#F3F4F6]" : "border-white/[0.06]")}>
                       <td className={"py-2 font-semibold " + (isLight ? "text-[#111827]" : "text-white")}>{String(o.title)}</td>
                       <td className="py-2 text-xs">{cli}</td>
-                      <td className="py-2 text-xs">{OPPORTUNITY_STAGE_LABELS[String(o.stage)] ?? String(o.stage)}</td>
+                      <td className="py-2 text-xs"><StatusBadge status={String(o.stage)} label={OPPORTUNITY_STAGE_LABELS[String(o.stage)] ?? String(o.stage)} /></td>
                       <td className="py-2 text-right align-middle">
                         <div className="flex justify-end gap-2">
                           <LabCircleIconAction variant="edit" tooltip="Editar" ariaLabel={`Editar oportunidad`} onClick={() => openEdit(o)} />

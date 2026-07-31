@@ -420,7 +420,7 @@ export function CuentasPorCobrarPage() {
               { value: "overdue", label: "Vencido" },
               { value: "cancelled", label: "Anulado" },
             ]}
-            emptyLabel="Todos los estados"
+            emptyLabel="Todas (excluye anuladas)"
           />
         </LabField>
         <LabField label="Desde" isLight={isLight}>

@@ -196,21 +196,99 @@ export function LabField({
   );
 }
 
-export function labStatusPill(status: "ok" | "neutral" | "warn", isLight: boolean): string {
-  if (status === "ok") {
-    return isLight
-      ? "inline-flex rounded-full bg-[#E6F3FF] px-2.5 py-0.5 text-xs font-semibold text-[#005BBF] ring-1 ring-[#007BFF]/25"
-      : "inline-flex rounded-full bg-[#0a2744] px-2.5 py-0.5 text-xs font-semibold text-[#7AB8FF] ring-1 ring-[#007BFF]/38";
-  }
-  if (status === "warn") {
-    return isLight
-      ? "inline-flex rounded-full bg-amber-100 px-2.5 py-0.5 text-xs font-semibold text-amber-900 ring-1 ring-amber-200/80"
-      : "inline-flex rounded-full bg-amber-950/40 px-2.5 py-0.5 text-xs font-semibold text-amber-200 ring-1 ring-amber-500/25";
-  }
-  return isLight
-    ? "inline-flex rounded-full bg-[#F3F4F6] px-2.5 py-0.5 text-xs font-semibold text-[#4B5563] ring-1 ring-[#E5E7EB]"
-    : "inline-flex rounded-full bg-zinc-800/80 px-2.5 py-0.5 text-xs font-semibold text-zinc-300 ring-1 ring-white/10";
+export const SPANISH_STATUS_MAP: Record<string, string> = {
+  // Financial & Obligations
+  pending: "Pendiente",
+  partial: "Pago parcial",
+  paid: "Pagado",
+  overdue: "Vencido",
+  cancelled: "Anulado",
+  registered: "Registrado",
+
+  // Projects
+  active: "Activo",
+  on_hold: "En espera",
+  completed: "Completado",
+
+  // Quotations
+  draft: "Borrador",
+  sent: "Enviado",
+  accepted: "Aceptado",
+  rejected: "Rechazado",
+
+  // Opportunities
+  new: "Nueva",
+  contacted: "Contactado",
+  proposal: "Propuesta",
+  won: "Ganada",
+  lost: "Perdida",
+
+  // Clients & Persona Condition
+  grata: "Grata",
+  non_grata: "Non Grata",
+  "persona grata": "Grata",
+  "persona non grata": "Non Grata",
+  inactive: "Inactivo",
+
+  // Times
+  approved: "Aprobado",
+
+  // Tasks
+  in_progress: "En proceso",
+
+  // Generic
+  ok: "Activo",
+  warn: "Pendiente",
+  neutral: "Normal",
+};
+
+export function getSpanishStatusLabel(code: string): string {
+  if (!code) return "—";
+  const norm = code.toLowerCase().trim();
+  return SPANISH_STATUS_MAP[norm] ?? SPANISH_STATUS_MAP[code] ?? code;
 }
+
+export function statusBadgeClass(statusKey: string): string {
+  const k = (statusKey ?? "").toLowerCase().trim();
+
+  // Emerald / Green (Success / Active / Paid / Approved / Grata / Completed / Won)
+  if (["paid", "pagado", "active", "activo", "accepted", "aceptado", "approved", "aprobado", "completed", "completado", "won", "ganada", "grata", "persona grata", "registrado", "ok"].includes(k)) {
+    return "inline-block rounded-full bg-emerald-600 px-3.5 py-1 text-xs font-bold text-white shadow-sm text-center tracking-wide min-w-[70px]";
+  }
+
+  // Rose / Red (Danger / Overdue / Rejected / Non Grata / Inactive / Cancelled / Lost)
+  if (["overdue", "vencido", "rejected", "rechazado", "cancelled", "cancelado", "anulado", "inactive", "inactivo", "lost", "perdida", "non_grata", "non-grata", "persona non grata"].includes(k)) {
+    return "inline-block rounded-full bg-rose-600 px-3.5 py-1 text-xs font-bold text-white shadow-sm text-center tracking-wide min-w-[70px]";
+  }
+
+  // Amber / Yellow (Warning / Pending / Draft)
+  if (["pending", "pendiente", "draft", "borrador", "warn"].includes(k)) {
+    return "inline-block rounded-full bg-amber-500 px-3.5 py-1 text-xs font-bold text-white shadow-sm text-center tracking-wide min-w-[70px]";
+  }
+
+  // Blue / Cyan (In Progress / Partial / Sent / Proposal)
+  if (["partial", "pago parcial", "parcial", "on_hold", "en_espera", "en espera", "in_progress", "en proceso", "sent", "enviado", "proposal", "propuesta", "contacted", "contactado"].includes(k)) {
+    return "inline-block rounded-full bg-blue-600 px-3.5 py-1 text-xs font-bold text-white shadow-sm text-center tracking-wide min-w-[70px]";
+  }
+
+  // Purple / Indigo (Special / New)
+  if (["new", "nueva", "saas"].includes(k)) {
+    return "inline-block rounded-full bg-indigo-600 px-3.5 py-1 text-xs font-bold text-white shadow-sm text-center tracking-wide min-w-[70px]";
+  }
+
+  // Default / Neutral (Slate)
+  return "inline-block rounded-full bg-slate-600 px-3.5 py-1 text-xs font-bold text-white shadow-sm text-center tracking-wide min-w-[70px]";
+}
+
+export function StatusBadge({ status, label, className }: { status: string; label?: string; className?: string }) {
+  const displayLabel = label ?? getSpanishStatusLabel(status);
+  return <span className={[statusBadgeClass(status), className ?? ""].join(" ")}>{displayLabel}</span>;
+}
+
+export function labStatusPill(status: string, _isLight?: boolean): string {
+  return statusBadgeClass(status);
+}
+
 
 export function initialsFrom(text: string, max = 2): string {
   const p = text.trim().split(/\s+/).filter(Boolean);

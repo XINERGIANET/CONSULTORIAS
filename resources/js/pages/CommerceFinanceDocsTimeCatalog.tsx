@@ -5,7 +5,7 @@ import { SmartSelect } from "../components/SmartSelect";
 import { useAuth } from "../context/AuthContext";
 import { FormModal } from "../xpande/FormModal";
 import { deleteJson, getJson, postJson, postFormData, putJson, type LaravelPaginated } from "../xpande/http";
-import { LabBreadcrumbs, LabField, LabPageHeader, labCrudMainClass, labGhostBtn, labInputClass, labPanelClass, labPrimaryBtn, labStatusPill } from "../xpande/XpandeUi";
+import { LabBreadcrumbs, LabField, LabPageHeader, StatusBadge, labCrudMainClass, labGhostBtn, labInputClass, labPanelClass, labPrimaryBtn } from "../xpande/XpandeUi";
 import { useApexTheme } from "../context/ThemeContext";
 
 type AreaOpt = { id: number; name: string };
@@ -647,9 +647,7 @@ export function FinanzasHubPage() {
                       <td className="py-2 pr-3">{String((r._pending ? r.description : r.observation) ?? "—")}</td>
                       <td className="py-2 pr-8 text-right whitespace-nowrap">S/. {String((r._pending ? r.total_amount : r.amount) ?? "")}</td>
                       <td className="py-2 pr-3">
-                        <span className={labStatusPill(r._pending ? "warn" : "ok", isLight)}>
-                          {r._pending ? "Pendiente" : "Registrado"}
-                        </span>
+                        <StatusBadge status={r._pending ? "pending" : "registered"} label={r._pending ? "Pendiente" : "Registrado"} />
                       </td>
                       <td className="py-2 text-right align-middle">
                         {r._pending ? null : (
@@ -1018,7 +1016,7 @@ export function TimeEntriesPage() {
                   <div className={"font-medium " + (isLight ? "text-[#111827]" : "text-white")}>{pj?.name ?? "Proyecto"}</div>
                   <div>{String(r.work_date ?? "")}</div>
                   <div>{String(r.hours ?? "")} h</div>
-                  <span className={labStatusPill(st === "approved" ? "ok" : "neutral", isLight)}>{TIME_STATUS_LABELS[st] ?? st}</span>
+                  <StatusBadge status={st} label={TIME_STATUS_LABELS[st] ?? st} />
                   <div className="flex flex-wrap gap-2">
                     <LabCircleIconAction variant="edit" tooltip="Editar" ariaLabel="Editar registro" onClick={() => startEdit(r)} />
                     {canReview && st === "pending" ? (

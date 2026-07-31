@@ -18,6 +18,7 @@ import {
   LabBreadcrumbs,
   LabField,
   LabPageHeader,
+  StatusBadge,
   labCrudMainClass,
   labGhostBtn,
   labInputClass,
@@ -573,7 +574,7 @@ export function ProjectsPage() {
                     <td className="py-2.5 pr-4 text-xs uppercase">{p.engagement_type === "saas" ? "SaaS" : "Proyecto"}</td>
                     <td className="py-2.5 pr-4 text-xs">{(p.services ?? []).map((x) => x.name).join(", ") || "Sin productos"}</td>
                     <td className="py-2.5 pr-4 text-xs">{(p.areas ?? []).map((x) => x.name).join(", ")}</td>
-                    <td className="py-2.5 pr-4 text-xs">{PROJECT_STATUS_LABELS[p.status] ?? p.status}</td>
+                    <td className="py-2.5 pr-4 text-xs"><StatusBadge status={p.status} /></td>
                     <td className="py-2.5 pr-4 text-xs whitespace-nowrap">{p.start_date ? String(p.start_date).slice(0, 10) : "—"}</td>
                     <td className="py-2.5 pr-4 text-xs whitespace-nowrap">{p.created_at ? String(p.created_at).slice(0, 10) : "—"}</td>
                     <td className="py-2.5 text-right align-middle">

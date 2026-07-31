@@ -456,7 +456,7 @@ export function CuentasPorPagarPage() {
                   { value: "overdue", label: "Vencido" },
                   { value: "cancelled", label: "Anulado" },
                 ]}
-                emptyLabel="Todos"
+                emptyLabel="Todas (excluye anuladas)"
               />
             </LabField>
             <LabField label="Desde" isLight={isLight}>

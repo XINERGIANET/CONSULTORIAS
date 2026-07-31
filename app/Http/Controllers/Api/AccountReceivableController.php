@@ -32,7 +32,11 @@ class AccountReceivableController extends Controller
         $this->applyScope($q, $request);
 
         if ($request->filled('status')) {
-            $q->where('status', $request->input('status'));
+            if ($request->input('status') !== 'all') {
+                $q->where('status', $request->input('status'));
+            }
+        } else {
+            $q->where('status', '!=', 'cancelled');
         }
         if ($request->filled('client_id')) {
             $q->where('client_id', (int) $request->input('client_id'));

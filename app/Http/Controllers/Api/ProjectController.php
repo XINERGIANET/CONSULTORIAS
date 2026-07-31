@@ -200,7 +200,7 @@ class ProjectController extends Controller
                 $this->resyncReceivableSchedule($project, $instCount);
             }
 
-            if (($data['status'] ?? null) === 'cancelled') {
+            if (($data['status'] ?? null) === 'cancelled' || ($data['subscription_status'] ?? null) === 'cancelled' || ($data['subscription_status'] ?? null) === 'inactive') {
                 $this->annulPendingObligations($project);
             }
 
