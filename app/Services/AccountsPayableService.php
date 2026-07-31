@@ -46,6 +46,7 @@ class AccountsPayableService
                 'recorded_on' => $data['paid_on'],
                 'responsible_user_id' => $account->user_id ?? $userId,
                 'observation' => $data['notes'] ?? ('Pago CxP #'.$account->id.' — '.$account->description),
+                'payment_method' => $data['method'] ?? null,
             ]);
 
             $payment = AccountPayablePayment::query()->create([
@@ -65,6 +66,19 @@ class AccountsPayableService
         });
     }
 
+    public function revertPayment(AccountPayable $account, AccountPayablePayment $payment): AccountPayable
+    {
+        return DB::transaction(function () use ($account, $payment): AccountPayable {
+            if ($payment->expense_id !== null) {
+                Expense::query()->where('id', $payment->expense_id)->delete();
+            }
+
+            $payment->delete();
+
+            return $this->recalculate($account);
+        });
+    }
+
     public function recalculate(AccountPayable $account): AccountPayable
     {
         $paid = (float) $account->payments()->sum('amount');
@@ -77,7 +91,8 @@ class AccountsPayableService
             $paidOn = $lastPaid ?? now()->toDateString();
         } elseif ($paid > 0) {
             $status = 'partial';
-            $paidOn = null;
+            $lastPaid = $account->payments()->orderByDesc('paid_on')->value('paid_on');
+            $paidOn = $lastPaid ?? null;
         } elseif ($account->projected_due_on !== null && $account->projected_due_on->isPast()) {
             $status = 'overdue';
             $paidOn = null;
@@ -96,6 +111,7 @@ class AccountsPayableService
 
         return $account->fresh();
     }
+
 
     /**
      * Genera obligaciones de planilla mensual para colaboradores con sueldo configurado.

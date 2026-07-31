@@ -27,6 +27,9 @@ class AccountsReceivableService
                 ['is_active' => true]
             );
 
+            $methodInfo = !empty($data['method']) ? ' [Método: '.$data['method'].(!empty($data['reference']) ? ' - Ref: '.$data['reference'] : '').']' : '';
+            $desc = ($data['notes'] ?? 'Pago de cuenta por cobrar #'.$account->id).$methodInfo;
+
             $income = Income::query()->create([
                 'client_id' => $account->client_id,
                 'project_id' => $account->project_id,
@@ -35,7 +38,7 @@ class AccountsReceivableService
                 'amount' => $amount,
                 'recorded_on' => $data['paid_on'],
                 'payment_status' => 'paid',
-                'description' => $data['notes'] ?? 'Pago de cuenta por cobrar #'.$account->id,
+                'description' => $desc,
             ]);
 
             $payment = AccountReceivablePayment::query()->create([
@@ -55,6 +58,19 @@ class AccountsReceivableService
         });
     }
 
+    public function revertPayment(AccountReceivable $account, AccountReceivablePayment $payment): AccountReceivable
+    {
+        return DB::transaction(function () use ($account, $payment): AccountReceivable {
+            if ($payment->income_id !== null) {
+                Income::query()->where('id', $payment->income_id)->delete();
+            }
+
+            $payment->delete();
+
+            return $this->recalculate($account);
+        });
+    }
+
     public function recalculate(AccountReceivable $account): AccountReceivable
     {
         $paid = (float) $account->payments()->sum('amount');
@@ -64,7 +80,7 @@ class AccountsReceivableService
             $status = 'paid';
         } elseif ($paid > 0) {
             $status = 'partial';
-        } elseif ($account->due_on !== null && $account->due_on->isPast()) {
+        } elseif (($account->due_on !== null && $account->due_on->isPast()) || ($account->projected_due_on !== null && $account->projected_due_on->isPast())) {
             $status = 'overdue';
         } else {
             $status = 'pending';
@@ -76,9 +92,10 @@ class AccountsReceivableService
             'status' => $status,
             'collected_on' => $status === 'paid'
                 ? ($account->payments()->orderByDesc('paid_on')->value('paid_on') ?? now()->toDateString())
-                : null,
+                : ($account->payments()->exists() ? ($account->payments()->orderByDesc('paid_on')->value('paid_on')) : null),
         ]);
 
         return $account->fresh();
     }
 }
+

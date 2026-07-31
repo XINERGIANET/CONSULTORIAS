@@ -125,10 +125,24 @@ class ExpenseController extends Controller
     public function destroy(Request $request, Expense $expense): JsonResponse
     {
         $this->assertExpense($request, $expense);
-        $expense->delete();
+
+        DB::transaction(function () use ($expense): void {
+            $payments = \App\Models\AccountPayablePayment::query()->where('expense_id', $expense->id)->get();
+            $expense->delete();
+
+            $svc = new \App\Services\AccountsPayableService();
+            foreach ($payments as $p) {
+                $account = $p->accountPayable;
+                $p->delete();
+                if ($account) {
+                    $svc->recalculate($account);
+                }
+            }
+        });
 
         return response()->json(null, 204);
     }
+
 
     private function assertExpense(Request $request, Expense $expense): void
     {

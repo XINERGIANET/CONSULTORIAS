@@ -95,10 +95,24 @@ class IncomeController extends Controller
     public function destroy(Request $request, Income $income): JsonResponse
     {
         $this->assertIncome($request, $income);
-        $income->update(['payment_status' => 'annulled']);
+
+        \Illuminate\Support\Facades\DB::transaction(function () use ($income): void {
+            $payments = \App\Models\AccountReceivablePayment::query()->where('income_id', $income->id)->get();
+            $income->update(['payment_status' => 'annulled']);
+
+            $svc = new \App\Services\AccountsReceivableService();
+            foreach ($payments as $p) {
+                $account = $p->accountReceivable;
+                $p->delete();
+                if ($account) {
+                    $svc->recalculate($account);
+                }
+            }
+        });
 
         return response()->json(null, 204);
     }
+
 
     private function assertIncome(Request $request, Income $income): void
     {

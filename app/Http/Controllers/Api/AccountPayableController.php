@@ -64,6 +64,7 @@ class AccountPayableController extends Controller
             'user_id' => ['nullable', 'integer', 'exists:users,id'],
             'area_id' => ['required', 'integer', 'exists:areas,id'],
             'project_id' => ['nullable', 'integer', 'exists:projects,id'],
+            'financial_category_id' => ['nullable', 'integer', 'exists:financial_categories,id'],
             'total_amount' => ['required', 'numeric', 'min:0.01'],
             'projected_due_on' => ['required', 'date'],
             'requires_invoice' => ['sometimes', 'boolean'],
@@ -81,7 +82,39 @@ class AccountPayableController extends Controller
             'requires_invoice' => $request->boolean('requires_invoice'),
         ]));
 
-        return response()->json($account->load(['user', 'area']), 201);
+        return response()->json($account->load(['user', 'area', 'financialCategory']), 201);
+    }
+
+    public function update(Request $request, AccountPayable $accountPayable): JsonResponse
+    {
+        $this->assertAccount($request, $accountPayable);
+
+        $data = $request->validate([
+            'payable_type' => ['sometimes', 'string', 'in:supplier,payroll,other'],
+            'vendor_name' => ['nullable', 'string', 'max:255'],
+            'user_id' => ['nullable', 'integer', 'exists:users,id'],
+            'financial_category_id' => ['nullable', 'integer', 'exists:financial_categories,id'],
+            'projected_due_on' => ['sometimes', 'date'],
+            'description' => ['sometimes', 'string', 'max:500'],
+            'notes' => ['nullable', 'string'],
+            'total_amount' => ['sometimes', 'numeric', 'min:0.01'],
+            'requires_invoice' => ['sometimes', 'boolean'],
+        ]);
+
+        if (isset($data['total_amount']) && (float) $accountPayable->paid_amount > 0) {
+            abort(422, 'No se puede modificar el monto total de una obligación que ya tiene pagos.');
+        }
+
+        if (isset($data['total_amount'])) {
+            $data['balance_amount'] = (float) $data['total_amount'] - (float) $accountPayable->paid_amount;
+        }
+
+        $accountPayable->update($data);
+
+        $service = new AccountsPayableService();
+        $service->recalculate($accountPayable);
+
+        return response()->json($accountPayable->fresh()->load(['user', 'area', 'project', 'financialCategory', 'payments.expense']));
     }
 
     public function registerPayment(Request $request, AccountPayable $accountPayable, AccountsPayableService $service): JsonResponse
@@ -98,7 +131,20 @@ class AccountPayableController extends Controller
 
         $service->registerPayment($accountPayable, $data, (int) $request->user()->id);
 
-        return response()->json($accountPayable->fresh()->load(['user', 'area', 'payments.expense']));
+        return response()->json($accountPayable->fresh()->load(['user', 'area', 'payments.expense', 'payments.registeredBy:id,name']));
+    }
+
+    public function revertPayment(Request $request, AccountPayable $accountPayable, \App\Models\AccountPayablePayment $payment, AccountsPayableService $service): JsonResponse
+    {
+        $this->assertAccount($request, $accountPayable);
+
+        if ((int) $payment->account_payable_id !== (int) $accountPayable->id) {
+            abort(404);
+        }
+
+        $service->revertPayment($accountPayable, $payment);
+
+        return response()->json($accountPayable->fresh()->load(['user', 'area', 'payments.expense', 'payments.registeredBy:id,name']));
     }
 
     public function markInvoiced(Request $request, AccountPayable $accountPayable): JsonResponse
@@ -122,13 +168,14 @@ class AccountPayableController extends Controller
         $this->assertAccount($request, $accountPayable);
 
         if ($accountPayable->payments()->exists()) {
-            abort(422, 'No se puede eliminar una cuenta por pagar con pagos registrados.');
+            abort(422, 'No se puede eliminar una cuenta por pagar con pagos registrados. Revierta los pagos primero.');
         }
 
         $accountPayable->delete();
 
         return response()->json(null, 204);
     }
+
 
     public function generatePayroll(Request $request, AccountsPayableService $service): JsonResponse
     {

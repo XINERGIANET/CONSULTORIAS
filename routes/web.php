@@ -172,14 +172,19 @@ Route::middleware('auth')->group(function (): void {
         Route::get('accounts-receivable/{accountReceivable}', [AccountReceivableController::class, 'show'])->middleware('permission:view_finances');
         Route::put('accounts-receivable/{accountReceivable}', [AccountReceivableController::class, 'update'])->middleware('permission:register_payments');
         Route::post('accounts-receivable/{accountReceivable}/payments', [AccountReceivableController::class, 'registerPayment'])->middleware('permission:register_payments');
+        Route::delete('accounts-receivable/{accountReceivable}/payments/{payment}', [AccountReceivableController::class, 'revertPayment'])->middleware('permission:register_payments');
+        Route::delete('accounts-receivable/{accountReceivable}', [AccountReceivableController::class, 'destroy'])->middleware('permission:register_payments');
 
         Route::get('accounts-payable', [AccountPayableController::class, 'index'])->middleware('permission:view_finances');
         Route::post('accounts-payable', [AccountPayableController::class, 'store'])->middleware('permission:register_payments');
         Route::post('accounts-payable/generate-payroll', [AccountPayableController::class, 'generatePayroll'])->middleware('permission:register_payments');
         Route::get('accounts-payable/{accountPayable}', [AccountPayableController::class, 'show'])->middleware('permission:view_finances');
+        Route::put('accounts-payable/{accountPayable}', [AccountPayableController::class, 'update'])->middleware('permission:register_payments');
         Route::post('accounts-payable/{accountPayable}/payments', [AccountPayableController::class, 'registerPayment'])->middleware('permission:register_payments');
+        Route::delete('accounts-payable/{accountPayable}/payments/{payment}', [AccountPayableController::class, 'revertPayment'])->middleware('permission:register_payments');
         Route::post('accounts-payable/{accountPayable}/invoice', [AccountPayableController::class, 'markInvoiced'])->middleware('permission:register_payments');
         Route::delete('accounts-payable/{accountPayable}', [AccountPayableController::class, 'destroy'])->middleware('permission:register_payments');
+
 
         Route::get('expenses', [ExpenseController::class, 'index']);
         Route::post('expenses', [ExpenseController::class, 'store']);
