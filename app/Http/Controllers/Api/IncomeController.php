@@ -13,7 +13,7 @@ class IncomeController extends Controller
 {
     public function index(Request $request): JsonResponse
     {
-        $q = Income::query()->with(['client:id,legal_name', 'project:id,name', 'area:id,name', 'financialCategory', 'quotation']);
+        $q = Income::query()->with(['client:id,legal_name', 'project:id,name', 'area:id,name', 'financialCategory', 'quotation', 'receivablePayment.accountReceivable']);
         $this->applyFinanceScope($q, $request);
 
         if ($request->filled('area_id')) {
@@ -35,14 +35,14 @@ class IncomeController extends Controller
             $q->whereDate('recorded_on', '<=', $request->input('to'));
         }
 
-        return response()->json($q->orderByDesc('recorded_on')->paginate(40));
+        return response()->json($q->orderByDesc('recorded_on')->orderByDesc('id')->paginate(40));
     }
 
     public function show(Request $request, Income $income): JsonResponse
     {
         $this->assertIncome($request, $income);
 
-        return response()->json($income->load(['client', 'project', 'area', 'financialCategory', 'quotation']));
+        return response()->json($income->load(['client', 'project', 'area', 'financialCategory', 'quotation', 'receivablePayment.accountReceivable']));
     }
 
     public function store(Request $request): JsonResponse

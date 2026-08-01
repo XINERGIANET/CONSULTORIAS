@@ -16,7 +16,7 @@ class ExpenseController extends Controller
 {
     public function index(Request $request): JsonResponse
     {
-        $q = Expense::query()->with(['area:id,name', 'project:id,name', 'client:id,legal_name', 'financialCategory', 'responsibleUser:id,name']);
+        $q = Expense::query()->with(['area:id,name', 'project:id,name', 'client:id,legal_name', 'financialCategory', 'responsibleUser:id,name', 'payablePayment.accountPayable']);
         $this->applyFinanceScope($q, $request);
 
         if ($request->filled('area_id')) {
@@ -35,14 +35,14 @@ class ExpenseController extends Controller
             $q->whereDate('recorded_on', '<=', $request->input('to'));
         }
 
-        return response()->json($q->orderByDesc('recorded_on')->paginate(40));
+        return response()->json($q->orderByDesc('recorded_on')->orderByDesc('id')->paginate(40));
     }
 
     public function show(Request $request, Expense $expense): JsonResponse
     {
         $this->assertExpense($request, $expense);
 
-        return response()->json($expense->load(['client', 'project', 'area', 'financialCategory', 'responsibleUser']));
+        return response()->json($expense->load(['client', 'project', 'area', 'financialCategory', 'responsibleUser', 'payablePayment.accountPayable']));
     }
 
     public function store(Request $request): JsonResponse

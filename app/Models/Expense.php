@@ -57,4 +57,9 @@ class Expense extends Model
     {
         return $this->belongsTo(User::class, 'responsible_user_id');
     }
+
+    public function payablePayment(): \Illuminate\Database\Eloquent\Relations\HasOne
+    {
+        return $this->hasOne(AccountPayablePayment::class, 'expense_id');
+    }
 }
