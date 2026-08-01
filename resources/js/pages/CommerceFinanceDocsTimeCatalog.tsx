@@ -1,4 +1,5 @@
-import { Clock, Database, FileText, Landmark, Receipt, Trash2, Wallet } from "lucide-react";
+import { AlertTriangle, ChevronRight, Clock, CreditCard, Database, ExternalLink, Eye, FileText, HandCoins, Landmark, PiggyBank, Receipt, Trash2, TrendingUp, Wallet } from "lucide-react";
+import { Link } from "react-router-dom";
 import { LabCircleIconAction } from "../xpande/LabTableKit";
 import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { SmartSelect } from "../components/SmartSelect";
@@ -79,6 +80,48 @@ function financeActionBtn(kind: "income" | "cost", isLight: boolean): string {
   return base + (isLight ? " bg-amber-600 text-white hover:bg-amber-700" : " bg-amber-400 text-black hover:bg-amber-300");
 }
 
+function formatDateTimePE(dateStr?: string | null, createdAtStr?: string | null): string {
+  if (!dateStr && !createdAtStr) return "—";
+  const datePart = formatDatePE((dateStr ?? createdAtStr) as string);
+  let timePart = "";
+  if (createdAtStr) {
+    const s = String(createdAtStr);
+    if (s.includes("T")) timePart = s.split("T")[1].slice(0, 5);
+    else if (s.includes(" ")) timePart = s.split(" ")[1].slice(0, 5);
+  }
+  return timePart ? `${datePart} ${timePart}` : datePart;
+}
+
+function getIncomeOrigin(r: Record<string, unknown>) {
+  const p = r.receivable_payment as { account_receivable_id?: number } | undefined;
+  if (p && p.account_receivable_id) {
+    return {
+      isDirect: false,
+      cxcId: p.account_receivable_id,
+      label: `Pago de Cliente (CxC #${p.account_receivable_id})`,
+    };
+  }
+  return { isDirect: true, label: "Directo (Finanzas)" };
+}
+
+function getExpenseOrigin(r: Record<string, unknown>) {
+  if (r._pending) {
+    return { isDirect: false, isPendingPayable: true, label: "CxP Programada" };
+  }
+  const p = r.payable_payment as { account_payable_id?: number; account_payable?: { payable_type?: string } } | undefined;
+  if (p && p.account_payable_id) {
+    const ptype = p.account_payable?.payable_type ?? "supplier";
+    const typeLabel = ptype === "payroll" ? "Pago de Planilla" : ptype === "supplier" ? "Pago a Proveedor" : "Pago de Obligación";
+    return {
+      isDirect: false,
+      cxpId: p.account_payable_id,
+      type: ptype,
+      label: `${typeLabel} (CxP #${p.account_payable_id})`,
+    };
+  }
+  return { isDirect: true, label: "Directo (Finanzas)" };
+}
+
 export function FinanzasHubPage() {
   const { isLight } = useApexTheme();
   const { user, isSuperadmin } = useAuth();
@@ -132,11 +175,34 @@ export function FinanzasHubPage() {
     payable_description: "",
   });
 
+  const [kpiStats, setKpiStats] = useState({ cxcPending: 0, cxcOverdue: 0, cxpPending: 0 });
+  const [detailItem, setDetailItem] = useState<{ type: "income" | "expense"; data: Record<string, unknown> } | null>(null);
+
   useEffect(() => {
     void getJson<AreaOpt[]>("/api/areas", { active_only: true }).then(setAreas);
     void getJson<LaravelPaginated<ClientOpt>>("/api/clients", { per_page: 100 }).then((r) => setClients(r.data));
     void getJson<LaravelPaginated<ProjOpt>>("/api/projects", { per_page: 100 }).then((r) => setProjects(r.data));
     void getJson<PaymentMethodOpt[]>("/api/catalog/payment-methods", { active_only: true }).then(setPaymentMethods);
+
+    void getJson<LaravelPaginated<Record<string, unknown>>>("/api/accounts-receivable", { per_page: 100 }).then((r) => {
+      let pending = 0;
+      let overdue = 0;
+      for (const item of r.data) {
+        const bal = Number(item.balance_amount) || 0;
+        if (item.status === "overdue") overdue += bal;
+        else if (item.status === "pending" || item.status === "partial") pending += bal;
+      }
+      setKpiStats((prev) => ({ ...prev, cxcPending: pending, cxcOverdue: overdue }));
+    });
+
+    void getJson<LaravelPaginated<Record<string, unknown>>>("/api/accounts-payable", { per_page: 100 }).then((r) => {
+      let pending = 0;
+      for (const item of r.data) {
+        const bal = Number(item.balance_amount) || 0;
+        if (item.status !== "paid" && item.status !== "cancelled") pending += bal;
+      }
+      setKpiStats((prev) => ({ ...prev, cxpPending: pending }));
+    });
   }, []);
 
   useEffect(() => {
@@ -388,24 +454,164 @@ export function FinanzasHubPage() {
     }
   };
 
+  const incomesMonthTotal = useMemo(() => {
+    if (!incomes?.data) return 0;
+    return incomes.data.reduce((acc, r) => acc + (Number(r.amount) || 0), 0);
+  }, [incomes]);
+
+  const expensesMonthTotal = useMemo(() => {
+    if (!expenses?.data) return 0;
+    return expenses.data.reduce((acc, r) => acc + (Number(r.amount) || 0), 0);
+  }, [expenses]);
+
+  const netFlowTotal = incomesMonthTotal - expensesMonthTotal;
+
   return (
     <main className={labCrudMainClass(isLight)}>
       <LabBreadcrumbs items={[{ label: "Dashboard", to: "/" }, { label: "Finanzas" }]} isLight={isLight} />
       <LabPageHeader
         title="Finanzas corporativas"
-        subtitle="Alta de ingresos/costos, categorías parametrizadas y flujo financiero."
+        subtitle="Monitoreo de ingresos, egresos, flujo de caja y sincronización con cuentas por cobrar y pagar."
         isLight={isLight}
       />
+
+      {/* KPI Grid Header - Custom for Finanzas (Matching Image 2 Layout) */}
+      <div className="mb-6 grid gap-4 lg:grid-cols-4">
+        {/* Hero Card Left: Total Recaudado */}
+        <div className={`relative overflow-hidden rounded-2xl border p-5 shadow-sm transition-all ${
+          isLight ? "border-emerald-200 bg-gradient-to-br from-emerald-500 to-teal-700 text-white" : "border-emerald-500/30 bg-gradient-to-br from-emerald-950/80 to-teal-900/60 text-white"
+        }`}>
+          <div className="flex items-center justify-between">
+            <span className="text-xs font-bold uppercase tracking-wider text-emerald-100">Total Recaudado (Mes)</span>
+            <TrendingUp className="h-6 w-6 text-emerald-200" />
+          </div>
+          <p className="mt-3 text-3xl font-black tracking-tight">S/. {fmtMoney(incomesMonthTotal)}</p>
+          <p className="mt-1 text-xs text-emerald-100/80">Ingresos confirmados y liquidados</p>
+          <div className="mt-4 flex justify-start">
+            <button
+              type="button"
+              className="inline-flex items-center gap-1.5 rounded-full bg-white px-3.5 py-1.5 text-xs font-extrabold text-emerald-800 shadow hover:bg-emerald-50 transition-colors"
+              onClick={() => setTab("in")}
+            >
+              REVISAR INGRESOS <ChevronRight className="h-3.5 w-3.5" />
+            </button>
+          </div>
+        </div>
+
+        {/* Center Grid */}
+        <div className="grid gap-3 sm:grid-cols-2 lg:col-span-2">
+          {/* Card 1: CxC */}
+          <div className={`rounded-xl border p-4 shadow-sm ${isLight ? "border-slate-200 bg-white" : "border-white/[0.08] bg-[#121212]"}`}>
+            <div className="flex items-center justify-between text-xs font-semibold text-zinc-500">
+              <span>Cuentas por cobrar</span>
+              <HandCoins className="h-4 w-4 text-emerald-500" />
+            </div>
+            <p className={`mt-2 text-xl font-extrabold ${isLight ? "text-slate-900" : "text-white"}`}>S/. {fmtMoney(kpiStats.cxcPending)}</p>
+            <div className="mt-3 flex justify-start">
+              <Link
+                to="/cuentas-por-cobrar"
+                className={`inline-flex items-center gap-1 rounded-full px-3 py-1 text-[11px] font-bold ${
+                  isLight ? "bg-slate-100 text-slate-800 hover:bg-slate-200" : "bg-white/10 text-zinc-200 hover:bg-white/20"
+                }`}
+              >
+                REVISAR <ChevronRight className="h-3 w-3" />
+              </Link>
+            </div>
+          </div>
+
+          {/* Card 2: CxP */}
+          <div className={`rounded-xl border p-4 shadow-sm ${isLight ? "border-slate-200 bg-white" : "border-white/[0.08] bg-[#121212]"}`}>
+            <div className="flex items-center justify-between text-xs font-semibold text-zinc-500">
+              <span>Cuentas por pagar</span>
+              <CreditCard className="h-4 w-4 text-amber-500" />
+            </div>
+            <p className={`mt-2 text-xl font-extrabold ${isLight ? "text-slate-900" : "text-white"}`}>S/. {fmtMoney(kpiStats.cxpPending)}</p>
+            <div className="mt-3 flex justify-start">
+              <Link
+                to="/cuentas-por-pagar"
+                className={`inline-flex items-center gap-1 rounded-full px-3 py-1 text-[11px] font-bold ${
+                  isLight ? "bg-slate-100 text-slate-800 hover:bg-slate-200" : "bg-white/10 text-zinc-200 hover:bg-white/20"
+                }`}
+              >
+                REVISAR <ChevronRight className="h-3 w-3" />
+              </Link>
+            </div>
+          </div>
+
+          {/* Card 3: Flujo Neto */}
+          <div className={`rounded-xl border p-4 shadow-sm ${isLight ? "border-slate-200 bg-white" : "border-white/[0.08] bg-[#121212]"}`}>
+            <div className="flex items-center justify-between text-xs font-semibold text-zinc-500">
+              <span>Flujo Neto (Mes)</span>
+              <PiggyBank className="h-4 w-4 text-blue-500" />
+            </div>
+            <p className={`mt-2 text-xl font-extrabold ${netFlowTotal >= 0 ? "text-emerald-600 dark:text-emerald-400" : "text-rose-600 dark:text-rose-400"}`}>
+              S/. {fmtMoney(netFlowTotal)}
+            </p>
+            <div className="mt-3 flex justify-start">
+              <button
+                type="button"
+                className={`inline-flex items-center gap-1 rounded-full px-3 py-1 text-[11px] font-bold ${
+                  isLight ? "bg-slate-100 text-slate-800 hover:bg-slate-200" : "bg-white/10 text-zinc-200 hover:bg-white/20"
+                }`}
+                onClick={() => setTab("flow")}
+              >
+                VER FLUJO <ChevronRight className="h-3 w-3" />
+              </button>
+            </div>
+          </div>
+
+          {/* Card 4: Egresos del Mes */}
+          <div className={`rounded-xl border p-4 shadow-sm ${isLight ? "border-slate-200 bg-white" : "border-white/[0.08] bg-[#121212]"}`}>
+            <div className="flex items-center justify-between text-xs font-semibold text-zinc-500">
+              <span>Egresos (Mes)</span>
+              <Receipt className="h-4 w-4 text-rose-500" />
+            </div>
+            <p className={`mt-2 text-xl font-extrabold ${isLight ? "text-slate-900" : "text-white"}`}>S/. {fmtMoney(expensesMonthTotal)}</p>
+            <div className="mt-3 flex justify-start">
+              <button
+                type="button"
+                className={`inline-flex items-center gap-1 rounded-full px-3 py-1 text-[11px] font-bold ${
+                  isLight ? "bg-slate-100 text-slate-800 hover:bg-slate-200" : "bg-white/10 text-zinc-200 hover:bg-white/20"
+                }`}
+                onClick={() => setTab("out")}
+              >
+                REVISAR EGRESOS <ChevronRight className="h-3 w-3" />
+              </button>
+            </div>
+          </div>
+        </div>
+
+        {/* Hero Card Right: Vencidos */}
+        <div className={`relative overflow-hidden rounded-2xl border p-5 shadow-sm transition-all ${
+          isLight ? "border-rose-200 bg-gradient-to-br from-rose-600 to-red-800 text-white" : "border-rose-500/30 bg-gradient-to-br from-rose-950/80 to-red-900/60 text-white"
+        }`}>
+          <div className="flex items-center justify-between">
+            <span className="text-xs font-bold uppercase tracking-wider text-rose-100">Cobros Vencidos</span>
+            <AlertTriangle className="h-6 w-6 text-rose-200" />
+          </div>
+          <p className="mt-3 text-3xl font-black tracking-tight">S/. {fmtMoney(kpiStats.cxcOverdue)}</p>
+          <p className="mt-1 text-xs text-rose-100/80">Cuentas por cobrar fuera de plazo</p>
+          <div className="mt-4 flex justify-start">
+            <Link
+              to="/cuentas-por-cobrar"
+              className="inline-flex items-center gap-1.5 rounded-full bg-white px-3.5 py-1.5 text-xs font-extrabold text-rose-900 shadow hover:bg-rose-50 transition-colors"
+            >
+              REVISAR VENCIDOS <ChevronRight className="h-3.5 w-3.5" />
+            </Link>
+          </div>
+        </div>
+      </div>
+
       <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
         <div className="flex flex-wrap gap-2">
           <button type="button" className={tab === "in" ? labPrimaryBtn(isLight) : labGhostBtn(isLight)} onClick={() => setTab("in")}>
             <Wallet className="h-4 w-4" /> Ingresos
           </button>
           <button type="button" className={tab === "out" ? labPrimaryBtn(isLight) : labGhostBtn(isLight)} onClick={() => setTab("out")}>
-            <Receipt className="h-4 w-4" /> Costos
+            <Receipt className="h-4 w-4" /> Costos / Egresos
           </button>
           <button type="button" className={tab === "flow" ? labPrimaryBtn(isLight) : labGhostBtn(isLight)} onClick={() => setTab("flow")}>
-            <Landmark className="h-4 w-4" /> Flujo
+            <Landmark className="h-4 w-4" /> Flujo Financiero
           </button>
         </div>
         {tab === "in" ? (
@@ -419,6 +625,7 @@ export function FinanzasHubPage() {
           </button>
         ) : null}
       </div>
+
       {(tab === "in" || tab === "out") ? (
         <div className={`mb-4 grid gap-3 rounded-xl border p-4 sm:grid-cols-5 ${isLight ? "border-[#E5E7EB] bg-white" : "border-white/[0.06] bg-[#121212]"}`}>
           <LabField label="Cliente" isLight={isLight}>
@@ -478,6 +685,7 @@ export function FinanzasHubPage() {
           </div>
         </div>
       ) : null}
+
       {tab === "flow" ? (
         <div className={`mb-4 grid gap-3 rounded-xl border p-4 sm:grid-cols-4 ${isLight ? "border-[#E5E7EB] bg-white" : "border-white/[0.06] bg-[#121212]"}`}>
           <LabField label="Año" isLight={isLight}>
@@ -588,45 +796,104 @@ export function FinanzasHubPage() {
             <p className="text-sm text-zinc-500">Cargando…</p>
           )
         ) : null}
+
         {tab === "in" && incomes ? (
           <div className={["overflow-x-auto", isLight ? "apex-table-scroll--light" : "apex-table-scroll--dark"].join(" ")}>
-            <table className="w-full min-w-[520px] text-left text-xs">
+            <table className="w-full min-w-[750px] text-left text-xs">
               <thead>
                 <tr className={isLight ? "text-[#6B7280]" : "text-zinc-500"}>
-                  <th className="pb-2 pr-3 uppercase">Fecha</th>
+                  <th className="pb-2 pr-3 uppercase">Fecha y Hora</th>
+                  <th className="pb-2 pr-3 uppercase">Tipo</th>
+                  <th className="pb-2 pr-3 uppercase">Origen / Concepto</th>
+                  <th className="pb-2 pr-3 uppercase">Cliente / Proyecto</th>
+                  <th className="pb-2 pr-3 uppercase">Categoría</th>
                   <th className="pb-2 pr-3 uppercase">Detalle</th>
                   <th className="pb-2 text-right uppercase">Monto</th>
-                  <th className="pb-2 text-right uppercase"></th>
+                  <th className="pb-2 text-right uppercase">Acciones</th>
                 </tr>
               </thead>
               <tbody>
-                {incomes.data.map((r) => (
-                  <tr key={Number(r.id)} className={"border-t " + (isLight ? "border-[#F3F4F6]" : "border-white/[0.06]")}>
-                    <td className="py-2 pr-3">{formatDatePE(r.recorded_on as string | null)}</td>
-                    <td className="py-2 pr-3">{String(r.description ?? "—")}</td>
-                    <td className="py-2 text-right">S/. {String(r.amount ?? "")}</td>
-                    <td className="py-2 text-right align-middle">
-                      <div className="flex justify-end gap-2">
-                        <LabCircleIconAction variant="edit" tooltip="Editar" ariaLabel="Editar ingreso" onClick={() => void fillInEdit(Number(r.id))} />
-                        <LabCircleIconAction variant="cancel" tooltip="Anular" ariaLabel="Anular ingreso" onClick={() => void annulIn(Number(r.id))} />
-                      </div>
-                    </td>
-                  </tr>
-                ))}
+                {incomes.data.map((r) => {
+                  const orig = getIncomeOrigin(r);
+                  const clientName = (r.client as { legal_name?: string })?.legal_name;
+                  const projName = (r.project as { name?: string })?.name;
+                  const catName = (r.financialCategory as { name?: string })?.name;
+                  return (
+                    <tr key={Number(r.id)} className={"border-t " + (isLight ? "border-[#F3F4F6]" : "border-white/[0.06]")}>
+                      <td className="py-2.5 pr-3 font-medium whitespace-nowrap">{formatDateTimePE(r.recorded_on as string, r.created_at as string)}</td>
+                      <td className="py-2.5 pr-3">
+                        <StatusBadge status="paid" label="Ingreso" />
+                      </td>
+                      <td className="py-2.5 pr-3">
+                        {!orig.isDirect ? (
+                          <span className="inline-flex rounded-full bg-blue-500/15 px-2.5 py-0.5 text-xs font-bold text-blue-700 dark:text-blue-300 border border-blue-500/30">
+                            {orig.label}
+                          </span>
+                        ) : (
+                          <span className="inline-flex rounded-full bg-slate-100 dark:bg-white/10 px-2.5 py-0.5 text-xs font-semibold text-slate-600 dark:text-zinc-300 border border-slate-200 dark:border-white/10">
+                            Directo (Finanzas)
+                          </span>
+                        )}
+                      </td>
+                      <td className="py-2.5 pr-3">
+                        <span className="font-semibold">{clientName ?? "—"}</span>
+                        {projName ? <span className="block text-[11px] text-zinc-400">{projName}</span> : null}
+                      </td>
+                      <td className="py-2.5 pr-3 text-zinc-400">{catName ?? "—"}</td>
+                      <td className="py-2.5 pr-3 max-w-[180px] truncate" title={String(r.description ?? "")}>{String(r.description ?? "—")}</td>
+                      <td className="py-2.5 text-right font-extrabold text-emerald-600 dark:text-emerald-400">S/. {fmtMoney(Number(r.amount))}</td>
+                      <td className="py-2.5 text-right align-middle">
+                        <div className="flex justify-end gap-1.5">
+                          <button
+                            type="button"
+                            className={`inline-flex h-8 w-8 items-center justify-center rounded-full border transition-colors ${
+                              isLight ? "border-slate-300 bg-slate-100 text-slate-700 hover:bg-slate-200" : "border-white/10 bg-white/5 text-zinc-300 hover:bg-white/10"
+                            }`}
+                            title="Ver detalles"
+                            onClick={() => setDetailItem({ type: "income", data: r })}
+                          >
+                            <Eye className="h-3.5 w-3.5" />
+                          </button>
+
+                          {!orig.isDirect ? (
+                            <Link
+                              to="/cuentas-por-cobrar"
+                              className={`inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-xs font-semibold border ${
+                                isLight ? "border-blue-300 bg-blue-50 text-blue-700 hover:bg-blue-100" : "border-blue-500/30 bg-blue-950/40 text-blue-300 hover:bg-blue-900/60"
+                              }`}
+                              title="Ver Cuenta por Cobrar de origen"
+                            >
+                              <ExternalLink className="h-3 w-3" /> Ver CxC
+                            </Link>
+                          ) : (
+                            <>
+                              <LabCircleIconAction variant="edit" tooltip="Editar registro directo" ariaLabel="Editar ingreso" onClick={() => void fillInEdit(Number(r.id))} />
+                              <LabCircleIconAction variant="cancel" tooltip="Anular registro directo" ariaLabel="Anular ingreso" onClick={() => void annulIn(Number(r.id))} />
+                            </>
+                          )}
+                        </div>
+                      </td>
+                    </tr>
+                  );
+                })}
               </tbody>
             </table>
           </div>
         ) : null}
+
         {tab === "out" && expenses ? (
           <div className={["overflow-x-auto", isLight ? "apex-table-scroll--light" : "apex-table-scroll--dark"].join(" ")}>
-            <table className="w-full min-w-[560px] text-left text-xs">
+            <table className="w-full min-w-[750px] text-left text-xs">
               <thead>
                 <tr className={isLight ? "text-[#6B7280]" : "text-zinc-500"}>
-                  <th className="pb-2 pr-3 uppercase">Fecha</th>
-                  <th className="pb-2 pr-3 uppercase">Obs.</th>
-                  <th className="pb-2 pr-8 text-right uppercase">Monto</th>
-                  <th className="pb-2 pr-3 uppercase">Estado</th>
-                  <th className="pb-2 text-right uppercase"></th>
+                  <th className="pb-2 pr-3 uppercase">Fecha y Hora</th>
+                  <th className="pb-2 pr-3 uppercase">Tipo</th>
+                  <th className="pb-2 pr-3 uppercase">Origen / Concepto</th>
+                  <th className="pb-2 pr-3 uppercase">Beneficiario / Proyecto</th>
+                  <th className="pb-2 pr-3 uppercase">Categoría</th>
+                  <th className="pb-2 pr-3 uppercase">Observación</th>
+                  <th className="pb-2 text-right uppercase">Monto</th>
+                  <th className="pb-2 text-right uppercase">Acciones</th>
                 </tr>
               </thead>
               <tbody>
@@ -641,24 +908,72 @@ export function FinanzasHubPage() {
                     const db = String((b._pending ? b.projected_due_on : b.recorded_on) ?? "");
                     return db.localeCompare(da);
                   })
-                  .map((r) => (
-                    <tr key={(r._pending ? "p" : "e") + String(r.id)} className={"border-t " + (isLight ? "border-[#F3F4F6]" : "border-white/[0.06]")}>
-                      <td className="py-2 pr-3">{formatDatePE((r._pending ? r.projected_due_on : r.recorded_on) as string | null)}</td>
-                      <td className="py-2 pr-3">{String((r._pending ? r.description : r.observation) ?? "—")}</td>
-                      <td className="py-2 pr-8 text-right whitespace-nowrap">S/. {String((r._pending ? r.total_amount : r.amount) ?? "")}</td>
-                      <td className="py-2 pr-3">
-                        <StatusBadge status={r._pending ? "pending" : "registered"} label={r._pending ? "Pendiente" : "Registrado"} />
-                      </td>
-                      <td className="py-2 text-right align-middle">
-                        {r._pending ? null : (
-                          <div className="flex justify-end gap-2">
-                            <LabCircleIconAction variant="edit" tooltip="Editar" ariaLabel="Editar costo" onClick={() => void fillOutEdit(Number(r.id))} />
-                            <LabCircleIconAction variant="delete" tooltip="Eliminar" ariaLabel="Eliminar costo" onClick={() => void delOut(Number(r.id))} />
+                  .map((r) => {
+                    const orig = getExpenseOrigin(r);
+                    const vendorName = String((r._pending ? r.vendor_name : (r.client as { legal_name?: string })?.legal_name) ?? "—");
+                    const projName = (r.project as { name?: string })?.name;
+                    const catName = (r.financialCategory as { name?: string })?.name;
+                    const amountVal = Number(r._pending ? r.total_amount : r.amount) || 0;
+                    return (
+                      <tr key={(r._pending ? "p" : "e") + String(r.id)} className={"border-t " + (isLight ? "border-[#F3F4F6]" : "border-white/[0.06]")}>
+                        <td className="py-2.5 pr-3 font-medium whitespace-nowrap">{formatDateTimePE((r._pending ? r.projected_due_on : r.recorded_on) as string, r.created_at as string)}</td>
+                        <td className="py-2.5 pr-3">
+                          <StatusBadge status="cancelled" label="Egreso" />
+                        </td>
+                        <td className="py-2.5 pr-3">
+                          {!orig.isDirect ? (
+                            <span className="inline-flex rounded-full bg-purple-500/15 px-2.5 py-0.5 text-xs font-bold text-purple-700 dark:text-purple-300 border border-purple-500/30">
+                              {orig.label}
+                            </span>
+                          ) : (
+                            <span className="inline-flex rounded-full bg-slate-100 dark:bg-white/10 px-2.5 py-0.5 text-xs font-semibold text-slate-600 dark:text-zinc-300 border border-slate-200 dark:border-white/10">
+                              Directo (Finanzas)
+                            </span>
+                          )}
+                        </td>
+                        <td className="py-2.5 pr-3">
+                          <span className="font-semibold">{vendorName}</span>
+                          {projName ? <span className="block text-[11px] text-zinc-400">{projName}</span> : null}
+                        </td>
+                        <td className="py-2.5 pr-3 text-zinc-400">{catName ?? "—"}</td>
+                        <td className="py-2.5 pr-3 max-w-[180px] truncate" title={String((r._pending ? r.description : r.observation) ?? "")}>
+                          {String((r._pending ? r.description : r.observation) ?? "—")}
+                        </td>
+                        <td className="py-2.5 text-right font-extrabold text-rose-600 dark:text-rose-400">S/. {fmtMoney(amountVal)}</td>
+                        <td className="py-2.5 text-right align-middle">
+                          <div className="flex justify-end gap-1.5">
+                            <button
+                              type="button"
+                              className={`inline-flex h-8 w-8 items-center justify-center rounded-full border transition-colors ${
+                                isLight ? "border-slate-300 bg-slate-100 text-slate-700 hover:bg-slate-200" : "border-white/10 bg-white/5 text-zinc-300 hover:bg-white/10"
+                              }`}
+                              title="Ver detalles"
+                              onClick={() => setDetailItem({ type: "expense", data: r })}
+                            >
+                              <Eye className="h-3.5 w-3.5" />
+                            </button>
+
+                            {!orig.isDirect ? (
+                              <Link
+                                to="/cuentas-por-pagar"
+                                className={`inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-xs font-semibold border ${
+                                  isLight ? "border-purple-300 bg-purple-50 text-purple-700 hover:bg-purple-100" : "border-purple-500/30 bg-purple-950/40 text-purple-300 hover:bg-purple-900/60"
+                                }`}
+                                title="Ver Cuenta por Pagar de origen"
+                              >
+                                <ExternalLink className="h-3 w-3" /> Ver CxP
+                              </Link>
+                            ) : (
+                              <>
+                                <LabCircleIconAction variant="edit" tooltip="Editar registro directo" ariaLabel="Editar costo" onClick={() => void fillOutEdit(Number(r.id))} />
+                                <LabCircleIconAction variant="delete" tooltip="Anular registro directo" ariaLabel="Eliminar costo" onClick={() => void delOut(Number(r.id))} />
+                              </>
+                            )}
                           </div>
-                        )}
-                      </td>
-                    </tr>
-                  ))}
+                        </td>
+                      </tr>
+                    );
+                  })}
               </tbody>
             </table>
           </div>
@@ -872,6 +1187,165 @@ export function FinanzasHubPage() {
         </div>
       </FormModal>
 
+      {/* Modal: Detalles de Ingreso / Egreso */}
+      <FormModal
+        open={detailItem !== null}
+        title={detailItem?.type === "income" ? "Detalles del Ingreso" : "Detalles del Egreso / Costo"}
+        isLight={isLight}
+        wide
+        onClose={() => setDetailItem(null)}
+        footer={
+          <div className="flex flex-wrap justify-between gap-2 w-full">
+            <div>
+              {detailItem?.type === "income" && getIncomeOrigin(detailItem.data).cxcId ? (
+                <Link
+                  to="/cuentas-por-cobrar"
+                  className={labPrimaryBtn(isLight)}
+                  onClick={() => setDetailItem(null)}
+                >
+                  <ExternalLink className="h-4 w-4" /> Ir a Cuentas por Cobrar
+                </Link>
+              ) : detailItem?.type === "expense" && getExpenseOrigin(detailItem.data).cxpId ? (
+                <Link
+                  to="/cuentas-por-pagar"
+                  className={labPrimaryBtn(isLight)}
+                  onClick={() => setDetailItem(null)}
+                >
+                  <ExternalLink className="h-4 w-4" /> Ir a Cuentas por Pagar
+                </Link>
+              ) : null}
+            </div>
+            <div className="flex gap-2">
+              {detailItem && ((detailItem.type === "income" && getIncomeOrigin(detailItem.data).isDirect) || (detailItem.type === "expense" && getExpenseOrigin(detailItem.data).isDirect)) ? (
+                <>
+                  <button
+                    type="button"
+                    className={labGhostBtn(isLight)}
+                    onClick={() => {
+                      const item = detailItem;
+                      setDetailItem(null);
+                      if (item.type === "income") void fillInEdit(Number(item.data.id));
+                      else void fillOutEdit(Number(item.data.id));
+                    }}
+                  >
+                    Editar
+                  </button>
+                  <button
+                    type="button"
+                    className="inline-flex items-center gap-1 rounded-lg px-3 py-1.5 text-xs font-semibold text-red-600 bg-red-50 hover:bg-red-100 dark:bg-red-950/30 dark:text-red-400"
+                    onClick={() => {
+                      const item = detailItem;
+                      setDetailItem(null);
+                      if (item.type === "income") void annulIn(Number(item.data.id));
+                      else void delOut(Number(item.data.id));
+                    }}
+                  >
+                    Anular
+                  </button>
+                </>
+              ) : null}
+              <button type="button" className={labGhostBtn(isLight)} onClick={() => setDetailItem(null)}>
+                Cerrar
+              </button>
+            </div>
+          </div>
+        }
+      >
+        {detailItem ? (
+          <div className="space-y-4 text-xs">
+            {/* Banner if linked to CxC or CxP */}
+            {!getIncomeOrigin(detailItem.data).isDirect || !getExpenseOrigin(detailItem.data).isDirect ? (
+              <div className={`rounded-lg p-3 border ${
+                isLight ? "bg-blue-50 border-blue-200 text-blue-800" : "bg-blue-950/30 border-blue-500/30 text-blue-200"
+              }`}>
+                <p className="font-semibold">Movimiento vinculado automáticamente</p>
+                <p className="mt-0.5 text-[11px] opacity-90">
+                  Este registro fue creado a partir de un abono o pago en Cuentas por Cobrar/Pagar. Para revertir o modificar la operación, utilice la sección correspondiente.
+                </p>
+              </div>
+            ) : null}
+
+            <div className="grid gap-3 sm:grid-cols-2">
+              <div className={`rounded-lg p-3 border ${isLight ? "bg-slate-50 border-slate-200" : "bg-white/5 border-white/10"}`}>
+                <span className="text-zinc-500 font-medium block mb-1">Tipo de movimiento</span>
+                <StatusBadge
+                  status={detailItem.type === "income" ? "paid" : "cancelled"}
+                  label={detailItem.type === "income" ? "Ingreso" : "Egreso"}
+                />
+              </div>
+
+              <div className={`rounded-lg p-3 border ${isLight ? "bg-slate-50 border-slate-200" : "bg-white/5 border-white/10"}`}>
+                <span className="text-zinc-500 font-medium block mb-1">Origen / Concepto</span>
+                <span className="font-bold text-slate-800 dark:text-zinc-200">
+                  {detailItem.type === "income" ? getIncomeOrigin(detailItem.data).label : getExpenseOrigin(detailItem.data).label}
+                </span>
+              </div>
+
+              <div className={`rounded-lg p-3 border ${isLight ? "bg-slate-50 border-slate-200" : "bg-white/5 border-white/10"}`}>
+                <span className="text-zinc-500 font-medium block mb-1">Monto total</span>
+                <p className={`text-lg font-black ${
+                  detailItem.type === "income" ? "text-emerald-600 dark:text-emerald-400" : "text-rose-600 dark:text-rose-400"
+                }`}>
+                  S/. {fmtMoney(Number(detailItem.data.amount ?? detailItem.data.total_amount ?? 0))}
+                </p>
+              </div>
+
+              <div className={`rounded-lg p-3 border ${isLight ? "bg-slate-50 border-slate-200" : "bg-white/5 border-white/10"}`}>
+                <span className="text-zinc-500 font-medium block mb-1">Fecha y hora</span>
+                <p className="font-semibold text-slate-800 dark:text-zinc-200">
+                  {formatDateTimePE(
+                    (detailItem.data.recorded_on ?? detailItem.data.projected_due_on) as string,
+                    detailItem.data.created_at as string
+                  )}
+                </p>
+              </div>
+
+              <div className={`rounded-lg p-3 border ${isLight ? "bg-slate-50 border-slate-200" : "bg-white/5 border-white/10"}`}>
+                <span className="text-zinc-500 font-medium block mb-1">Cliente / Beneficiario</span>
+                <p className="font-semibold text-slate-800 dark:text-zinc-200">
+                  {String(
+                    (detailItem.data.client as { legal_name?: string })?.legal_name ??
+                    detailItem.data.vendor_name ??
+                    "—"
+                  )}
+                </p>
+              </div>
+
+              <div className={`rounded-lg p-3 border ${isLight ? "bg-slate-50 border-slate-200" : "bg-white/5 border-white/10"}`}>
+                <span className="text-zinc-500 font-medium block mb-1">Proyecto</span>
+                <p className="font-semibold text-slate-800 dark:text-zinc-200">
+                  {String((detailItem.data.project as { name?: string })?.name ?? "—")}
+                </p>
+              </div>
+
+              <div className={`rounded-lg p-3 border ${isLight ? "bg-slate-50 border-slate-200" : "bg-white/5 border-white/10"}`}>
+                <span className="text-zinc-500 font-medium block mb-1">Categoría Financiera</span>
+                <p className="font-semibold text-slate-800 dark:text-zinc-200">
+                  {String(
+                    (detailItem.data.financial_category as { name?: string })?.name ??
+                    (detailItem.data.financialCategory as { name?: string })?.name ??
+                    "—"
+                  )}
+                </p>
+              </div>
+
+              <div className={`rounded-lg p-3 border ${isLight ? "bg-slate-50 border-slate-200" : "bg-white/5 border-white/10"}`}>
+                <span className="text-zinc-500 font-medium block mb-1">Método de pago / Referencia</span>
+                <p className="font-semibold text-slate-800 dark:text-zinc-200">
+                  {String(detailItem.data.payment_method ?? "—")} {detailItem.data.reference ? `(${detailItem.data.reference})` : ""}
+                </p>
+              </div>
+
+              <div className={`rounded-lg p-3 border sm:col-span-2 ${isLight ? "bg-slate-50 border-slate-200" : "bg-white/5 border-white/10"}`}>
+                <span className="text-zinc-500 font-medium block mb-1">Descripción / Observación</span>
+                <p className="font-semibold text-slate-800 dark:text-zinc-200">
+                  {String(detailItem.data.description ?? detailItem.data.observation ?? "—")}
+                </p>
+              </div>
+            </div>
+          </div>
+        ) : null}
+      </FormModal>
     </main>
   );
 }

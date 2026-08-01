@@ -57,4 +57,9 @@ class Income extends Model
     {
         return $this->belongsTo(Quotation::class);
     }
+
+    public function receivablePayment(): \Illuminate\Database\Eloquent\Relations\HasOne
+    {
+        return $this->hasOne(AccountReceivablePayment::class, 'income_id');
+    }
 }
