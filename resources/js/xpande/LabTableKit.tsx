@@ -33,7 +33,7 @@ const VARIANT_META: Record<
   },
   details: {
     Icon: Eye,
-    className: `${CIRCLE_BTN} bg-[#007BFF] shadow-[0_2px_10px_rgba(0,123,255,0.45)] hover:bg-[#0063D5]`,
+    className: `${CIRCLE_BTN} bg-primary-theme shadow-primary-theme hover:brightness-110`,
   },
   pdf: {
     Icon: FileText,

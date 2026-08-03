@@ -206,7 +206,7 @@ export function CalendarPage() {
     [
       "px-3 py-1.5 transition-colors text-xs font-medium",
       active
-        ? "bg-[#007BFF] text-white"
+        ? "bg-primary-theme text-white"
         : isLight
           ? "bg-white text-[#6B7280] hover:bg-[#F3F4F6]"
           : "bg-transparent text-zinc-400 hover:bg-white/[0.05]",
@@ -274,8 +274,8 @@ export function CalendarPage() {
             className={[
               "ml-1 rounded-lg border px-3 py-1.5 text-xs font-semibold transition",
               isLight
-                ? "border-[#007BFF]/30 bg-[#EFF6FF] text-[#007BFF] hover:bg-[#DBEAFE]"
-                : "border-[#007BFF]/30 bg-[#007BFF]/10 text-[#7AB8FF] hover:bg-[#007BFF]/20",
+                ? "border-primary-theme bg-primary-theme-light text-primary-theme hover:brightness-95"
+                : "border-primary-theme bg-primary-theme-dim text-primary-dark-theme hover:brightness-110",
             ].join(" ")}
           >
             Hoy
@@ -358,9 +358,9 @@ export function CalendarPage() {
                         className={[
                           "mb-1.5 flex h-6 w-6 items-center justify-center rounded-full text-[11px] font-bold",
                           isToday
-                            ? "bg-[#007BFF] text-white"
+                            ? "bg-primary-theme text-white"
                             : isSel
-                              ? isLight ? "text-[#007BFF]" : "text-[#7AB8FF]"
+                              ? isLight ? "text-primary-theme" : "text-primary-dark-theme"
                               : isLight ? "text-[#374151]" : "text-zinc-300",
                         ].join(" ")}
                       >

@@ -27,8 +27,8 @@ export function LoginPage() {
   };
 
   const inputClass = isLight
-    ? "h-11 w-full rounded-xl border border-[#E5E7EB] bg-white pl-10 pr-3 text-sm text-[#111827] outline-none ring-[#007BFF]/18 focus:ring-2"
-    : "h-11 w-full rounded-xl border border-white/[0.08] bg-[#121212] pl-10 pr-3 text-sm text-zinc-200 outline-none ring-[#007BFF]/30 focus:ring-2";
+    ? "h-11 w-full rounded-xl border border-[#E5E7EB] bg-white pl-10 pr-3 text-sm text-[#111827] outline-none ring-primary-theme focus:ring-2"
+    : "h-11 w-full rounded-xl border border-white/[0.08] bg-[#121212] pl-10 pr-3 text-sm text-zinc-200 outline-none ring-primary-theme focus:ring-2";
 
   return (
     <main className={["flex min-h-screen items-center justify-center px-4", isLight ? "bg-[#F9FAFB]" : "bg-[#000000]"].join(" ")}>
@@ -40,7 +40,7 @@ export function LoginPage() {
             : "border border-white/[0.06] bg-[#121212] shadow-[inset_0_1px_0_0_rgba(255,255,255,0.03)]",
         ].join(" ")}
       >
-        <p className={["text-xs font-semibold uppercase tracking-[0.2em]", isLight ? "text-[#007BFF]" : "text-[#7AB8FF]"].join(" ")}>Xpande Corp</p>
+        <p className={["text-xs font-semibold uppercase tracking-[0.2em]", isLight ? "text-primary-theme" : "text-primary-dark-theme"].join(" ")}>Xpande Corp</p>
         <h1 className={["mt-2 text-2xl font-bold", isLight ? "text-[#111827]" : "text-zinc-100"].join(" ")}>Iniciar sesión</h1>
         <p className={["mt-1 text-sm", isLight ? "text-[#6B7280]" : "text-zinc-500"].join(" ")}>Acceda al sistema de laboratorio con su cuenta.</p>
 
@@ -84,8 +84,8 @@ export function LoginPage() {
             type="submit"
             disabled={loading}
             className={[
-              "mt-2 w-full rounded-xl py-2.5 text-sm font-semibold transition",
-              isLight ? "bg-[#007BFF] text-white hover:bg-[#0063D5]" : "bg-[#007BFF] text-white shadow-[0_0_24px_rgba(0,123,255,0.4)] hover:brightness-110",
+              "mt-2 w-full rounded-xl py-2.5 text-sm font-semibold transition text-white bg-primary-theme hover:brightness-110",
+              isLight ? "shadow-sm" : "shadow-primary-theme",
             ].join(" ")}
           >
             {loading ? "Ingresando..." : "Ingresar"}
