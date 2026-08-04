@@ -174,6 +174,25 @@ export function LabFormSection({
   );
 }
 
+function renderLabelWithRedAsterisk(label: string) {
+  if (!label.includes("*")) {
+    return label;
+  }
+  const parts = label.split("*");
+  return (
+    <>
+      {parts.map((part, i) => (
+        <span key={i}>
+          {part}
+          {i < parts.length - 1 ? (
+            <span className="text-red-500 font-bold ml-0.5" aria-hidden="true">*</span>
+          ) : null}
+        </span>
+      ))}
+    </>
+  );
+}
+
 export function LabField({
   label,
   hint,
@@ -189,7 +208,9 @@ export function LabField({
 }) {
   return (
     <div className={className ?? ""}>
-      <label className={["mb-1.5 block text-sm font-medium", isLight ? "text-[#374151]" : "text-zinc-200"].join(" ")}>{label}</label>
+      <label className={["mb-1.5 block text-sm font-medium", isLight ? "text-[#374151]" : "text-zinc-200"].join(" ")}>
+        {renderLabelWithRedAsterisk(label)}
+      </label>
       {children}
       {hint ? <p className={["mt-1 text-xs", isLight ? "text-[#9CA3AF]" : "text-zinc-600"].join(" ")}>{hint}</p> : null}
     </div>

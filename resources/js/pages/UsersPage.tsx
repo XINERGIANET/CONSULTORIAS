@@ -581,19 +581,19 @@ export function UsersPage() {
             </div>
             {dniErr ? <p className="mt-1 text-xs text-red-500">{dniErr}</p> : null}
           </LabField>
-          <LabField label="Nombre completo" isLight={isLight}>
+          <LabField label="Nombre completo *" isLight={isLight}>
             <input className={labInputClass(isLight)} value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} />
           </LabField>
-          <LabField label="Correo" isLight={isLight}>
+          <LabField label="Correo *" isLight={isLight}>
             <input className={labInputClass(isLight)} type="email" value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} />
           </LabField>
-          <LabField label={editingId ? "Nueva contraseña (opcional)" : "Contraseña"} isLight={isLight}>
+          <LabField label={editingId ? "Nueva contraseña (opcional)" : "Contraseña *"} isLight={isLight}>
             <input className={labInputClass(isLight)} type="password" value={form.password} onChange={(e) => setForm({ ...form, password: e.target.value })} />
           </LabField>
-          <LabField label="Teléfono" isLight={isLight}>
+          <LabField label="Teléfono (opcional)" isLight={isLight}>
             <input className={labInputClass(isLight)} value={form.phone} onChange={(e) => setForm({ ...form, phone: e.target.value })} />
           </LabField>
-          <LabField label="Rol" isLight={isLight}>
+          <LabField label="Rol *" isLight={isLight}>
             <SmartSelect
               isLight={isLight}
               value={form.role_id === "" ? "" : String(form.role_id)}

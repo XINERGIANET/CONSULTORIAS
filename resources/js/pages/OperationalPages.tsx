@@ -162,10 +162,10 @@ export function AreasPage() {
         }
       >
         <div className="grid gap-3">
-          <LabField label="Nombre" isLight={isLight}>
+          <LabField label="Nombre *" isLight={isLight}>
             <input className={labInputClass(isLight)} value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} />
           </LabField>
-          <LabField label="Slug" isLight={isLight}>
+          <LabField label="Slug (opcional)" isLight={isLight}>
             <input className={labInputClass(isLight)} value={form.slug} onChange={(e) => setForm({ ...form, slug: e.target.value })} />
           </LabField>
           <LabField label="Descripción" isLight={isLight}>
@@ -549,13 +549,13 @@ export function ClientsPage() {
         }
       >
         <div className="grid gap-3 sm:grid-cols-2">
-          <LabField label="Razón social" isLight={isLight}>
+          <LabField label="Razón social *" isLight={isLight}>
             <input className={labInputClass(isLight)} value={form.legal_name} onChange={(e) => setForm({ ...form, legal_name: e.target.value })} />
           </LabField>
-          <LabField label="Nombre comercial" isLight={isLight}>
+          <LabField label="Nombre comercial (opcional)" isLight={isLight}>
             <input className={labInputClass(isLight)} value={form.trade_name} onChange={(e) => setForm({ ...form, trade_name: e.target.value })} />
           </LabField>
-          <LabField label="RUC" isLight={isLight}>
+          <LabField label="RUC *" isLight={isLight}>
             <div className="flex gap-2">
               <input className={labInputClass(isLight) + " flex-1"} value={form.ruc} onChange={(e) => setForm({ ...form, ruc: e.target.value })} />
               <button
