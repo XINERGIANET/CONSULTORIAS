@@ -1,5 +1,5 @@
 import { Search, Shield, UserPlus } from "lucide-react";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { createUser, deleteUser, fetchUser, fetchUsersPage, updateUser, type ManagedUser } from "../users/api";
 import { ConfirmModal } from "../components/ConfirmModal";
 import { SmartSelect } from "../components/SmartSelect";
@@ -109,6 +109,22 @@ export function UsersPage() {
   const [dniInput, setDniInput] = useState("");
   const [searchingDni, setSearchingDni] = useState(false);
   const [dniErr, setDniErr] = useState<string | null>(null);
+
+  const selectedRoleObj = useMemo(() => {
+    if (!form.role_id) return null;
+    return roles.find((r) => r.id === Number(form.role_id)) ?? null;
+  }, [form.role_id, roles]);
+
+  const isConsultantRole = useMemo(() => {
+    if (form.is_superadmin) return false;
+    if (!selectedRoleObj) return false;
+    const slug = (selectedRoleObj.slug ?? "").toLowerCase();
+    const name = (selectedRoleObj.name ?? "").toLowerCase();
+    if (slug === "superadmin" || slug === "admin" || slug === "administrator" || name.includes("admin")) {
+      return false;
+    }
+    return true;
+  }, [form.is_superadmin, selectedRoleObj]);
 
   const performDniSearch = async () => {
     if (!dniInput || dniInput.length !== 8) {
@@ -604,21 +620,26 @@ export function UsersPage() {
               emptyLabel="Seleccionar…"
             />
           </LabField>
-          <LabField label="Contrato / tipo" isLight={isLight}>
-            <input className={labInputClass(isLight)} value={form.contract_type} onChange={(e) => setForm({ ...form, contract_type: e.target.value })} />
-          </LabField>
-          <LabField label="Sueldo" isLight={isLight}>
-            <input className={labInputClass(isLight)} value={form.salary} onChange={(e) => setForm({ ...form, salary: e.target.value })} />
-          </LabField>
-          <LabField label="Costo por hora" isLight={isLight}>
-            <input className={labInputClass(isLight)} value={form.cost_per_hour} onChange={(e) => setForm({ ...form, cost_per_hour: e.target.value })} />
-          </LabField>
-          <LabField label="Disponibilidad" isLight={isLight}>
-            <input className={labInputClass(isLight)} value={form.availability} onChange={(e) => setForm({ ...form, availability: e.target.value })} />
-          </LabField>
-          <LabField label="Especialidad" isLight={isLight}>
-            <input className={labInputClass(isLight)} value={form.specialty} onChange={(e) => setForm({ ...form, specialty: e.target.value })} />
-          </LabField>
+
+          {isConsultantRole ? (
+            <>
+              <LabField label="Contrato / tipo" isLight={isLight}>
+                <input className={labInputClass(isLight)} value={form.contract_type} onChange={(e) => setForm({ ...form, contract_type: e.target.value })} placeholder="Ej: Recibo por Honorarios, Planilla..." />
+              </LabField>
+              <LabField label="Sueldo (S/.)" isLight={isLight}>
+                <input className={labInputClass(isLight)} value={form.salary} onChange={(e) => setForm({ ...form, salary: e.target.value })} placeholder="S/. 0.00" />
+              </LabField>
+              <LabField label="Costo por hora (S/.)" isLight={isLight}>
+                <input className={labInputClass(isLight)} value={form.cost_per_hour} onChange={(e) => setForm({ ...form, cost_per_hour: e.target.value })} placeholder="S/. 0.00" />
+              </LabField>
+              <LabField label="Disponibilidad" isLight={isLight}>
+                <input className={labInputClass(isLight)} value={form.availability} onChange={(e) => setForm({ ...form, availability: e.target.value })} placeholder="Ej: Tiempo completo" />
+              </LabField>
+              <LabField label="Especialidad" isLight={isLight} className="sm:col-span-2">
+                <input className={labInputClass(isLight)} value={form.specialty} onChange={(e) => setForm({ ...form, specialty: e.target.value })} placeholder="Ej: Consultoría ERP, Desarrollo Web, Marketing..." />
+              </LabField>
+            </>
+          ) : null}
           <div className="sm:col-span-2 flex flex-wrap items-center gap-4 pt-2">
             {editingId && isSuperadmin ? (
               <label className={["flex items-center gap-2 text-sm font-medium", isLight ? "text-[#374151]" : "text-zinc-200"].join(" ")}>
