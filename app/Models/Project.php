@@ -90,4 +90,11 @@ class Project extends Model
     {
         return $this->hasMany(TimeEntry::class);
     }
+
+    /** @return HasMany<AccountReceivable, Project> */
+    public function receivables(): HasMany
+    {
+        return $this->hasMany(AccountReceivable::class);
+    }
 }
+

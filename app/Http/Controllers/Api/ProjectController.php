@@ -14,6 +14,7 @@ use Carbon\Carbon;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Validation\Rule;
 
 class ProjectController extends Controller
 {
@@ -79,15 +80,24 @@ class ProjectController extends Controller
     {
         $this->assertProject($request, $project);
 
-        return response()->json($project->load(['client', 'areas', 'users', 'leadUser', 'services']));
+        return response()->json($project->load(['client', 'areas', 'users', 'leadUser', 'services', 'receivables']));
     }
 
     public function store(Request $request, ContractBillingService $billing): JsonResponse
     {
+        if ($request->filled('name')) {
+            $request->merge(['name' => trim((string) $request->input('name'))]);
+        }
+
         $data = $request->validate([
             'client_id' => ['required', 'integer', 'exists:clients,id'],
             'engagement_type' => ['nullable', 'string', 'max:64'],
-            'name' => ['required', 'string', 'max:255'],
+            'name' => [
+                'required',
+                'string',
+                'max:255',
+                Rule::unique('projects', 'name')->where(fn ($q) => $q->where('status', '!=', 'cancelled')),
+            ],
             'service_type' => ['nullable', 'string', 'max:255'],
             'start_date' => ['required', 'date'],
             'payment_start_date' => ['nullable', 'date'],
@@ -109,6 +119,12 @@ class ProjectController extends Controller
             'user_ids.*' => ['integer', 'exists:users,id'],
             'service_ids' => ['sometimes', 'array'],
             'service_ids.*' => ['integer', 'exists:services,id'],
+            'custom_schedule' => ['nullable', 'array', 'min:1'],
+            'custom_schedule.*.due_on' => ['required', 'date'],
+            'custom_schedule.*.amount' => ['required', 'numeric', 'min:0.01'],
+            'custom_schedule.*.notes' => ['nullable', 'string', 'max:255'],
+        ], [
+            'name.unique' => 'Ya existe un proyecto registrado con este nombre.',
         ]);
 
         $this->assertClientVisible($request, (int) $data['client_id']);
@@ -118,45 +134,72 @@ class ProjectController extends Controller
             $uids = $data['user_ids'] ?? [];
             $sids = $data['service_ids'] ?? [];
             $instCount = (int) ($data['installments_count'] ?? 2);
-            unset($data['area_ids'], $data['user_ids'], $data['service_ids'], $data['installments_count']);
+            $customSchedule = $data['custom_schedule'] ?? null;
+            unset($data['area_ids'], $data['user_ids'], $data['service_ids'], $data['installments_count'], $data['custom_schedule']);
 
             $p = Project::query()->create($data);
             $p->areas()->sync($aids);
             $p->users()->sync($uids);
             $p->services()->sync($sids);
 
-            $schedule = $this->computeBillingSchedule($p, $instCount);
+            if (is_array($customSchedule) && count($customSchedule) > 0) {
+                $billing->createContractAndCustomSchedule(
+                    Client::query()->findOrFail($p->client_id),
+                    [
+                        'client_id' => $p->client_id,
+                        'area_id' => (int) $aids[0],
+                        'project_id' => $p->id,
+                        'title' => 'Proyecto — '.$p->name,
+                        'notes' => 'Cronograma personalizado al crear el proyecto.',
+                    ],
+                    $customSchedule,
+                    $request->user()?->id,
+                );
+            } else {
+                $schedule = $this->computeBillingSchedule($p, $instCount);
 
-            $billing->createContractAndSchedule(
-                Client::query()->findOrFail($p->client_id),
-                [
-                    'client_id' => $p->client_id,
-                    'area_id' => (int) $aids[0],
-                    'project_id' => $p->id,
-                    'title' => 'Proyecto — '.$p->name,
-                    'total_amount' => $schedule['total'],
-                    'installments_count' => $schedule['installments'],
-                    'start_date' => $schedule['paymentStart']->toDateString(),
-                    'first_due_on' => $schedule['paymentStart']->toDateString(),
-                    'billing_frequency' => $schedule['frequency'],
-                    'notes' => 'Cronograma generado automáticamente al crear el proyecto.',
-                ],
-                $request->user()?->id,
-            );
+                $billing->createContractAndSchedule(
+                    Client::query()->findOrFail($p->client_id),
+                    [
+                        'client_id' => $p->client_id,
+                        'area_id' => (int) $aids[0],
+                        'project_id' => $p->id,
+                        'title' => 'Proyecto — '.$p->name,
+                        'total_amount' => $schedule['total'],
+                        'installments_count' => $schedule['installments'],
+                        'start_date' => $schedule['paymentStart']->toDateString(),
+                        'first_due_on' => $schedule['paymentStart']->toDateString(),
+                        'billing_frequency' => $schedule['frequency'],
+                        'notes' => 'Cronograma generado automáticamente al crear el proyecto.',
+                    ],
+                    $request->user()?->id,
+                );
+            }
 
             return $p;
         });
 
-        return response()->json($project->load(['areas', 'users', 'services']), 201);
+        return response()->json($project->load(['areas', 'users', 'services', 'receivables']), 201);
     }
 
     public function update(Request $request, Project $project): JsonResponse
     {
         $this->assertProject($request, $project);
+
+        if ($request->filled('name')) {
+            $request->merge(['name' => trim((string) $request->input('name'))]);
+        }
+
         $data = $request->validate([
             'client_id' => ['sometimes', 'required', 'integer', 'exists:clients,id'],
             'engagement_type' => ['nullable', 'string', 'max:64'],
-            'name' => ['sometimes', 'required', 'string', 'max:255'],
+            'name' => [
+                'sometimes',
+                'required',
+                'string',
+                'max:255',
+                Rule::unique('projects', 'name')->ignore($project->id)->where(fn ($q) => $q->where('status', '!=', 'cancelled')),
+            ],
             'service_type' => ['nullable', 'string', 'max:255'],
             'start_date' => ['nullable', 'date'],
             'payment_start_date' => ['nullable', 'date'],
@@ -178,6 +221,12 @@ class ProjectController extends Controller
             'user_ids.*' => ['integer', 'exists:users,id'],
             'service_ids' => ['sometimes', 'array'],
             'service_ids.*' => ['integer', 'exists:services,id'],
+            'custom_schedule' => ['nullable', 'array', 'min:1'],
+            'custom_schedule.*.due_on' => ['required', 'date'],
+            'custom_schedule.*.amount' => ['required', 'numeric', 'min:0.01'],
+            'custom_schedule.*.notes' => ['nullable', 'string', 'max:255'],
+        ], [
+            'name.unique' => 'Ya existe un proyecto registrado con este nombre.',
         ]);
 
         if (isset($data['client_id'])) {
@@ -189,15 +238,16 @@ class ProjectController extends Controller
             $uids = $data['user_ids'] ?? null;
             $sids = $data['service_ids'] ?? null;
             $instCount = $data['installments_count'] ?? null;
-            unset($data['area_ids'], $data['user_ids'], $data['service_ids'], $data['installments_count']);
+            $customSchedule = $data['custom_schedule'] ?? null;
+            unset($data['area_ids'], $data['user_ids'], $data['service_ids'], $data['installments_count'], $data['custom_schedule']);
 
             $scheduleFields = ['payment_start_date', 'start_date', 'end_estimated', 'billing_type', 'budget'];
-            $scheduleChanged = array_intersect(array_keys($data), $scheduleFields) !== [] || $instCount !== null;
+            $scheduleChanged = array_intersect(array_keys($data), $scheduleFields) !== [] || $instCount !== null || is_array($customSchedule);
 
             $project->update($data);
 
             if ($scheduleChanged) {
-                $this->resyncReceivableSchedule($project, $instCount);
+                $this->resyncReceivableSchedule($project, $instCount, $customSchedule);
             }
 
             if (($data['status'] ?? null) === 'cancelled' || ($data['subscription_status'] ?? null) === 'cancelled' || ($data['subscription_status'] ?? null) === 'inactive') {
@@ -215,8 +265,9 @@ class ProjectController extends Controller
             }
         });
 
-        return response()->json($project->fresh()->load(['areas', 'users', 'client', 'services']));
+        return response()->json($project->fresh()->load(['areas', 'users', 'client', 'services', 'receivables']));
     }
+
 
     /**
      * Un proyecto nunca se borra de la base de datos: siempre se cancela (soft) y se
@@ -322,14 +373,12 @@ class ProjectController extends Controller
      * cobrar. Las cuotas que ya tienen un pago registrado (paid_amount > 0) nunca se
      * tocan; solo se regeneran las cuotas todavia libres (pendientes, sin ningun abono).
      */
-    private function resyncReceivableSchedule(Project $project, ?int $instCount = null): void
+    private function resyncReceivableSchedule(Project $project, ?int $instCount = null, ?array $customSchedule = null): void
     {
         $contract = ClientContract::query()->where('project_id', $project->id)->latest('id')->first();
         if ($contract === null) {
             return;
         }
-
-        $schedule = $this->computeBillingSchedule($project, $instCount ?? $contract->installments_count);
 
         $existing = AccountReceivable::query()
             ->where('project_id', $project->id)
@@ -341,12 +390,61 @@ class ProjectController extends Controller
 
         $lockedCount = $locked->count();
         $lockedTotal = (float) $locked->sum('total_amount');
-        $targetInstallments = max($schedule['installments'], $lockedCount);
 
         foreach ($free as $ar) {
             $ar->delete();
         }
 
+        if (is_array($customSchedule) && count($customSchedule) > 0) {
+            $customItems = array_slice($customSchedule, $lockedCount);
+            $contractTotal = $lockedTotal;
+            $targetInstallments = $lockedCount + count($customItems);
+            $issuedOn = now()->toDateString();
+            $lastDueOn = $contract->end_date;
+
+            foreach ($customItems as $i => $item) {
+                $installmentIndex = $lockedCount + $i;
+                $due = Carbon::parse($item['due_on']);
+                $amount = round((float) $item['amount'], 2);
+                $noteText = ! empty($item['notes'])
+                    ? trim($item['notes'])
+                    : sprintf('Cuota %d/%d del contrato #%d — vencimiento proyectado %s', $installmentIndex + 1, $targetInstallments, $contract->id, $due->format('d/m/Y'));
+
+                AccountReceivable::query()->create([
+                    'client_id' => $project->client_id,
+                    'document_id' => $contract->document_id,
+                    'client_contract_id' => $contract->id,
+                    'project_id' => $project->id,
+                    'area_id' => $contract->area_id,
+                    'installment_number' => $installmentIndex + 1,
+                    'total_amount' => $amount,
+                    'paid_amount' => 0,
+                    'balance_amount' => $amount,
+                    'issued_on' => $issuedOn,
+                    'due_on' => $due->toDateString(),
+                    'projected_due_on' => $due->toDateString(),
+                    'collected_on' => null,
+                    'status' => 'pending',
+                    'notes' => $noteText,
+                ]);
+
+                $contractTotal += $amount;
+                $lastDueOn = $due->toDateString();
+            }
+
+            $contract->update([
+                'total_amount' => round($contractTotal, 2),
+                'installment_amount' => $targetInstallments > 0 ? round($contractTotal / $targetInstallments, 2) : 0,
+                'installments_count' => $targetInstallments,
+                'billing_frequency' => 'custom',
+                'end_date' => $lastDueOn,
+            ]);
+
+            return;
+        }
+
+        $schedule = $this->computeBillingSchedule($project, $instCount ?? $contract->installments_count);
+        $targetInstallments = max($schedule['installments'], $lockedCount);
         $remaining = $targetInstallments - $lockedCount;
         $contractTotal = $lockedTotal;
 

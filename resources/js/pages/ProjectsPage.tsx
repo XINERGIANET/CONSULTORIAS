@@ -1,4 +1,4 @@
-import { ExternalLink, FolderKanban, Search, UserPlus } from "lucide-react";
+import { Calendar, ExternalLink, FolderKanban, Plus, RefreshCw, Search, Trash2, UserPlus } from "lucide-react";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import { ConfirmModal } from "../components/ConfirmModal";
@@ -7,6 +7,7 @@ import { FormModal } from "../xpande/FormModal";
 import { apiErrorMessage } from "../xpande/apiError";
 import type { LaravelPaginated } from "../xpande/http";
 import { deleteJson, getJson, postJson, putJson } from "../xpande/http";
+
 import {
   LabCircleIconAction,
   LabDataPager,
@@ -32,6 +33,14 @@ type AreaOpt = { id: number; name: string };
 type ClientOpt = { id: number; legal_name: string };
 type UserOpt = { id: number; name: string };
 type ServiceOpt = { id: number; name: string; kind?: string | null; billing_cycle?: string | null; base_price?: string | null };
+type ScheduleRow = {
+  installment_number: number;
+  due_on: string;
+  amount: number | string;
+  notes: string;
+  paid?: boolean;
+};
+
 type ProjRow = {
   id: number;
   name: string;
@@ -52,6 +61,15 @@ type ProjRow = {
   areas?: { id: number; name: string }[];
   users?: { id: number }[];
   services?: ServiceOpt[];
+  receivables?: Array<{
+    id: number;
+    installment_number: number;
+    due_on?: string | null;
+    projected_due_on?: string | null;
+    total_amount: number | string;
+    paid_amount: number | string;
+    notes?: string | null;
+  }>;
 };
 type ProjSortCol = "id" | "name" | "client" | "status" | "start_date" | "created_at";
 
@@ -64,6 +82,97 @@ const PROJECT_STATUS_LABELS: Record<string, string> = {
 };
 
 const normalizeDateInput = (value?: string | null) => (value ? String(value).slice(0, 10) : "");
+
+const addMonthsToDate = (dateStr: string, months: number): string => {
+  if (!dateStr) return "";
+  const d = new Date(dateStr + "T00:00:00");
+  if (isNaN(d.getTime())) return dateStr;
+  d.setMonth(d.getMonth() + months);
+  return d.toISOString().slice(0, 10);
+};
+
+const addYearsToDate = (dateStr: string, years: number): string => {
+  if (!dateStr) return "";
+  const d = new Date(dateStr + "T00:00:00");
+  if (isNaN(d.getTime())) return dateStr;
+  d.setFullYear(d.getFullYear() + years);
+  return d.toISOString().slice(0, 10);
+};
+
+const generateDefaultSchedule = (
+  startDate: string,
+  paymentStartDate: string,
+  endDate: string,
+  budgetVal: string | number,
+  billingType: string,
+  installmentsCountVal: string | number
+): ScheduleRow[] => {
+  const budget = Math.max(0, Number(budgetVal) || 0);
+  const start = paymentStartDate || startDate || new Date().toISOString().slice(0, 10);
+  const end = endDate || start;
+
+  let count = 1;
+  let frequency: "monthly" | "yearly" | "custom" = "monthly";
+
+  if (billingType === "mensual") {
+    frequency = "monthly";
+    const d1 = new Date(start + "T00:00:00");
+    const d2 = new Date(end + "T00:00:00");
+    if (!isNaN(d1.getTime()) && !isNaN(d2.getTime())) {
+      const months = (d2.getFullYear() - d1.getFullYear()) * 12 + (d2.getMonth() - d1.getMonth());
+      count = Math.max(1, months + 1);
+    } else {
+      count = 1;
+    }
+  } else if (billingType === "anual") {
+    frequency = "yearly";
+    const d1 = new Date(start + "T00:00:00");
+    const d2 = new Date(end + "T00:00:00");
+    if (!isNaN(d1.getTime()) && !isNaN(d2.getTime())) {
+      count = Math.max(1, d2.getFullYear() - d1.getFullYear() + 1);
+    } else {
+      count = 1;
+    }
+  } else if (billingType === "único") {
+    count = 1;
+  } else if (billingType === "por partes") {
+    count = Math.max(1, Number(installmentsCountVal) || 2);
+  }
+
+  const baseAmount = Math.round((budget / count) * 100) / 100;
+  const rows: ScheduleRow[] = [];
+
+  for (let i = 0; i < count; i++) {
+    let due = start;
+    if (billingType === "por partes" && count > 1) {
+      const d1 = new Date(start + "T00:00:00").getTime();
+      const d2 = new Date(end + "T00:00:00").getTime();
+      if (!isNaN(d1) && !isNaN(d2) && d2 >= d1) {
+        const step = (d2 - d1) / (count - 1);
+        const t = new Date(d1 + step * i);
+        due = t.toISOString().slice(0, 10);
+      } else {
+        due = addMonthsToDate(start, i);
+      }
+    } else if (frequency === "yearly") {
+      due = addYearsToDate(start, i);
+    } else {
+      due = addMonthsToDate(start, i);
+    }
+
+    const amt = i === count - 1 ? Math.round((budget - baseAmount * (count - 1)) * 100) / 100 : baseAmount;
+
+    rows.push({
+      installment_number: i + 1,
+      due_on: due,
+      amount: Math.max(0, amt),
+      notes: count === 1 ? "Pago único" : `Cuota ${i + 1}/${count}`,
+    });
+  }
+
+  return rows;
+};
+
 
 export function ProjectsPage() {
   const { isLight } = useApexTheme();
@@ -91,6 +200,10 @@ export function ProjectsPage() {
   const [perPage, setPerPage] = useState(30);
   const [notice, setNotice] = useState<{ variant: "success" | "error"; title: string; message: string } | null>(null);
   const [pendingCancel, setPendingCancel] = useState<ProjRow | null>(null);
+
+  const [saving, setSaving] = useState(false);
+  const [scheduleRows, setScheduleRows] = useState<ScheduleRow[]>([]);
+  const [isScheduleCustomized, setIsScheduleCustomized] = useState(false);
 
   const [form, setForm] = useState({
     client_id: "" as "" | number,
@@ -127,6 +240,88 @@ export function ProjectsPage() {
       setClientHistory([]);
     }
   }, [form.client_id]);
+
+  useEffect(() => {
+    if (open && !isScheduleCustomized) {
+      const generated = generateDefaultSchedule(
+        form.start_date,
+        form.payment_start_date,
+        form.end_estimated,
+        form.budget,
+        form.billing_type,
+        form.installments_count
+      );
+      setScheduleRows(generated);
+    }
+  }, [
+    open,
+    isScheduleCustomized,
+    form.start_date,
+    form.payment_start_date,
+    form.end_estimated,
+    form.budget,
+    form.billing_type,
+    form.installments_count,
+  ]);
+
+  const handleRecalculateSchedule = () => {
+    const generated = generateDefaultSchedule(
+      form.start_date,
+      form.payment_start_date,
+      form.end_estimated,
+      form.budget,
+      form.billing_type,
+      form.installments_count
+    );
+    setScheduleRows(generated);
+    setIsScheduleCustomized(false);
+  };
+
+  const handleBalanceLastInstallment = () => {
+    if (!scheduleRows.length) return;
+    const budgetNum = Number(form.budget) || 0;
+    const previousSum = scheduleRows.slice(0, -1).reduce((sum, r) => sum + (Number(r.amount) || 0), 0);
+    const lastAmount = Math.max(0, Math.round((budgetNum - previousSum) * 100) / 100);
+    setScheduleRows((rows) =>
+      rows.map((r, i) => (i === rows.length - 1 ? { ...r, amount: lastAmount } : r))
+    );
+  };
+
+  const handleAddScheduleRow = () => {
+    setIsScheduleCustomized(true);
+    setScheduleRows((rows) => {
+      const lastRow = rows[rows.length - 1];
+      const newDue = lastRow
+        ? addMonthsToDate(lastRow.due_on, 1)
+        : form.payment_start_date || form.start_date || new Date().toISOString().slice(0, 10);
+      return [
+        ...rows,
+        {
+          installment_number: rows.length + 1,
+          due_on: newDue,
+          amount: 0,
+          notes: `Cuota ${rows.length + 1}`,
+        },
+      ];
+    });
+  };
+
+  const handleRemoveScheduleRow = (index: number) => {
+    if (scheduleRows.length <= 1) return;
+    setIsScheduleCustomized(true);
+    setScheduleRows((rows) =>
+      rows
+        .filter((_, i) => i !== index)
+        .map((r, i) => ({ ...r, installment_number: i + 1 }))
+    );
+  };
+
+  const handleUpdateScheduleRow = (index: number, field: keyof ScheduleRow, value: any) => {
+    setIsScheduleCustomized(true);
+    setScheduleRows((rows) =>
+      rows.map((r, i) => (i === index ? { ...r, [field]: value } : r))
+    );
+  };
 
   const fetchProjects = useCallback(
     async (targetPage: number, nextPer?: number) => {
@@ -171,6 +366,7 @@ export function ProjectsPage() {
     const st = loc.state as { openProjectCreate?: boolean } | undefined;
     if (st?.openProjectCreate) {
       setEditId(null);
+      setIsScheduleCustomized(false);
       setForm({
         client_id: "",
         engagement_type: "project",
@@ -220,14 +416,6 @@ export function ProjectsPage() {
 
   const openEdit = async (id: number) => {
     setModalErr(null);
-    if (form.engagement_type === "saas" && form.service_ids.length === 0) {
-      setModalErr("Seleccione al menos un producto SaaS para la afiliacion.");
-      return;
-    }
-    if ((isSuperadmin ? clientForm.area_id : primaryAreaId) === "") {
-      setClientErr("Seleccione una empresa.");
-      return;
-    }
     try {
       const p = await getJson<ProjRow>(`/api/projects/${id}`);
       setEditId(id);
@@ -253,6 +441,30 @@ export function ProjectsPage() {
         user_ids: (p.users ?? []).map((u) => u.id),
         service_ids: (p.services ?? []).map((s) => s.id),
       });
+
+      if (p.receivables && p.receivables.length > 0) {
+        const recRows: ScheduleRow[] = p.receivables.map((r, idx) => ({
+          installment_number: r.installment_number ?? idx + 1,
+          due_on: normalizeDateInput(r.due_on || r.projected_due_on),
+          amount: Number(r.total_amount) || 0,
+          notes: r.notes ?? `Cuota ${idx + 1}`,
+          paid: (Number(r.paid_amount) || 0) > 0,
+        }));
+        setScheduleRows(recRows);
+        setIsScheduleCustomized(true);
+      } else {
+        const generated = generateDefaultSchedule(
+          normalizeDateInput(p.start_date),
+          normalizeDateInput((p as any).payment_start_date),
+          normalizeDateInput(p.end_estimated),
+          p.budget ?? "",
+          (p as any).billing_type ?? "mensual",
+          "2"
+        );
+        setScheduleRows(generated);
+        setIsScheduleCustomized(false);
+      }
+
       setOpen(true);
     } catch (e: unknown) {
       setNotice({ variant: "error", title: "Proyecto", message: apiErrorMessage(e, "No se pudo cargar el proyecto.") });
@@ -260,7 +472,9 @@ export function ProjectsPage() {
   };
 
   const save = async () => {
+    if (saving) return;
     setModalErr(null);
+
     if (!form.name.trim() || form.client_id === "" || form.area_ids.length === 0) {
       setModalErr("Nombre, cliente y al menos un área son obligatorios.");
       return;
@@ -273,11 +487,22 @@ export function ProjectsPage() {
       setModalErr("La fecha de fin estimado no puede ser anterior a la fecha de inicio.");
       return;
     }
+
+    const schedTotal = scheduleRows.reduce((sum, r) => sum + (Number(r.amount) || 0), 0);
+    const budgetNum = Number(form.budget) || 0;
+    if (Math.abs(schedTotal - budgetNum) > 0.05 && scheduleRows.length > 0) {
+      setModalErr(
+        `La suma de las cuotas del cronograma (S/ ${schedTotal.toFixed(2)}) no coincide con el presupuesto del proyecto (S/ ${budgetNum.toFixed(2)}). Presione "Ajustar al presupuesto" o corrija los montos.`
+      );
+      return;
+    }
+
+    setSaving(true);
     try {
       const body: Record<string, unknown> = {
         client_id: form.client_id,
         engagement_type: form.engagement_type,
-        name: form.name,
+        name: form.name.trim(),
         service_type: form.service_type || null,
         start_date: form.start_date || null,
         payment_start_date: form.payment_start_date || null,
@@ -294,9 +519,16 @@ export function ProjectsPage() {
         area_ids: form.area_ids,
         user_ids: form.user_ids,
         service_ids: form.service_ids,
+        custom_schedule: scheduleRows.map((r, i) => ({
+          installment_number: i + 1,
+          due_on: r.due_on,
+          amount: Number(r.amount) || 0,
+          notes: r.notes || null,
+        })),
       };
       if (editId) await putJson(`/api/projects/${editId}`, body);
       else await postJson("/api/projects", body);
+
       setOpen(false);
       await fetchProjects(page);
       setNotice({
@@ -306,11 +538,15 @@ export function ProjectsPage() {
       });
       setEditId(null);
     } catch (e: unknown) {
+      const errMsg = apiErrorMessage(e, "No se pudo guardar el proyecto.");
+      setModalErr(errMsg);
       setNotice({
         variant: "error",
         title: "No se guardó",
-        message: apiErrorMessage(e, "No se pudo guardar (verifique permisos por área)."),
+        message: errMsg,
       });
+    } finally {
+      setSaving(false);
     }
   };
 
@@ -658,8 +894,13 @@ export function ProjectsPage() {
             <button type="button" className={labGhostBtn(isLight)} onClick={() => setOpen(false)}>
               Cerrar
             </button>
-            <button type="button" className={labPrimaryBtn(isLight)} onClick={() => void save()}>
-              Guardar
+            <button
+              type="button"
+              disabled={saving}
+              className={[labPrimaryBtn(isLight), saving ? "opacity-50 cursor-not-allowed" : ""].join(" ")}
+              onClick={() => void save()}
+            >
+              {saving ? "Guardando..." : "Guardar"}
             </button>
           </div>
         }
@@ -780,6 +1021,151 @@ export function ProjectsPage() {
               <input type="number" min="1" className={labInputClass(isLight)} value={form.installments_count} onChange={(e) => setForm({ ...form, installments_count: e.target.value })} />
             </LabField>
           ) : null}
+
+          {/* --- CRONOGRAMA DE PAGOS PERSONALIZABLE --- */}
+          <div className="sm:col-span-2 mt-2 rounded-xl border p-4 shadow-sm bg-opacity-50 space-y-3 border-indigo-500/30 bg-indigo-50/20 dark:bg-indigo-950/20">
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 border-b border-indigo-500/20 pb-2">
+              <div className="flex items-center gap-2">
+                <Calendar className="h-4 w-4 text-indigo-500" />
+                <span className={["font-bold text-xs uppercase tracking-wide", isLight ? "text-indigo-900" : "text-indigo-200"].join(" ")}>
+                  Cronograma de Pagos (Cuentas por Cobrar)
+                </span>
+                <span className="rounded-full bg-indigo-500/20 px-2 py-0.5 text-[10px] font-semibold text-indigo-500">
+                  {scheduleRows.length} {scheduleRows.length === 1 ? "cuota" : "cuotas"}
+                </span>
+              </div>
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={handleRecalculateSchedule}
+                  className="inline-flex items-center gap-1 text-[11px] font-medium text-indigo-600 hover:text-indigo-700 dark:text-indigo-400 dark:hover:text-indigo-300 transition-colors"
+                  title="Recalcular partes y fechas por igual según los datos del proyecto"
+                >
+                  <RefreshCw className="h-3 w-3" />
+                  <span>Recalcular partes iguales</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={handleAddScheduleRow}
+                  className="inline-flex items-center gap-1 rounded-md bg-indigo-600 px-2.5 py-1 text-[11px] font-medium text-white hover:bg-indigo-700 transition-colors shadow-sm"
+                >
+                  <Plus className="h-3 w-3" />
+                  <span>Agregar Cuota</span>
+                </button>
+              </div>
+            </div>
+
+            {/* Tabla de cuotas */}
+            <div className="overflow-x-auto">
+              <table className="w-full text-left text-xs">
+                <thead>
+                  <tr className={["border-b text-[10px] uppercase font-semibold tracking-wider", isLight ? "border-zinc-200 text-zinc-500" : "border-white/10 text-zinc-400"].join(" ")}>
+                    <th className="py-1.5 pr-2 w-16"># Cuota</th>
+                    <th className="py-1.5 pr-2 w-36">Vencimiento</th>
+                    <th className="py-1.5 pr-2 w-36">Monto (S/)</th>
+                    <th className="py-1.5 pr-2">Concepto / Notas</th>
+                    <th className="py-1.5 text-right w-10"></th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-zinc-200/50 dark:divide-white/5">
+                  {scheduleRows.map((row, idx) => {
+                    const isPaid = row.paid === true;
+                    return (
+                      <tr key={idx} className={isPaid ? "opacity-70 bg-emerald-500/5" : ""}>
+                        <td className="py-2 pr-2 font-semibold">
+                          Cuota {row.installment_number}
+                          {isPaid ? <span className="ml-1 text-[9px] text-emerald-500 font-normal">(Pagada)</span> : null}
+                        </td>
+                        <td className="py-2 pr-2">
+                          <input
+                            type="date"
+                            disabled={isPaid}
+                            value={row.due_on}
+                            onChange={(e) => handleUpdateScheduleRow(idx, "due_on", e.target.value)}
+                            className={[labInputClass(isLight), "py-1 px-2 text-xs", isPaid ? "cursor-not-allowed opacity-60" : ""].join(" ")}
+                          />
+                        </td>
+                        <td className="py-2 pr-2">
+                          <input
+                            type="number"
+                            step="0.01"
+                            disabled={isPaid}
+                            value={row.amount}
+                            onChange={(e) => handleUpdateScheduleRow(idx, "amount", e.target.value)}
+                            className={[labInputClass(isLight), "py-1 px-2 text-xs font-mono", isPaid ? "cursor-not-allowed opacity-60" : ""].join(" ")}
+                          />
+                        </td>
+                        <td className="py-2 pr-2">
+                          <input
+                            type="text"
+                            disabled={isPaid}
+                            value={row.notes}
+                            placeholder={`Concepto cuota ${idx + 1}`}
+                            onChange={(e) => handleUpdateScheduleRow(idx, "notes", e.target.value)}
+                            className={[labInputClass(isLight), "py-1 px-2 text-xs", isPaid ? "cursor-not-allowed opacity-60" : ""].join(" ")}
+                          />
+                        </td>
+                        <td className="py-2 text-right">
+                          {!isPaid && scheduleRows.length > 1 ? (
+                            <button
+                              type="button"
+                              onClick={() => handleRemoveScheduleRow(idx)}
+                              className="text-red-400 hover:text-red-600 dark:hover:text-red-300 p-1 transition-colors"
+                              title="Eliminar esta cuota"
+                            >
+                              <Trash2 className="h-3.5 w-3.5" />
+                            </button>
+                          ) : null}
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+
+            {/* Resumen del Cronograma y Presupuesto */}
+            {(() => {
+              const schedTotal = Math.round(scheduleRows.reduce((sum, r) => sum + (Number(r.amount) || 0), 0) * 100) / 100;
+              const budgetNum = Math.round((Number(form.budget) || 0) * 100) / 100;
+              const diff = Math.round((schedTotal - budgetNum) * 100) / 100;
+
+              return (
+                <div className={["flex flex-wrap items-center justify-between gap-2 pt-2 border-t text-xs font-medium", isLight ? "border-indigo-100 text-zinc-700" : "border-white/10 text-zinc-300"].join(" ")}>
+                  <div className="flex items-center gap-3">
+                    <span>
+                      Suma Cronograma: <strong className="font-mono text-indigo-600 dark:text-indigo-400">S/ {schedTotal.toFixed(2)}</strong>
+                    </span>
+                    <span>
+                      Presupuesto: <strong className="font-mono">S/ {budgetNum.toFixed(2)}</strong>
+                    </span>
+                  </div>
+
+                  <div className="flex items-center gap-2">
+                    {Math.abs(diff) <= 0.05 ? (
+                      <span className="inline-flex items-center gap-1 text-[11px] font-semibold text-emerald-600 dark:text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded-md">
+                        ✓ Coincide 100%
+                      </span>
+                    ) : (
+                      <div className="flex items-center gap-2">
+                        <span className="inline-flex items-center gap-1 text-[11px] font-semibold text-amber-600 dark:text-amber-400 bg-amber-500/10 px-2 py-0.5 rounded-md">
+                          ⚠ Diferencia: S/ {diff > 0 ? `+${diff.toFixed(2)}` : diff.toFixed(2)}
+                        </span>
+                        <button
+                          type="button"
+                          onClick={handleBalanceLastInstallment}
+                          className="text-[11px] underline text-indigo-600 hover:text-indigo-800 dark:text-indigo-400"
+                        >
+                          Ajustar a cuota final
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              );
+            })()}
+          </div>
+
           <LabField label="Responsable" isLight={isLight}>
             <SmartSelect
               isLight={isLight}

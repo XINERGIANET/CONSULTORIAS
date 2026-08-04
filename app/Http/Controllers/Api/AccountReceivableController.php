@@ -51,7 +51,18 @@ class AccountReceivableController extends Controller
             $q->whereDate('issued_on', '<=', $request->input('to'));
         }
 
-        $paginated = $q->orderByDesc('issued_on')->orderByDesc('id')->paginate(40);
+        $sort = $request->string('sort')->toString();
+        $dir = strtolower($request->string('dir', 'asc')->toString()) === 'desc' ? 'desc' : 'asc';
+
+        if ($sort === 'issued_on') {
+            $q->orderBy('issued_on', $dir)->orderBy('id', $dir);
+        } else {
+            $q->orderByRaw("COALESCE(due_on, projected_due_on, issued_on) {$dir}")
+                ->orderBy('id', $dir);
+        }
+
+        $paginated = $q->paginate(40);
+
 
         $today = now()->startOfDay();
         $paginated->getCollection()->transform(function (AccountReceivable $ar) use ($today) {
