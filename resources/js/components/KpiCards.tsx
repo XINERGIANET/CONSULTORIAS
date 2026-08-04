@@ -125,15 +125,17 @@ function MiniSparkline({ data, color, gradId }: { data: { i: number; v: number }
 }
 
 export function KpiCards() {
-  const { isLight } = useApexTheme();
+  const { isLight, palette } = useApexTheme();
   const kpis = buildKpis();
   return (
     <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
       {kpis.map((k) => {
         const Icon = k.icon;
         const gradId = `spark-grad-${k.id}`;
-        const chartColor = isLight ? k.chartColorLight : k.chartColor;
-        const iconWrap = isLight ? k.iconWrapLight : k.iconWrapDark;
+        const chartColor = palette.primary;
+        const iconWrap = isLight
+          ? "bg-primary-theme-light text-primary-theme ring-1 ring-primary-theme"
+          : "bg-primary-theme-dim text-primary-dark-theme ring-1 ring-primary-theme";
         return (
           <div
             key={k.id}
@@ -163,8 +165,8 @@ export function KpiCards() {
                 "mt-1 text-xs",
                 k.up
                   ? isLight
-                    ? "text-[#007BFF]"
-                    : "text-[#7AB8FF]/95"
+                    ? "text-primary-theme"
+                    : "text-primary-dark-theme"
                   : isLight
                     ? "text-[#EF4444]"
                     : "text-rose-400/90",

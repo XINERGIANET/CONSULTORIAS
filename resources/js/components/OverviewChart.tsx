@@ -32,7 +32,7 @@ const tabs = [
 ];
 
 export function OverviewChart() {
-  const { isLight } = useApexTheme();
+  const { isLight, palette } = useApexTheme();
   const [tab, setTab] = useState<(typeof tabs)[number]["id"]>("ingresos");
   const [raw, setRaw] = useState<CashFlowResponse | null>(null);
 
@@ -46,7 +46,7 @@ export function OverviewChart() {
     }).then(setRaw);
   }, []);
 
-  const lineColor = isLight ? "#007BFF" : "#007BFF";
+  const lineColor = palette.primary;
 
   const data = useMemo<TrendRow[]>(() => {
     if (!raw) return [];

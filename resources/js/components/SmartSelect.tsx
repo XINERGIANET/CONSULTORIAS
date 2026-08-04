@@ -169,13 +169,13 @@ function AutocompleteSelect({
     const isSel = String(opt.value) === String(value);
     if (isHL) {
       return isLight
-        ? `${base} bg-[#EBF5FF] text-[#007BFF]`
-        : `${base} bg-[#007BFF]/15 text-[#7AB8FF]`;
+        ? `${base} bg-primary-theme-light text-primary-theme`
+        : `${base} bg-primary-theme-dim text-primary-dark-theme`;
     }
     if (isSel) {
       return isLight
-        ? `${base} bg-[#F0F9FF] text-[#005BBF] font-medium`
-        : `${base} bg-[#007BFF]/10 text-[#7AB8FF] font-medium`;
+        ? `${base} bg-primary-theme-light text-primary-theme font-medium`
+        : `${base} bg-primary-theme-dim text-primary-dark-theme font-medium`;
     }
     return isLight
       ? `${base} text-[#111827] hover:bg-[#F3F4F6]`

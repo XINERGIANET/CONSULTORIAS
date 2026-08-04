@@ -757,7 +757,7 @@ export function ProjectsPage() {
                 key={f}
                 type="button"
                 onClick={() => setStatusFilter(f)}
-                className={["px-3 py-1.5 transition-colors", sel ? "bg-[#007BFF] text-white" : isLight ? "bg-white text-[#6B7280] hover:bg-[#F3F4F6]" : "bg-transparent text-zinc-400 hover:bg-white/[0.05]"].join(" ")}
+                className={["px-3 py-1.5 transition-colors", sel ? "bg-primary-theme text-white" : isLight ? "bg-white text-[#6B7280] hover:bg-[#F3F4F6]" : "bg-transparent text-zinc-400 hover:bg-white/[0.05]"].join(" ")}
               >
                 {label}
               </button>

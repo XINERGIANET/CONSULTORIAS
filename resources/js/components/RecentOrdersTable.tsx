@@ -31,7 +31,7 @@ function statusLabel(status: string): string {
 
 function statusPill(status: string, isLight: boolean) {
   if (status === "finished") {
-    return isLight ? "bg-[#E6F3FF] text-[#005BBF] ring-1 ring-[#007BFF]/22" : "bg-[#0a2744] text-[#7AB8FF] ring-1 ring-[#007BFF]/35";
+    return isLight ? "bg-primary-theme-light text-primary-theme ring-1 ring-primary-theme" : "bg-primary-theme-dim text-primary-dark-theme ring-1 ring-primary-theme";
   }
   if (status === "cancelled") {
     return isLight ? "bg-zinc-200 text-zinc-800 ring-1 ring-zinc-300/80" : "bg-zinc-800 text-zinc-300 ring-1 ring-zinc-600/35";
@@ -40,7 +40,7 @@ function statusPill(status: string, isLight: boolean) {
     return isLight ? "bg-amber-100 text-amber-900 ring-1 ring-amber-200/80" : "bg-amber-950/40 text-amber-300 ring-1 ring-amber-500/25";
   }
   if (status === "in_progress") {
-    return isLight ? "bg-[#DCEEFF] text-[#0063D5] ring-1 ring-[#3399FF]/30" : "bg-[#0d2a4a] text-[#8EC5FF] ring-1 ring-[#3399FF]/28";
+    return isLight ? "bg-primary-theme-light text-primary-theme ring-1 ring-primary-theme" : "bg-primary-theme-dim text-primary-dark-theme ring-1 ring-primary-theme";
   }
   return isLight ? "bg-slate-100 text-slate-800 ring-1 ring-slate-200/80" : "bg-slate-900/80 text-slate-200 ring-1 ring-slate-600/35";
 }
@@ -78,7 +78,7 @@ export function RecentOrdersTable() {
             Últimos proyectos creados según su alcance de áreas.
           </p>
         </div>
-        <Link to="/proyectos" className={["shrink-0 text-sm font-medium", isLight ? "text-[#007BFF] hover:text-[#0063D5]" : "text-[#7AB8FF] hover:text-[#A8D4FF]"].join(" ")}>
+        <Link to="/proyectos" className={["shrink-0 text-sm font-medium", isLight ? "text-primary-theme hover:brightness-90" : "text-primary-dark-theme hover:brightness-125"].join(" ")}>
           Ver todos
         </Link>
       </div>

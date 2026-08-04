@@ -16,14 +16,14 @@ export function labPanelClass(isLight: boolean): string {
 
 export function labInputClass(isLight: boolean): string {
   return isLight
-    ? "w-full rounded-lg border border-[#E5E7EB] bg-white px-3 py-2.5 text-sm text-[#111827] placeholder:text-[#9CA3AF] outline-none ring-[#007BFF]/18 focus:ring-2"
-    : "w-full rounded-lg border border-white/[0.08] bg-[#0a0a0a] px-3 py-2.5 text-sm text-zinc-100 placeholder:text-zinc-600 outline-none ring-[#007BFF]/22 focus:ring-2";
+    ? "w-full rounded-lg border border-[#E5E7EB] bg-white px-3 py-2.5 text-sm text-[#111827] placeholder:text-[#9CA3AF] outline-none ring-primary-theme focus:ring-2"
+    : "w-full rounded-lg border border-white/[0.08] bg-[#0a0a0a] px-3 py-2.5 text-sm text-zinc-100 placeholder:text-zinc-600 outline-none ring-primary-theme focus:ring-2";
 }
 
 export function labPrimaryBtn(isLight: boolean): string {
   return isLight
-    ? "inline-flex items-center justify-center gap-2 rounded-lg bg-[#007BFF] px-4 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-[#0063D5]"
-    : "inline-flex items-center justify-center gap-2 rounded-lg bg-[#007BFF] px-4 py-2.5 text-sm font-semibold text-white shadow-[0_0_22px_rgba(0,123,255,0.38)] transition hover:brightness-110";
+    ? "inline-flex items-center justify-center gap-2 rounded-lg bg-primary-theme px-4 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:brightness-110 active:scale-[0.98]"
+    : "inline-flex items-center justify-center gap-2 rounded-lg bg-primary-theme px-4 py-2.5 text-sm font-semibold text-white shadow-primary-theme transition hover:brightness-110 active:scale-[0.98]";
 }
 
 export function labGhostBtn(isLight: boolean): string {

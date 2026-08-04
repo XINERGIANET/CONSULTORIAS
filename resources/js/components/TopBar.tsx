@@ -1,4 +1,4 @@
-import { AlertCircle, AlertTriangle, Bell, Clock, Info, KeyRound, LogOut, Menu, Moon, Palette, Sun, X } from "lucide-react";
+import { AlertCircle, AlertTriangle, Bell, Check, Clock, Info, KeyRound, LogOut, Menu, Moon, Palette, Sun, X } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
@@ -34,7 +34,7 @@ function typeLabel(type: NotifItem["type"]) {
 }
 
 export function TopBar({ setMobileMenuOpen }: { setMobileMenuOpen?: (v: boolean) => void }) {
-  const { isLight, setMode } = useApexTheme();
+  const { isLight, setMode, palette, setPaletteId, palettes } = useApexTheme();
   const { user, logout } = useAuth();
   const navigate = useNavigate();
 
@@ -45,6 +45,9 @@ export function TopBar({ setMobileMenuOpen }: { setMobileMenuOpen?: (v: boolean)
 
   const [userMenuOpen, setUserMenuOpen] = useState(false);
   const userMenuRef = useRef<HTMLDivElement>(null);
+
+  const [paletteOpen, setPaletteOpen] = useState(false);
+  const palettePanelRef = useRef<HTMLDivElement>(null);
 
   const [pwOpen, setPwOpen] = useState(false);
   const [pwForm, setPwForm] = useState({ current_password: "", new_password: "", new_password_confirmation: "" });
@@ -117,6 +120,18 @@ export function TopBar({ setMobileMenuOpen }: { setMobileMenuOpen?: (v: boolean)
     return () => document.removeEventListener("mousedown", handler);
   }, [userMenuOpen]);
 
+  // close palette menu on outside click
+  useEffect(() => {
+    if (!paletteOpen) return;
+    const handler = (e: MouseEvent) => {
+      if (palettePanelRef.current && !palettePanelRef.current.contains(e.target as Node)) {
+        setPaletteOpen(false);
+      }
+    };
+    document.addEventListener("mousedown", handler);
+    return () => document.removeEventListener("mousedown", handler);
+  }, [paletteOpen]);
+
   const handleNotifClick = (item: NotifItem) => {
     setNotifOpen(false);
     navigate(item.link);
@@ -155,12 +170,11 @@ export function TopBar({ setMobileMenuOpen }: { setMobileMenuOpen?: (v: boolean)
         <Link
           to="/proyectos"
           state={{ openProjectCreate: true }}
-          className={[
-            "hidden items-center gap-2 rounded-lg px-3 py-2 text-sm font-semibold transition sm:inline-flex",
-            isLight
-              ? "bg-[#007BFF] text-white shadow-sm hover:bg-[#0063D5]"
-              : "bg-[#007BFF] text-white shadow-[0_0_28px_rgba(0,123,255,0.45)] hover:brightness-110",
-          ].join(" ")}
+          style={{
+            backgroundColor: palette.primary,
+            boxShadow: isLight ? "0 1px 2px rgba(0,0,0,0.05)" : `0 0 24px ${palette.ringColor}`,
+          }}
+          className="hidden items-center gap-2 rounded-lg px-3 py-2 text-sm font-semibold text-white transition hover:brightness-110 sm:inline-flex"
         >
           <span>+</span> Nuevo Proyecto
         </Link>
@@ -177,16 +191,129 @@ export function TopBar({ setMobileMenuOpen }: { setMobileMenuOpen?: (v: boolean)
           {isLight ? <Moon className="h-5 w-5" /> : <Sun className="h-5 w-5" />}
         </button>
 
-        <button
-          type="button"
-          className={[
-            "rounded-lg p-2 transition-colors",
-            isLight ? "text-[#6B7280] hover:bg-[#F3F4F6] hover:text-[#111827]" : "text-zinc-400 hover:bg-white/5 hover:text-zinc-200",
-          ].join(" ")}
-          title="Personalizar"
-        >
-          <Palette className="h-5 w-5" />
-        </button>
+        {/* ── Palette Picker ── */}
+        <div className="relative" ref={palettePanelRef}>
+          <button
+            type="button"
+            onClick={() => setPaletteOpen((v) => !v)}
+            className={[
+              "relative rounded-lg p-2 transition-colors",
+              paletteOpen
+                ? isLight ? "bg-[#F3F4F6] text-[#111827]" : "bg-white/10 text-white"
+                : isLight ? "text-[#6B7280] hover:bg-[#F3F4F6] hover:text-[#111827]" : "text-zinc-400 hover:bg-white/5 hover:text-zinc-200",
+            ].join(" ")}
+            title="Personalizar paleta de colores"
+          >
+            <Palette className="h-5 w-5 transition-colors" style={{ color: palette.primary }} />
+            <span
+              className="absolute bottom-1 right-1 h-2 w-2 rounded-full ring-1 ring-black/20 shadow-sm"
+              style={{ backgroundColor: palette.primary }}
+            />
+          </button>
+
+          {paletteOpen && (
+            <div
+              className={[
+                "absolute right-0 top-[calc(100%+8px)] z-50 w-80 rounded-2xl shadow-2xl ring-1 overflow-hidden transition-all duration-200",
+                isLight ? "bg-white ring-black/[0.08]" : "bg-[#141414] ring-white/[0.10]",
+              ].join(" ")}
+            >
+              <div className={["flex items-center justify-between px-4 py-3 border-b", isLight ? "border-slate-100" : "border-white/[0.06]"].join(" ")}>
+                <div className="flex items-center gap-2">
+                  <Palette className="h-4 w-4" style={{ color: palette.primary }} />
+                  <span className={["text-sm font-semibold", isLight ? "text-slate-800" : "text-zinc-100"].join(" ")}>
+                    Paleta de Colores
+                  </span>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setPaletteOpen(false)}
+                  className={["rounded-lg p-1 transition-colors", isLight ? "text-zinc-400 hover:bg-zinc-100" : "text-zinc-500 hover:bg-white/10"].join(" ")}
+                >
+                  <X className="h-4 w-4" />
+                </button>
+              </div>
+
+              <div className="p-4 space-y-4">
+                <div>
+                  <span className={["block text-[11px] font-semibold uppercase tracking-wider mb-2", isLight ? "text-slate-500" : "text-zinc-400"].join(" ")}>
+                    Modo de Visualización
+                  </span>
+                  <div className={["grid grid-cols-2 gap-2 p-1 rounded-xl", isLight ? "bg-slate-100" : "bg-zinc-900 border border-white/5"].join(" ")}>
+                    <button
+                      type="button"
+                      onClick={() => setMode("dark")}
+                      className={[
+                        "flex items-center justify-center gap-2 rounded-lg py-1.5 text-xs font-semibold transition-all",
+                        !isLight
+                          ? "bg-zinc-800 text-white shadow-sm ring-1 ring-white/10"
+                          : "text-slate-600 hover:text-slate-900",
+                      ].join(" ")}
+                    >
+                      <Moon className="h-3.5 w-3.5" /> Oscuro
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setMode("light")}
+                      className={[
+                        "flex items-center justify-center gap-2 rounded-lg py-1.5 text-xs font-semibold transition-all",
+                        isLight
+                          ? "bg-white text-slate-900 shadow-sm ring-1 ring-black/5"
+                          : "text-zinc-400 hover:text-zinc-200",
+                      ].join(" ")}
+                    >
+                      <Sun className="h-3.5 w-3.5" /> Claro
+                    </button>
+                  </div>
+                </div>
+
+                <div>
+                  <span className={["block text-[11px] font-semibold uppercase tracking-wider mb-2", isLight ? "text-slate-500" : "text-zinc-400"].join(" ")}>
+                    Color de Acento del Sistema
+                  </span>
+                  <div className="grid grid-cols-4 gap-2">
+                    {palettes.map((p) => {
+                      const isSelected = p.id === palette.id;
+                      return (
+                        <button
+                          key={p.id}
+                          type="button"
+                          onClick={() => setPaletteId(p.id)}
+                          title={p.name}
+                          className={[
+                            "group relative flex flex-col items-center justify-center rounded-xl p-2 transition-all border",
+                            isSelected
+                              ? isLight
+                                ? "bg-slate-50 border-slate-300 ring-2"
+                                : "bg-zinc-800/80 border-white/20 ring-2"
+                              : isLight
+                                ? "border-transparent hover:bg-slate-50 hover:border-slate-200"
+                                : "border-transparent hover:bg-white/5 hover:border-white/10",
+                          ].join(" ")}
+                          style={{
+                            // @ts-ignore
+                            "--tw-ring-color": isSelected ? p.primary : "transparent",
+                          }}
+                        >
+                          <span
+                            className="relative flex h-7 w-7 items-center justify-center rounded-full transition-transform duration-200 group-hover:scale-105 shadow-sm"
+                            style={{ backgroundColor: p.primary }}
+                          >
+                            {isSelected && <Check className="h-4 w-4 text-white stroke-[3]" />}
+                          </span>
+                          <span className={["mt-1 text-[10px] font-medium truncate w-full text-center", isLight ? "text-slate-700" : "text-zinc-300"].join(" ")}>
+                            {p.name.split(" ")[0]}
+                          </span>
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+        </div>
+
 
         {/* ── Notification Bell ── */}
         <div className="relative" ref={panelRef}>

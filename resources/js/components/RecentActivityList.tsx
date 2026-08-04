@@ -41,7 +41,7 @@ export function RecentActivityList() {
   const { isLight } = useApexTheme();
   const [data, setData] = useState<ActivityResponse | null>(null);
   const dotRing = isLight ? "ring-white" : "ring-[#121212]";
-  const dotFill = "bg-[#007BFF]";
+  const dotFill = "bg-primary-theme";
 
   useEffect(() => {
     void getJson<ActivityResponse>("/api/reports/recent-activity").then(setData);
@@ -71,7 +71,7 @@ export function RecentActivityList() {
           href="/clientes"
           className={[
             "shrink-0 text-sm font-medium",
-            isLight ? "text-[#007BFF] hover:text-[#0063D5]" : "text-[#7AB8FF] hover:text-[#A8D4FF]",
+            isLight ? "text-primary-theme hover:brightness-90" : "text-primary-dark-theme hover:brightness-125",
           ].join(" ")}
         >
           Ver todos

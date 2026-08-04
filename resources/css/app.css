@@ -33,16 +33,51 @@
 @source "../js/context/ThemeContext.tsx";
 @source "../views/**/*.blade.php";
 
+:root {
+  --primary-color: #007bff;
+  --primary-hover: #0063d5;
+  --primary-light-bg: #eff6ff;
+  --primary-dark-dim: #0a2744;
+  --primary-text-dark: #7ab8ff;
+  --primary-ring: rgba(0, 123, 255, 0.4);
+}
+
+/* Dynamic theme helper classes */
+.bg-primary-theme {
+  background-color: var(--primary-color, #007bff) !important;
+}
+.bg-primary-theme-dim {
+  background-color: var(--primary-dark-dim, #0a2744) !important;
+}
+.bg-primary-theme-light {
+  background-color: var(--primary-light-bg, #eff6ff) !important;
+}
+.text-primary-theme {
+  color: var(--primary-color, #007bff) !important;
+}
+.text-primary-dark-theme {
+  color: var(--primary-text-dark, #7ab8ff) !important;
+}
+.border-primary-theme {
+  border-color: var(--primary-color, #007bff) !important;
+}
+.ring-primary-theme {
+  --tw-ring-color: var(--primary-ring, rgba(0, 123, 255, 0.4)) !important;
+}
+.shadow-primary-theme {
+  box-shadow: 0 0 22px var(--primary-ring, rgba(0, 123, 255, 0.38)) !important;
+}
+
 @theme {
   --font-sans: "Inter", ui-sans-serif, system-ui, sans-serif;
   --color-apex-bg: #000000;
   --color-apex-surface: #121212;
   --color-apex-elevated: #161616;
   --color-apex-border: rgba(255, 255, 255, 0.06);
-  --color-apex-neon: #007bff;
-  --color-apex-neon-dim: #0a2744;
+  --color-apex-neon: var(--primary-color, #007bff);
+  --color-apex-neon-dim: var(--primary-dark-dim, #0a2744);
   --color-apex-light-canvas: #f9fafb;
-  --color-apex-light-primary: #007bff;
+  --color-apex-light-primary: var(--primary-color, #007bff);
 }
 
 html,

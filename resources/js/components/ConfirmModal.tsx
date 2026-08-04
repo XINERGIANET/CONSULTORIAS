@@ -60,7 +60,7 @@ export function ConfirmModal({
             onClick={onConfirm}
             className={[
               "rounded-lg px-4 py-2 text-sm font-semibold text-white",
-              danger ? "bg-red-600 hover:bg-red-700" : "bg-[#007BFF] hover:bg-[#0063D5]",
+              danger ? "bg-red-600 hover:bg-red-700" : "bg-primary-theme hover:brightness-110",
             ].join(" ")}
           >
             {confirmText}

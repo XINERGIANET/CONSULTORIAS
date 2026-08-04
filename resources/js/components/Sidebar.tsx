@@ -22,25 +22,33 @@ import {
 } from "lucide-react";
 import { Link, useLocation } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
-import { useApexTheme } from "../context/ThemeContext";
+import { ColorPalette, useApexTheme } from "../context/ThemeContext";
 
 type NavLink = { label: string; to: string; icon: LucideIcon };
 
-function linkClass(loc: ReturnType<typeof useLocation>, path: string, isLight: boolean): string {
+function getActiveStyle(loc: ReturnType<typeof useLocation>, path: string, isLight: boolean, palette: ColorPalette): { className: string; style?: React.CSSProperties } {
   const active = loc.pathname === path || (path !== "/" && loc.pathname.startsWith(path + "/"));
-  return [
-    "flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-colors",
-    active
-      ? isLight
-        ? "bg-[#007BFF]/12 text-[#007BFF]"
-        : "bg-[#0a2744] text-[#7AB8FF] shadow-[0_0_20px_rgba(0,123,255,0.18)]"
-      : isLight
+  if (active) {
+    return {
+      className: "flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-colors",
+      style: {
+        backgroundColor: isLight ? palette.lightBg : palette.darkBgDim,
+        color: isLight ? palette.textLight : palette.textDark,
+        boxShadow: isLight ? undefined : `0 0 20px ${palette.ringColor}`,
+      },
+    };
+  }
+  return {
+    className: [
+      "flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-colors",
+      isLight
         ? "text-slate-600 hover:bg-slate-100 hover:text-slate-900"
         : "text-zinc-400 hover:bg-white/5 hover:text-zinc-200",
-  ].join(" ");
+    ].join(" "),
+  };
 }
 
-function NavSection({ title, items, isLight }: { title: string; items: NavLink[]; isLight: boolean }) {
+function NavSection({ title, items, isLight, palette }: { title: string; items: NavLink[]; isLight: boolean; palette: ColorPalette }) {
   const loc = useLocation();
 
   return (
@@ -56,9 +64,10 @@ function NavSection({ title, items, isLight }: { title: string; items: NavLink[]
       <nav className="space-y-0.5">
         {items.map((item) => {
           const Icon = item.icon;
+          const { className, style } = getActiveStyle(loc, item.to, isLight, palette);
 
           return (
-            <Link key={item.to} to={item.to} className={linkClass(loc, item.to, isLight)}>
+            <Link key={item.to} to={item.to} className={className} style={style}>
               <Icon className="h-[18px] w-[18px] shrink-0 opacity-90" />
               <span className="flex-1">{item.label}</span>
             </Link>
@@ -70,7 +79,7 @@ function NavSection({ title, items, isLight }: { title: string; items: NavLink[]
 }
 
 export function Sidebar({ mobileMenuOpen, setMobileMenuOpen }: { mobileMenuOpen?: boolean; setMobileMenuOpen?: (v: boolean) => void }) {
-  const { isLight } = useApexTheme();
+  const { isLight, palette } = useApexTheme();
   const { user, isSuperadmin } = useAuth();
   const loc = useLocation();
   const can = (code: string) => isSuperadmin || Boolean(user?.permissions?.includes(code));
@@ -105,13 +114,11 @@ export function Sidebar({ mobileMenuOpen, setMobileMenuOpen }: { mobileMenuOpen?
     { label: "Integraciones", to: "/integraciones", icon: Plug },
     { label: "Usuarios y permisos", to: "/usuarios", icon: Users },
   ];
-  // Un admin de area (no superadmin) solo administra las categorias y metodos de pago
-  // de su propia empresa.
   const areaAdminConfig: NavLink[] = !isSuperadmin && user?.role_slug === "admin"
     ? [{ label: "Categorías y pagos", to: "/admin/catalogos", icon: Settings2 }]
     : [];
 
-  const dashActive = loc.pathname === "/";
+  const dashActiveState = getActiveStyle(loc, "/", isLight, palette);
 
   return (
     <>
@@ -131,12 +138,13 @@ export function Sidebar({ mobileMenuOpen, setMobileMenuOpen }: { mobileMenuOpen?
       >
       <div className={["flex h-16 items-center gap-2 border-b px-4", isLight ? "border-[#E5E7EB]" : "border-white/[0.04]"].join(" ")}>
         <div
-          className={[
-            "flex h-9 w-9 items-center justify-center rounded-lg",
-            isLight ? "bg-[#007BFF]/14 text-[#007BFF]" : "bg-[#0a2744] text-[#7AB8FF]",
-          ].join(" ")}
+          className="flex h-9 w-9 items-center justify-center rounded-lg"
+          style={{
+            backgroundColor: isLight ? palette.lightBg : palette.darkBgDim,
+            color: isLight ? palette.textLight : palette.textDark,
+          }}
         >
-          <Zap className={["h-5 w-5", isLight ? "fill-[#007BFF]" : "fill-[#7AB8FF]"].join(" ")} />
+          <Zap className="h-5 w-5" style={{ fill: isLight ? palette.textLight : palette.textDark }} />
         </div>
         <div className="leading-tight">
           <p className={["text-[10px] font-medium uppercase tracking-[0.2em]", isLight ? "text-[#64748B]" : "text-zinc-500"].join(" ")}>Xpande Corp</p>
@@ -150,16 +158,8 @@ export function Sidebar({ mobileMenuOpen, setMobileMenuOpen }: { mobileMenuOpen?
           <nav className="space-y-0.5">
             <Link
               to="/"
-              className={[
-                "flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-colors",
-                dashActive
-                  ? isLight
-                    ? "bg-[#007BFF]/12 text-[#007BFF]"
-                    : "bg-[#0a2744] text-[#7AB8FF] shadow-[0_0_20px_rgba(0,123,255,0.18)]"
-                  : isLight
-                    ? "text-slate-600 hover:bg-slate-100 hover:text-slate-900"
-                    : "text-zinc-400 hover:bg-white/5 hover:text-zinc-200",
-              ].join(" ")}
+              className={dashActiveState.className}
+              style={dashActiveState.style}
             >
               <LayoutDashboard className="h-[18px] w-[18px] shrink-0 opacity-90" />
               <span className="flex-1">Panel general</span>
@@ -167,14 +167,15 @@ export function Sidebar({ mobileMenuOpen, setMobileMenuOpen }: { mobileMenuOpen?
           </nav>
         </div>
 
-        {crm.length ? <NavSection title="CRM" items={crm} isLight={isLight} /> : null}
-        {ops.length ? <NavSection title="Operaciones" items={ops} isLight={isLight} /> : null}
-        {finances.length ? <NavSection title="Finanzas" items={finances} isLight={isLight} /> : null}
-        <NavSection title="Analítica" items={analytic} isLight={isLight} />
-        {isSuperadmin ? <NavSection title="Administración" items={admin} isLight={isLight} /> : null}
-        {areaAdminConfig.length ? <NavSection title="Configuración" items={areaAdminConfig} isLight={isLight} /> : null}
+        {crm.length ? <NavSection title="CRM" items={crm} isLight={isLight} palette={palette} /> : null}
+        {ops.length ? <NavSection title="Operaciones" items={ops} isLight={isLight} palette={palette} /> : null}
+        {finances.length ? <NavSection title="Finanzas" items={finances} isLight={isLight} palette={palette} /> : null}
+        <NavSection title="Analítica" items={analytic} isLight={isLight} palette={palette} />
+        {isSuperadmin ? <NavSection title="Administración" items={admin} isLight={isLight} palette={palette} /> : null}
+        {areaAdminConfig.length ? <NavSection title="Configuración" items={areaAdminConfig} isLight={isLight} palette={palette} /> : null}
       </div>
     </aside>
     </>
   );
 }
+

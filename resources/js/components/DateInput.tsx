@@ -120,8 +120,8 @@ export function DateInput({ value, onChange, className, isLight, required, minDa
               day_button:
                 "h-8 w-8 rounded-md text-sm text-zinc-700 transition hover:bg-black/10 dark:text-zinc-200 dark:hover:bg-white/10",
               selected:
-                "bg-[#007BFF] text-white hover:bg-[#0063D5] dark:bg-[#007BFF] dark:text-white dark:hover:brightness-110",
-              today: "ring-1 ring-[#007BFF]/55",
+                "bg-primary-theme text-white hover:brightness-110 dark:bg-primary-theme dark:text-white dark:hover:brightness-110",
+              today: "ring-1 ring-primary-theme",
               outside: "text-zinc-400 dark:text-zinc-600",
             }}
             components={{
