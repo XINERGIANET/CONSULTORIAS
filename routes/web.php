@@ -143,6 +143,8 @@ Route::middleware('auth')->group(function (): void {
         Route::get('projects/{project}', [ProjectController::class, 'show']);
         Route::put('projects/{project}', [ProjectController::class, 'update']);
         Route::delete('projects/{project}', [ProjectController::class, 'destroy']);
+        Route::post('projects/{project}/restore', [ProjectController::class, 'restore']);
+
 
         Route::get('contracts', [ContractController::class, 'index']);
         Route::post('contracts', [ContractController::class, 'store']);

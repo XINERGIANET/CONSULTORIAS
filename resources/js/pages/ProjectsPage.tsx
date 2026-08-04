@@ -1,4 +1,5 @@
-import { Calendar, ExternalLink, FolderKanban, Plus, RefreshCw, ScrollText, Search, Trash2, UserPlus } from "lucide-react";
+import { Calendar, ExternalLink, FolderKanban, Plus, RefreshCw, RotateCcw, ScrollText, Search, Trash2, UserPlus } from "lucide-react";
+
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
@@ -201,10 +202,14 @@ export function ProjectsPage() {
   const [perPage, setPerPage] = useState(30);
   const [notice, setNotice] = useState<{ variant: "success" | "error"; title: string; message: string } | null>(null);
   const [pendingCancel, setPendingCancel] = useState<ProjRow | null>(null);
+  const [pendingDelete, setPendingDelete] = useState<ProjRow | null>(null);
+  const [pendingRestore, setPendingRestore] = useState<ProjRow | null>(null);
+  const [showDeleted, setShowDeleted] = useState(false);
 
   const [saving, setSaving] = useState(false);
   const [scheduleRows, setScheduleRows] = useState<ScheduleRow[]>([]);
   const [isScheduleCustomized, setIsScheduleCustomized] = useState(false);
+
 
   const [form, setForm] = useState({
     client_id: "" as "" | number,
@@ -336,6 +341,7 @@ export function ProjectsPage() {
           dir: sortDir,
           per_page: pp,
           status_group: statusFilter !== "all" ? statusFilter : undefined,
+          show_deleted: showDeleted ? true : undefined,
         });
         setData(res);
         setPage(res.current_page);
@@ -343,8 +349,9 @@ export function ProjectsPage() {
         setRefreshing(false);
       }
     },
-    [q, sortCol, sortDir, perPage, statusFilter],
+    [q, sortCol, sortDir, perPage, statusFilter, showDeleted],
   );
+
 
   useEffect(() => {
     void getJson<LaravelPaginated<ClientOpt>>("/api/clients", { per_page: 150 }).then((r) => setClients(r.data));
@@ -569,6 +576,41 @@ export function ProjectsPage() {
     }
   };
 
+  const execDeleteCancelledProj = async () => {
+    if (!pendingDelete) return;
+    const row = pendingDelete;
+    setPendingDelete(null);
+    try {
+      await deleteJson(`/api/projects/${row.id}`);
+      await fetchProjects(page);
+      setNotice({
+        variant: "success",
+        title: "Proyecto eliminado",
+        message: `«${row.name}» fue eliminado correctamente del sistema.`,
+      });
+    } catch (e: unknown) {
+      setNotice({ variant: "error", title: "Error", message: apiErrorMessage(e, "No se pudo eliminar el proyecto.") });
+    }
+  };
+
+  const execRestoreProj = async () => {
+    if (!pendingRestore) return;
+    const row = pendingRestore;
+    setPendingRestore(null);
+    try {
+      await postJson(`/api/projects/${row.id}/restore`, {});
+      await fetchProjects(page);
+      setNotice({
+        variant: "success",
+        title: "Proyecto restaurado",
+        message: `«${row.name}» fue restaurado a estado Anulado.`,
+      });
+    } catch (e: unknown) {
+      setNotice({ variant: "error", title: "Error", message: apiErrorMessage(e, "No se pudo restaurar el proyecto.") });
+    }
+  };
+
+
   const total = data?.total ?? 0;
   const lastPg = Math.max(1, data?.last_page ?? 1);
 
@@ -749,23 +791,60 @@ export function ProjectsPage() {
           placeholder="Buscar por proyecto, cliente o tipo de servicio…"
           className={["w-full sm:max-w-md", labInputClass(isLight)].join(" ")}
         />
-        <div className={["flex overflow-hidden rounded-lg border text-xs font-medium", isLight ? "border-[#E5E7EB]" : "border-white/[0.08]"].join(" ")}>
-          {(["all", "active", "inactive"] as const).map((f) => {
-            const label = { all: "Todos", active: "Activos", inactive: "Inactivos" }[f];
-            const sel = statusFilter === f;
-            return (
-              <button
-                key={f}
-                type="button"
-                onClick={() => setStatusFilter(f)}
-                className={["px-3 py-1.5 transition-colors", sel ? "bg-primary-theme text-white" : isLight ? "bg-white text-[#6B7280] hover:bg-[#F3F4F6]" : "bg-transparent text-zinc-400 hover:bg-white/[0.05]"].join(" ")}
-              >
-                {label}
-              </button>
-            );
-          })}
+        <div className="flex items-center gap-2">
+          <button
+            type="button"
+            onClick={() => setShowDeleted(!showDeleted)}
+            className={`inline-flex items-center gap-1.5 rounded-lg border px-3 py-1.5 text-xs font-semibold transition ${
+              showDeleted
+                ? "border-red-500 bg-red-600 text-white shadow-sm"
+                : isLight
+                ? "border-[#E5E7EB] bg-white text-[#374151] hover:bg-[#F3F4F6]"
+                : "border-white/[0.08] bg-transparent text-zinc-300 hover:bg-white/[0.05]"
+            }`}
+            title="Ver proyectos eliminados"
+          >
+            <Trash2 className="h-3.5 w-3.5" />
+            <span>{showDeleted ? "Viendo Eliminados (Volver)" : "Ver eliminados"}</span>
+          </button>
+
+          <div className={["flex overflow-hidden rounded-lg border text-xs font-medium", isLight ? "border-[#E5E7EB]" : "border-white/[0.08]"].join(" ")}>
+            {(["all", "active", "inactive"] as const).map((f) => {
+              const label = { all: "Todos", active: "Activos", inactive: "Inactivos" }[f];
+              const sel = statusFilter === f && !showDeleted;
+              return (
+                <button
+                  key={f}
+                  type="button"
+                  onClick={() => {
+                    setShowDeleted(false);
+                    setStatusFilter(f);
+                  }}
+                  className={["px-3 py-1.5 transition-colors", sel ? "bg-primary-theme text-white" : isLight ? "bg-white text-[#6B7280] hover:bg-[#F3F4F6]" : "bg-transparent text-zinc-400 hover:bg-white/[0.05]"].join(" ")}
+                >
+                  {label}
+                </button>
+              );
+            })}
+          </div>
         </div>
       </div>
+
+      {showDeleted ? (
+        <div className="mb-3 flex items-center justify-between rounded-xl border border-red-500/30 bg-red-50/40 dark:bg-red-950/30 p-3 text-xs text-red-900 dark:text-red-200">
+          <div className="flex items-center gap-2 font-semibold">
+            <Trash2 className="h-4 w-4 text-red-500" />
+            <span>Mostrando proyectos eliminados</span>
+          </div>
+          <button
+            type="button"
+            onClick={() => setShowDeleted(false)}
+            className="font-bold text-red-600 underline hover:text-red-800 dark:text-red-400"
+          >
+            Volver a lista principal
+          </button>
+        </div>
+      ) : null}
 
       <div className={labPanelClass(isLight)}>
         {!data ? (
@@ -845,8 +924,30 @@ export function ProjectsPage() {
                             </span>
                           </span>
                         ) : null}
-                        <LabCircleIconAction variant="cancel" tooltip="Cancelar proyecto" ariaLabel={`Cancelar ${p.name}`} onClick={() => setPendingCancel(p)} />
-
+                        {p.status === "cancelled" ? (
+                          <LabCircleIconAction
+                            variant="delete"
+                            tooltip="Eliminar proyecto anulado"
+                            ariaLabel={`Eliminar ${p.name}`}
+                            onClick={() => setPendingDelete(p)}
+                          />
+                        ) : p.status === "deleted" ? (
+                          <button
+                            type="button"
+                            onClick={() => setPendingRestore(p)}
+                            className="inline-flex items-center gap-1 rounded-md bg-blue-600 px-2 py-1 text-xs font-semibold text-white hover:bg-blue-700 transition shadow-sm"
+                            title="Restaurar proyecto"
+                          >
+                            <RotateCcw className="h-3.5 w-3.5" /> Restaurar
+                          </button>
+                        ) : (
+                          <LabCircleIconAction
+                            variant="cancel"
+                            tooltip="Cancelar proyecto"
+                            ariaLabel={`Cancelar ${p.name}`}
+                            onClick={() => setPendingCancel(p)}
+                          />
+                        )}
                       </div>
                     </td>
                   </tr>
@@ -897,6 +998,36 @@ export function ProjectsPage() {
         onConfirm={() => void execCancelProj()}
         onCancel={() => setPendingCancel(null)}
       />
+
+      <ConfirmModal
+        open={pendingDelete !== null}
+        title="Eliminar proyecto anulado"
+        message={
+          pendingDelete
+            ? `¿Confirma eliminar definitivamente el proyecto anulado «${pendingDelete.name}»? Podrás volver a verlo o restaurarlo en la sección "Ver eliminados".`
+            : ""
+        }
+        confirmText="Eliminar proyecto"
+        danger
+        isLight={isLight}
+        onConfirm={() => void execDeleteCancelledProj()}
+        onCancel={() => setPendingDelete(null)}
+      />
+
+      <ConfirmModal
+        open={pendingRestore !== null}
+        title="Restaurar proyecto"
+        message={
+          pendingRestore
+            ? `¿Confirma restaurar el proyecto «${pendingRestore.name}»? Volverá a la lista en estado Anulado.`
+            : ""
+        }
+        confirmText="Restaurar proyecto"
+        isLight={isLight}
+        onConfirm={() => void execRestoreProj()}
+        onCancel={() => setPendingRestore(null)}
+      />
+
 
       <FormModal
         open={open}

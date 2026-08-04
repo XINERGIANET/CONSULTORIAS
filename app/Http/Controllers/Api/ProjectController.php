@@ -27,10 +27,17 @@ class ProjectController extends Controller
             $aid = (int) $request->input('area_id');
             $q->whereHas('areas', fn ($b) => $b->where('areas.id', $aid));
         }
-        if ($request->filled('status')) {
-            $q->where('status', $request->input('status'));
+        if ($request->boolean('show_deleted') || $request->input('status') === 'deleted') {
+            $q->where('status', 'deleted');
+        } elseif ($request->filled('status')) {
+            if ($request->input('status') !== 'all') {
+                $q->where('status', $request->input('status'));
+            }
+        } else {
+            $q->where('status', '!=', 'deleted');
         }
-        if ($request->filled('status_group')) {
+
+        if ($request->filled('status_group') && ! $request->boolean('show_deleted')) {
             $group = $request->input('status_group');
             if ($group === 'active') {
                 $q->whereIn('status', ['pending', 'in_progress', 'paused']);
@@ -38,6 +45,7 @@ class ProjectController extends Controller
                 $q->whereIn('status', ['finished', 'cancelled']);
             }
         }
+
         if ($request->filled('engagement_type')) {
             $q->where('engagement_type', $request->input('engagement_type'));
         }
@@ -96,8 +104,9 @@ class ProjectController extends Controller
                 'required',
                 'string',
                 'max:255',
-                Rule::unique('projects', 'name')->where(fn ($q) => $q->where('status', '!=', 'cancelled')),
+                Rule::unique('projects', 'name')->where(fn ($q) => $q->whereNotIn('status', ['cancelled', 'deleted'])),
             ],
+
             'service_type' => ['nullable', 'string', 'max:255'],
             'start_date' => ['required', 'date'],
             'payment_start_date' => ['nullable', 'date'],
@@ -198,8 +207,9 @@ class ProjectController extends Controller
                 'required',
                 'string',
                 'max:255',
-                Rule::unique('projects', 'name')->ignore($project->id)->where(fn ($q) => $q->where('status', '!=', 'cancelled')),
+                Rule::unique('projects', 'name')->ignore($project->id)->where(fn ($q) => $q->whereNotIn('status', ['cancelled', 'deleted'])),
             ],
+
             'service_type' => ['nullable', 'string', 'max:255'],
             'start_date' => ['nullable', 'date'],
             'payment_start_date' => ['nullable', 'date'],
@@ -278,6 +288,15 @@ class ProjectController extends Controller
     {
         $this->assertProject($request, $project);
 
+        if ($project->status === 'cancelled' || $project->status === 'deleted' || $request->boolean('force')) {
+            $project->update(['status' => 'deleted']);
+
+            return response()->json([
+                'deleted' => true,
+                'message' => 'El proyecto anulado fue eliminado correctamente.',
+            ]);
+        }
+
         $project->update(['status' => 'cancelled']);
         $this->annulPendingObligations($project);
 
@@ -286,6 +305,22 @@ class ProjectController extends Controller
             'message' => 'El proyecto se canceló y sus cuentas por cobrar/pagar pendientes se anularon.',
         ]);
     }
+
+    public function restore(Request $request, Project $project): JsonResponse
+    {
+        $this->assertProject($request, $project);
+
+        if ($project->status === 'deleted') {
+            $project->update(['status' => 'cancelled']);
+        }
+
+        return response()->json([
+            'restored' => true,
+            'message' => 'El proyecto fue restaurado a estado Anulado.',
+            'project' => $project->fresh()->load(['areas', 'users', 'client', 'services', 'receivables']),
+        ]);
+    }
+
 
     /**
      * Anula (no borra) las cuotas de cuentas por cobrar/pagar de un proyecto que aun

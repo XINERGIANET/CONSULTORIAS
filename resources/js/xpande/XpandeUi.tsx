@@ -240,6 +240,7 @@ export const SPANISH_STATUS_MAP: Record<string, string> = {
   ok: "Activo",
   warn: "Pendiente",
   neutral: "Normal",
+  deleted: "Eliminado",
 };
 
 export function getSpanishStatusLabel(code: string): string {
@@ -251,7 +252,12 @@ export function getSpanishStatusLabel(code: string): string {
 export function statusBadgeClass(statusKey: string): string {
   const k = (statusKey ?? "").toLowerCase().trim();
 
+  if (["deleted", "eliminado"].includes(k)) {
+    return "inline-block rounded-full bg-zinc-700 px-3.5 py-1 text-xs font-bold text-white shadow-sm text-center tracking-wide min-w-[70px]";
+  }
+
   // Emerald / Green (Success / Active / Paid / Approved / Grata / Completed / Won)
+
   if (["paid", "pagado", "active", "activo", "accepted", "aceptado", "approved", "aprobado", "completed", "completado", "won", "ganada", "grata", "persona grata", "registrado", "ok"].includes(k)) {
     return "inline-block rounded-full bg-emerald-600 px-3.5 py-1 text-xs font-bold text-white shadow-sm text-center tracking-wide min-w-[70px]";
   }
