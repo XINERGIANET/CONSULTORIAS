@@ -1,6 +1,7 @@
 import { Briefcase, ExternalLink, Layers, Radar, Search, Target, TrendingUp } from "lucide-react";
 import { useEffect, useState } from "react";
 import { Link, useParams } from "react-router-dom";
+import { ConfirmModal } from "../components/ConfirmModal";
 import { SmartSelect } from "../components/SmartSelect";
 import { FormModal } from "../xpande/FormModal";
 import { deleteJson, getJson, postJson, putJson, type LaravelPaginated } from "../xpande/http";
@@ -72,8 +73,12 @@ export function AreasPage() {
     }
   };
 
-  const disable = async (a: AreaRow) => {
-    if (!confirm("¿Desactivar área " + a.name + "?")) return;
+  const [pendingDisableArea, setPendingDisableArea] = useState<AreaRow | null>(null);
+
+  const confirmDisableArea = async () => {
+    if (!pendingDisableArea) return;
+    const a = pendingDisableArea;
+    setPendingDisableArea(null);
     await deleteJson(`/api/areas/${a.id}`);
     load();
   };
@@ -129,7 +134,7 @@ export function AreasPage() {
                         variant="cancel"
                         tooltip="Desactivar"
                         ariaLabel={`Desactivar ${r.name}`}
-                        onClick={() => void disable(r)}
+                        onClick={() => setPendingDisableArea(r)}
                       />
                     </div>
                   </td>
@@ -168,6 +173,18 @@ export function AreasPage() {
           </LabField>
         </div>
       </FormModal>
+
+      <ConfirmModal
+        open={pendingDisableArea !== null}
+        title="Desactivar área de negocio"
+        message={`¿Estás seguro de que deseas desactivar el área «${pendingDisableArea?.name ?? ""}»?`}
+        confirmText="Desactivar"
+        cancelText="Cancelar"
+        danger
+        isLight={isLight}
+        onConfirm={() => void confirmDisableArea()}
+        onCancel={() => setPendingDisableArea(null)}
+      />
     </main>
   );
 }
@@ -748,8 +765,14 @@ export function ClientDetailPage() {
     }
   };
 
-  const delContact = async (contactId: number) => {
-    if (!confirm("¿Eliminar contacto?")) return;
+  const [pendingDeleteContactId, setPendingDeleteContactId] = useState<number | null>(null);
+  const [pendingDeleteActivityId, setPendingDeleteActivityId] = useState<number | null>(null);
+  const [pendingDeleteLocationId, setPendingDeleteLocationId] = useState<number | null>(null);
+
+  const confirmDeleteContact = async () => {
+    if (!pendingDeleteContactId) return;
+    const contactId = pendingDeleteContactId;
+    setPendingDeleteContactId(null);
     try {
       await deleteJson(`/api/clients/${cid}/contacts/${contactId}`);
       reload();
@@ -758,10 +781,24 @@ export function ClientDetailPage() {
     }
   };
 
-  const delActivity = async (activityId: number) => {
-    if (!confirm("¿Eliminar actividad?")) return;
+  const confirmDeleteActivity = async () => {
+    if (!pendingDeleteActivityId) return;
+    const activityId = pendingDeleteActivityId;
+    setPendingDeleteActivityId(null);
     try {
       await deleteJson(`/api/clients/${cid}/crm-activities/${activityId}`);
+      reload();
+    } catch {
+      setErr("No se pudo eliminar.");
+    }
+  };
+
+  const confirmDeleteLocation = async () => {
+    if (!pendingDeleteLocationId) return;
+    const locId = pendingDeleteLocationId;
+    setPendingDeleteLocationId(null);
+    try {
+      await deleteJson(`/api/clients/${cid}/locations/${locId}`);
       reload();
     } catch {
       setErr("No se pudo eliminar.");
@@ -813,16 +850,6 @@ export function ClientDetailPage() {
       reload();
     } catch {
       setErr("No se pudo guardar sede.");
-    }
-  };
-
-  const delLocation = async (locId: number) => {
-    if (!confirm("¿Eliminar sede?")) return;
-    try {
-      await deleteJson(`/api/clients/${cid}/locations/${locId}`);
-      reload();
-    } catch {
-      setErr("No se pudo eliminar.");
     }
   };
 
@@ -894,7 +921,7 @@ export function ClientDetailPage() {
                 <div className="font-medium">{co.name}</div>
                 <div className="text-[11px] text-zinc-500">{co.position ?? ""} {co.phone ? "· " + co.phone : ""} {co.email ? "· " + co.email : ""}</div>
                 {co.observations && <div className="text-[11px] mt-1 text-zinc-600 italic border-l-2 pl-2">Obs: {co.observations}</div>}
-                <button type="button" className={"mt-1 " + labGhostBtn(isLight)} onClick={() => void delContact(co.id)}>
+                <button type="button" className={"mt-1 " + labGhostBtn(isLight)} onClick={() => setPendingDeleteContactId(co.id)}>
                   Eliminar
                 </button>
               </li>
@@ -910,7 +937,7 @@ export function ClientDetailPage() {
                 <span>
                   <span className={labStatusPill("neutral", isLight)}>{ACTIVITY_TYPE_LABELS[a.type] ?? a.type}</span> {a.subject ?? ""}
                 </span>
-                <button type="button" className={labGhostBtn(isLight)} onClick={() => void delActivity(a.id)}>
+                <button type="button" className={labGhostBtn(isLight)} onClick={() => setPendingDeleteActivityId(a.id)}>
                   Eliminar
                 </button>
               </li>
@@ -934,7 +961,7 @@ export function ClientDetailPage() {
                   <button type="button" className={labGhostBtn(isLight)} onClick={() => openLocationEdit(loc)}>
                     Editar
                   </button>
-                  <button type="button" className={labGhostBtn(isLight)} onClick={() => void delLocation(loc.id)}>
+                  <button type="button" className={labGhostBtn(isLight)} onClick={() => setPendingDeleteLocationId(loc.id)}>
                     Eliminar
                   </button>
                 </div>
@@ -1036,6 +1063,42 @@ export function ClientDetailPage() {
           {err ? <p className="text-sm text-red-600">{err}</p> : null}
         </div>
       </FormModal>
+
+      <ConfirmModal
+        open={pendingDeleteContactId !== null}
+        title="Eliminar contacto"
+        message="¿Estás seguro de que deseas eliminar este contacto?"
+        confirmText="Eliminar"
+        cancelText="Cancelar"
+        danger
+        isLight={isLight}
+        onConfirm={() => void confirmDeleteContact()}
+        onCancel={() => setPendingDeleteContactId(null)}
+      />
+
+      <ConfirmModal
+        open={pendingDeleteActivityId !== null}
+        title="Eliminar actividad"
+        message="¿Estás seguro de que deseas eliminar esta actividad?"
+        confirmText="Eliminar"
+        cancelText="Cancelar"
+        danger
+        isLight={isLight}
+        onConfirm={() => void confirmDeleteActivity()}
+        onCancel={() => setPendingDeleteActivityId(null)}
+      />
+
+      <ConfirmModal
+        open={pendingDeleteLocationId !== null}
+        title="Eliminar sede"
+        message="¿Estás seguro de que deseas eliminar esta sede?"
+        confirmText="Eliminar"
+        cancelText="Cancelar"
+        danger
+        isLight={isLight}
+        onConfirm={() => void confirmDeleteLocation()}
+        onCancel={() => setPendingDeleteLocationId(null)}
+      />
     </main>
   );
 }

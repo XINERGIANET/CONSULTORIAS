@@ -2,6 +2,7 @@ import { FileSpreadsheet, FileText, Mail, MessageCircle } from "lucide-react";
 import { LabCircleIconAction, circleRowActionClass } from "../xpande/LabTableKit";
 import { useEffect, useState } from "react";
 import { useParams } from "react-router-dom";
+import { ConfirmModal } from "../components/ConfirmModal";
 import { SmartSelect } from "../components/SmartSelect";
 import { FormModal } from "../xpande/FormModal";
 import { deleteJson, getJson, postJson, putJson, type LaravelPaginated } from "../xpande/http";
@@ -176,8 +177,12 @@ export function QuotationsPage() {
     }
   };
 
-  const rejectQuote = async (id: number) => {
-    if (!confirm("¿Marcar cotización como rechazada?")) return;
+  const [pendingRejectQuoteId, setPendingRejectQuoteId] = useState<number | null>(null);
+
+  const confirmRejectQuote = async () => {
+    if (!pendingRejectQuoteId) return;
+    const id = pendingRejectQuoteId;
+    setPendingRejectQuoteId(null);
     try {
       await deleteJson(`/api/quotations/${id}`);
       load();
@@ -309,7 +314,7 @@ export function QuotationsPage() {
                                   setErr(null);
                                 }}
                               />
-                              <LabCircleIconAction variant="cancel" tooltip="Rechazar cotización" ariaLabel={`Rechazar cotización ${String(q.number)}`} onClick={() => void rejectQuote(Number(q.id))} />
+                              <LabCircleIconAction variant="cancel" tooltip="Rechazar cotización" ariaLabel={`Rechazar cotización ${String(q.number)}`} onClick={() => setPendingRejectQuoteId(Number(q.id))} />
                             </>
                           ) : null}
                         </div>
@@ -497,6 +502,18 @@ export function QuotationsPage() {
           {err ? <p className="sm:col-span-2 text-sm text-red-600">{err}</p> : null}
         </div>
       </FormModal>
+
+      <ConfirmModal
+        open={pendingRejectQuoteId !== null}
+        title="Rechazar cotización"
+        message="¿Estás seguro de que deseas marcar esta cotización como rechazada?"
+        confirmText="Rechazar"
+        cancelText="Cancelar"
+        danger
+        isLight={isLight}
+        onConfirm={() => void confirmRejectQuote()}
+        onCancel={() => setPendingRejectQuoteId(null)}
+      />
     </main>
   );
 }
@@ -601,8 +618,12 @@ export function OpportunitiesPage() {
     }
   };
 
-  const del = async (id: number) => {
-    if (!confirm("¿Eliminar esta oportunidad?")) return;
+  const [pendingDeleteOppId, setPendingDeleteOppId] = useState<number | null>(null);
+
+  const confirmDeleteOpp = async () => {
+    if (!pendingDeleteOppId) return;
+    const id = pendingDeleteOppId;
+    setPendingDeleteOppId(null);
     try {
       await deleteJson(`/api/opportunities/${id}`);
       load();
@@ -656,7 +677,7 @@ export function OpportunitiesPage() {
                       <td className="py-2 text-right align-middle">
                         <div className="flex justify-end gap-2">
                           <LabCircleIconAction variant="edit" tooltip="Editar" ariaLabel={`Editar oportunidad`} onClick={() => openEdit(o)} />
-                          <LabCircleIconAction variant="delete" tooltip="Eliminar" ariaLabel={`Eliminar oportunidad`} onClick={() => void del(Number(o.id))} />
+                          <LabCircleIconAction variant="delete" tooltip="Eliminar" ariaLabel={`Eliminar oportunidad`} onClick={() => setPendingDeleteOppId(Number(o.id))} />
                         </div>
                       </td>
                     </tr>
@@ -737,6 +758,18 @@ export function OpportunitiesPage() {
           {err ? <p className="sm:col-span-2 text-sm text-red-600">{err}</p> : null}
         </div>
       </FormModal>
+
+      <ConfirmModal
+        open={pendingDeleteOppId !== null}
+        title="Eliminar oportunidad"
+        message="¿Estás seguro de que deseas eliminar esta oportunidad?"
+        confirmText="Eliminar"
+        cancelText="Cancelar"
+        danger
+        isLight={isLight}
+        onConfirm={() => void confirmDeleteOpp()}
+        onCancel={() => setPendingDeleteOppId(null)}
+      />
     </main>
   );
 }

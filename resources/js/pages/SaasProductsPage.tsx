@@ -1,6 +1,7 @@
 import { Boxes, Plus, RefreshCw } from "lucide-react";
 import { LabCircleIconAction } from "../xpande/LabTableKit";
 import { useEffect, useMemo, useState } from "react";
+import { ConfirmModal } from "../components/ConfirmModal";
 import { SmartSelect } from "../components/SmartSelect";
 import { FormModal } from "../xpande/FormModal";
 import { apiErrorMessage } from "../xpande/apiError";
@@ -141,8 +142,13 @@ export function SaasProductsPage() {
     }
   };
 
-  const deactivate = async (row: SaasRow) => {
-    if (!confirm("¿Dar de baja este producto SaaS?")) return;
+  const [pendingDeactivateSaas, setPendingDeactivateSaas] = useState<SaasRow | null>(null);
+  const [pendingRemoveSaas, setPendingRemoveSaas] = useState<SaasRow | null>(null);
+
+  const confirmDeactivateSaas = async () => {
+    if (!pendingDeactivateSaas) return;
+    const row = pendingDeactivateSaas;
+    setPendingDeactivateSaas(null);
     setErr(null);
     try {
       await putJson(`/api/catalog/services/${row.id}`, {
@@ -160,8 +166,10 @@ export function SaasProductsPage() {
     }
   };
 
-  const remove = async (row: SaasRow) => {
-    if (!confirm(`¿Eliminar definitivamente el producto SaaS «${row.name}»? Esta acción lo removerá de la base de datos.`)) return;
+  const confirmRemoveSaas = async () => {
+    if (!pendingRemoveSaas) return;
+    const row = pendingRemoveSaas;
+    setPendingRemoveSaas(null);
     setErr(null);
     try {
       await deleteJson(`/api/catalog/services/${row.id}`);
@@ -236,8 +244,8 @@ export function SaasProductsPage() {
                     <td className="py-3 text-right align-middle">
                       <div className="flex justify-end gap-2">
                         <LabCircleIconAction variant="edit" tooltip="Editar" ariaLabel={`Editar ${String(row.name ?? "")}`} onClick={() => startEdit(row)} />
-                        <LabCircleIconAction variant="cancel" tooltip="Dar de baja" ariaLabel={`Dar de baja ${String(row.name ?? "")}`} onClick={() => void deactivate(row)} />
-                        <LabCircleIconAction variant="delete" tooltip="Eliminar" ariaLabel={`Eliminar ${String(row.name ?? "")}`} onClick={() => void remove(row)} />
+                        <LabCircleIconAction variant="cancel" tooltip="Dar de baja" ariaLabel={`Dar de baja ${String(row.name ?? "")}`} onClick={() => setPendingDeactivateSaas(row)} />
+                        <LabCircleIconAction variant="delete" tooltip="Eliminar" ariaLabel={`Eliminar ${String(row.name ?? "")}`} onClick={() => setPendingRemoveSaas(row)} />
                       </div>
                     </td>
                   </tr>
@@ -303,6 +311,30 @@ export function SaasProductsPage() {
           {err ? <p className="sm:col-span-2 text-sm text-red-600">{err}</p> : null}
         </div>
       </FormModal>
+
+      <ConfirmModal
+        open={pendingDeactivateSaas !== null}
+        title="Dar de baja producto SaaS"
+        message={`¿Estás seguro de que deseas dar de baja el producto SaaS «${pendingDeactivateSaas?.name ?? ""}»?`}
+        confirmText="Dar de baja"
+        cancelText="Cancelar"
+        danger
+        isLight={isLight}
+        onConfirm={() => void confirmDeactivateSaas()}
+        onCancel={() => setPendingDeactivateSaas(null)}
+      />
+
+      <ConfirmModal
+        open={pendingRemoveSaas !== null}
+        title="Eliminar producto SaaS"
+        message={`¿Estás seguro de que deseas eliminar definitivamente el producto SaaS «${pendingRemoveSaas?.name ?? ""}»? Esta acción lo removerá de la base de datos.`}
+        confirmText="Eliminar"
+        cancelText="Cancelar"
+        danger
+        isLight={isLight}
+        onConfirm={() => void confirmRemoveSaas()}
+        onCancel={() => setPendingRemoveSaas(null)}
+      />
     </main>
   );
 }

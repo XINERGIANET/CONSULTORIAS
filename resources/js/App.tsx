@@ -16,6 +16,7 @@ import { AreasPage, ClientDetailPage, ClientsPage, IntegracionesPage, Rentabilid
 import { CalendarPage } from "./pages/CalendarPage";
 import { TasksPage } from "./pages/TasksPage";
 import { UsersPage } from "./pages/UsersPage";
+import { NotFoundPage } from "./pages/NotFoundPage";
 
 function RequireAuth({ children }: { children: React.ReactElement }) {
   const { isAuthenticated } = useAuth();
@@ -183,7 +184,7 @@ function App() {
               </RequireSuperadmin>
             }
           />
-          <Route path="*" element={<Navigate to="/" replace />} />
+          <Route path="*" element={<NotFoundPage />} />
         </Route>
       </Routes>
     </BrowserRouter>

@@ -2,6 +2,7 @@ import { AlertTriangle, ChevronRight, Clock, CreditCard, Database, ExternalLink,
 import { Link } from "react-router-dom";
 import { LabCircleIconAction } from "../xpande/LabTableKit";
 import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import { ConfirmModal } from "../components/ConfirmModal";
 import { SmartSelect } from "../components/SmartSelect";
 import { useAuth } from "../context/AuthContext";
 import { FormModal } from "../xpande/FormModal";
@@ -149,6 +150,8 @@ export function FinanzasHubPage() {
   const [outModal, setOutModal] = useState(false);
   const [editInId, setEditInId] = useState<number | null>(null);
   const [editOutId, setEditOutId] = useState<number | null>(null);
+  const [pendingDeleteInId, setPendingDeleteInId] = useState<number | null>(null);
+  const [pendingDeleteOutId, setPendingDeleteOutId] = useState<number | null>(null);
   const [err, setErr] = useState<string | null>(null);
   const [inFilters, setInFilters] = useState({ client_id: "", project_id: "", from: "", to: "" });
   const [outFilters, setOutFilters] = useState({ client_id: "", project_id: "", from: "", to: "" });
@@ -368,13 +371,15 @@ export function FinanzasHubPage() {
     }
   };
 
-  const annulIn = async (id: number) => {
-    if (!confirm("¿Anular este ingreso?")) return;
+  const confirmDeleteIn = async () => {
+    if (!pendingDeleteInId) return;
+    const id = pendingDeleteInId;
+    setPendingDeleteInId(null);
     try {
       await deleteJson(`/api/incomes/${id}`);
       loadIncomes();
     } catch {
-      setErr("No se pudo anular.");
+      setErr("No se pudo eliminar el ingreso.");
     }
   };
 
@@ -450,13 +455,15 @@ export function FinanzasHubPage() {
     }
   };
 
-  const delOut = async (id: number) => {
-    if (!confirm("¿Eliminar costo permanentemente?")) return;
+  const confirmDeleteOut = async () => {
+    if (!pendingDeleteOutId) return;
+    const id = pendingDeleteOutId;
+    setPendingDeleteOutId(null);
     try {
       await deleteJson(`/api/expenses/${id}`);
       loadExpenses();
     } catch {
-      setErr("No se pudo eliminar.");
+      setErr("No se pudo eliminar el costo.");
     }
   };
 
@@ -874,7 +881,7 @@ export function FinanzasHubPage() {
                           ) : (
                             <>
                               <LabCircleIconAction variant="edit" tooltip="Editar registro directo" ariaLabel="Editar ingreso" onClick={() => void fillInEdit(Number(r.id))} />
-                              <LabCircleIconAction variant="cancel" tooltip="Anular registro directo" ariaLabel="Anular ingreso" onClick={() => void annulIn(Number(r.id))} />
+                              <LabCircleIconAction variant="delete" tooltip="Eliminar registro directo" ariaLabel="Eliminar ingreso" onClick={() => setPendingDeleteInId(Number(r.id))} />
                             </>
                           )}
                         </div>
@@ -972,7 +979,7 @@ export function FinanzasHubPage() {
                             ) : (
                               <>
                                 <LabCircleIconAction variant="edit" tooltip="Editar registro directo" ariaLabel="Editar costo" onClick={() => void fillOutEdit(Number(r.id))} />
-                                <LabCircleIconAction variant="delete" tooltip="Anular registro directo" ariaLabel="Eliminar costo" onClick={() => void delOut(Number(r.id))} />
+                                <LabCircleIconAction variant="delete" tooltip="Anular registro directo" ariaLabel="Eliminar costo" onClick={() => setPendingDeleteOutId(Number(r.id))} />
                               </>
                             )}
                           </div>
@@ -1242,11 +1249,11 @@ export function FinanzasHubPage() {
                     onClick={() => {
                       const item = detailItem;
                       setDetailItem(null);
-                      if (item.type === "income") void annulIn(Number(item.data.id));
-                      else void delOut(Number(item.data.id));
+                      if (item.type === "income") setPendingDeleteInId(Number(item.data.id));
+                      else setPendingDeleteOutId(Number(item.data.id));
                     }}
                   >
-                    Anular
+                    Eliminar
                   </button>
                 </>
               ) : null}
@@ -1352,6 +1359,30 @@ export function FinanzasHubPage() {
           </div>
         ) : null}
       </FormModal>
+
+      <ConfirmModal
+        open={pendingDeleteInId !== null}
+        title="Eliminar Ingreso"
+        message="¿Estás seguro de que deseas eliminar este ingreso permanentemente? Esta acción lo removerá de la base de datos y actualizará las cuentas por cobrar vinculadas."
+        confirmText="Eliminar"
+        cancelText="Cancelar"
+        danger
+        isLight={isLight}
+        onConfirm={() => void confirmDeleteIn()}
+        onCancel={() => setPendingDeleteInId(null)}
+      />
+
+      <ConfirmModal
+        open={pendingDeleteOutId !== null}
+        title="Eliminar Costo"
+        message="¿Estás seguro de que deseas eliminar este costo permanentemente? Esta acción lo removerá de la base de datos y actualizará las cuentas por pagar vinculadas."
+        confirmText="Eliminar"
+        cancelText="Cancelar"
+        danger
+        isLight={isLight}
+        onConfirm={() => void confirmDeleteOut()}
+        onCancel={() => setPendingDeleteOutId(null)}
+      />
     </main>
   );
 }
@@ -1458,8 +1489,12 @@ export function TimeEntriesPage() {
     }
   };
 
-  const del = async (id: number) => {
-    if (!confirm("¿Eliminar registro horario?")) return;
+  const [pendingDeleteTimeId, setPendingDeleteTimeId] = useState<number | null>(null);
+
+  const confirmDeleteTime = async () => {
+    if (!pendingDeleteTimeId) return;
+    const id = pendingDeleteTimeId;
+    setPendingDeleteTimeId(null);
     try {
       await deleteJson(`/api/time-entries/${id}`);
       load();
@@ -1505,7 +1540,7 @@ export function TimeEntriesPage() {
                         <LabCircleIconAction variant="cancel" tooltip="Rechazar" ariaLabel="Rechazar registro" onClick={() => void review(Number(r.id), "rejected")} />
                       </>
                     ) : null}
-                    <LabCircleIconAction variant="delete" tooltip="Borrar" ariaLabel="Borrar registro" onClick={() => void del(Number(r.id))} />
+                    <LabCircleIconAction variant="delete" tooltip="Borrar" ariaLabel="Borrar registro" onClick={() => setPendingDeleteTimeId(Number(r.id))} />
                   </div>
                 </div>
               );
@@ -1576,6 +1611,18 @@ export function TimeEntriesPage() {
           {err ? <p className="sm:col-span-2 text-sm text-red-600">{err}</p> : null}
         </div>
       </FormModal>
+
+      <ConfirmModal
+        open={pendingDeleteTimeId !== null}
+        title="Eliminar Registro Horario"
+        message="¿Estás seguro de que deseas eliminar este registro horario?"
+        confirmText="Eliminar"
+        cancelText="Cancelar"
+        danger
+        isLight={isLight}
+        onConfirm={() => void confirmDeleteTime()}
+        onCancel={() => setPendingDeleteTimeId(null)}
+      />
     </main>
   );
 }
@@ -1653,8 +1700,12 @@ export function DocumentsPage() {
     }
   };
 
-  const remove = async (id: number) => {
-    if (!confirm("¿Eliminar documento?")) return;
+  const [pendingDeleteDocId, setPendingDeleteDocId] = useState<number | null>(null);
+
+  const confirmDeleteDoc = async () => {
+    if (!pendingDeleteDocId) return;
+    const id = pendingDeleteDocId;
+    setPendingDeleteDocId(null);
     try {
       await deleteJson(`/api/documents/${id}`);
       load();
@@ -1692,7 +1743,7 @@ export function DocumentsPage() {
                     <p className={isLight ? "text-[10px] text-[#6B7280]" : "text-[10px] text-zinc-500"}>{DOC_TYPE_LABELS[String(d.doc_type)] ?? String(d.doc_type)} · v{String(d.version ?? 1)}</p>
                   </div>
                 </div>
-                <button type="button" className={labGhostBtn(isLight)} onClick={() => void remove(Number(d.id))}>
+                <button type="button" className={labGhostBtn(isLight)} onClick={() => setPendingDeleteDocId(Number(d.id))}>
                   <Trash2 className="h-4 w-4" />
                 </button>
               </div>
@@ -1803,6 +1854,18 @@ export function DocumentsPage() {
           {err ? <p className="sm:col-span-2 text-sm text-red-600">{err}</p> : null}
         </div>
       </FormModal>
+
+      <ConfirmModal
+        open={pendingDeleteDocId !== null}
+        title="Eliminar Documento"
+        message="¿Estás seguro de que deseas eliminar este documento?"
+        confirmText="Eliminar"
+        cancelText="Cancelar"
+        danger
+        isLight={isLight}
+        onConfirm={() => void confirmDeleteDoc()}
+        onCancel={() => setPendingDeleteDocId(null)}
+      />
     </main>
   );
 }
@@ -2083,8 +2146,12 @@ export function CatalogosAdminPage() {
     }
   };
 
-  const softDelete = async (r: Record<string, unknown>) => {
-    if (!confirm("¿Desactivar / marcar baja?")) return;
+  const [pendingDeleteCatRow, setPendingDeleteCatRow] = useState<Record<string, unknown> | null>(null);
+
+  const confirmDeleteCat = async () => {
+    if (!pendingDeleteCatRow) return;
+    const r = pendingDeleteCatRow;
+    setPendingDeleteCatRow(null);
     const id = parseId(r);
     try {
       if (cat === "financial-categories") await deleteJson(`/api/catalog/financial-categories/${id}`);
@@ -2181,7 +2248,7 @@ export function CatalogosAdminPage() {
                   <td className="py-2 text-right align-middle">
                     <div className="flex justify-end gap-2">
                       <LabCircleIconAction variant="edit" tooltip="Editar" ariaLabel="Editar ítem" onClick={() => startEdit(r)} />
-                      <LabCircleIconAction variant="cancel" tooltip="Dar de baja" ariaLabel="Dar de baja ítem" onClick={() => void softDelete(r)} />
+                      <LabCircleIconAction variant="cancel" tooltip="Dar de baja" ariaLabel="Dar de baja ítem" onClick={() => setPendingDeleteCatRow(r)} />
                     </div>
                   </td>
                 </tr>
@@ -2409,6 +2476,18 @@ export function CatalogosAdminPage() {
           {err ? <p className="sm:col-span-2 text-sm text-red-600">{err}</p> : null}
         </div>
       </FormModal>
+
+      <ConfirmModal
+        open={pendingDeleteCatRow !== null}
+        title="Dar de baja elemento de catálogo"
+        message="¿Estás seguro de que deseas desactivar / dar de baja este elemento?"
+        confirmText="Confirmar"
+        cancelText="Cancelar"
+        danger
+        isLight={isLight}
+        onConfirm={() => void confirmDeleteCat()}
+        onCancel={() => setPendingDeleteCatRow(null)}
+      />
     </main>
   );
 }
