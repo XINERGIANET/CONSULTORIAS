@@ -6,6 +6,7 @@ import {
   FileCheck,
   FileText,
   RotateCcw,
+  Trash2,
 } from "lucide-react";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
@@ -13,7 +14,7 @@ import { ConfirmModal } from "../components/ConfirmModal";
 import { SmartSelect } from "../components/SmartSelect";
 import { useApexTheme } from "../context/ThemeContext";
 import { FormModal } from "../xpande/FormModal";
-import { LabCircleIconAction, LabNoticeModal } from "../xpande/LabTableKit";
+import { LabNoticeModal } from "../xpande/LabTableKit";
 import { deleteJson, getJson, postJson, type LaravelPaginated } from "../xpande/http";
 import { apiErrorMessage } from "../xpande/apiError";
 
@@ -498,6 +499,15 @@ export function ContratosPage() {
                             <span>Renovar</span>
                           </button>
                         ) : null}
+
+                        <button
+                          type="button"
+                          onClick={() => setPendingDelete(c)}
+                          className="inline-flex items-center gap-1 rounded-md bg-red-50 px-2 py-1 text-[11px] font-medium text-red-600 hover:bg-red-100 dark:bg-red-950/40 dark:text-red-400 dark:hover:bg-red-900/60 transition-colors"
+                          title="Eliminar contrato"
+                        >
+                          <Trash2 className="h-3.5 w-3.5" />
+                        </button>
                       </div>
                     </td>
                   </tr>
@@ -657,6 +667,18 @@ export function ContratosPage() {
           </div>
         </div>
       </FormModal>
+
+      <ConfirmModal
+        open={pendingDelete !== null}
+        title="Eliminar Contrato"
+        message={`¿Estás seguro de que deseas eliminar el contrato #${pendingDelete?.id ?? ""} «${pendingDelete?.title ?? ""}»? Esta acción eliminará el contrato y limpiará o cancelará sus cuotas pendientes.`}
+        confirmText="Eliminar"
+        cancelText="Cancelar"
+        danger
+        isLight={isLight}
+        onConfirm={() => void execDeleteContract()}
+        onCancel={() => setPendingDelete(null)}
+      />
     </main>
   );
 }
