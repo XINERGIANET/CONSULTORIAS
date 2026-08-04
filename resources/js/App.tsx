@@ -6,8 +6,10 @@ import { DashboardHome } from "./pages/DashboardHome";
 import { LoginPage } from "./pages/LoginPage";
 import { QuotationsPage, OpportunitiesPage } from "./pages/CommerceQuotationsOpportunities";
 import { CatalogosAdminPage, DocumentsPage, FinanzasHubPage, TimeEntriesPage } from "./pages/CommerceFinanceDocsTimeCatalog";
+import { ContratosPage } from "./pages/ContratosPage";
 import { CuentasPorCobrarPage } from "./pages/CuentasPorCobrarPage";
 import { CuentasPorPagarPage } from "./pages/CuentasPorPagarPage";
+
 import { ProjectsPage } from "./pages/ProjectsPage";
 import { SaasProductsPage } from "./pages/SaasProductsPage";
 import { AreasPage, ClientDetailPage, ClientsPage, IntegracionesPage, RentabilidadPage, ReportesGerenciaPage } from "./pages/OperationalPages";
@@ -112,7 +114,11 @@ function App() {
           <Route path="/cotizaciones" element={<QuotationsPage />} />
           <Route path="/cotizaciones/*" element={<QuotationsPage />} />
 
+          <Route path="/contratos" element={<ContratosPage />} />
+          <Route path="/contratos/*" element={<ContratosPage />} />
+
           <Route path="/oportunidades" element={<OpportunitiesPage />} />
+
           <Route path="/oportunidades/*" element={<OpportunitiesPage />} />
 
           <Route path="/finanzas" element={<FinanzasHubPage />} />

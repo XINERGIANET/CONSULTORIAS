@@ -1,4 +1,5 @@
-import { AlertTriangle, CheckCircle2, Clock, HandCoins, History, Plus, RotateCcw, Wallet } from "lucide-react";
+import { AlertTriangle, CheckCircle2, Clock, FileImage, HandCoins, History, Pencil, Plus, Wallet } from "lucide-react";
+
 import { useEffect, useMemo, useState } from "react";
 import { ConfirmModal } from "../components/ConfirmModal";
 import { SmartSelect } from "../components/SmartSelect";
@@ -6,7 +7,7 @@ import { useAuth } from "../context/AuthContext";
 import { useApexTheme } from "../context/ThemeContext";
 import { FormModal } from "../xpande/FormModal";
 import { LabCircleIconAction, LabNoticeModal } from "../xpande/LabTableKit";
-import { deleteJson, getJson, postJson, putJson, type LaravelPaginated } from "../xpande/http";
+import { deleteJson, getJson, postFormData, postJson, putJson, type LaravelPaginated } from "../xpande/http";
 import {
   LabBreadcrumbs,
   LabField,
@@ -25,8 +26,11 @@ type PaymentRow = {
   method?: string | null;
   reference?: string | null;
   notes?: string | null;
+  receipt_path?: string | null;
+  receipt_url?: string | null;
   registered_by?: { name?: string } | null;
 };
+
 
 type AccountRow = {
   id: number;
@@ -108,19 +112,38 @@ export function CuentasPorCobrarPage() {
   const [historyModal, setHistoryModal] = useState(false);
   const [createModal, setCreateModal] = useState(false);
   const [editModal, setEditModal] = useState(false);
+  const [editPayModal, setEditPayModal] = useState(false);
   const [activeAccount, setActiveAccount] = useState<AccountRow | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<AccountRow | null>(null);
-  const [revertPaymentTarget, setRevertPaymentTarget] = useState<PaymentRow | null>(null);
+  const [editPayTarget, setEditPayTarget] = useState<PaymentRow | null>(null);
   const [notice, setNotice] = useState<{ variant: "success" | "error"; title: string; message: string } | null>(null);
   const [err, setErr] = useState<string | null>(null);
   const [filters, setFilters] = useState({ client_id: "", project_id: "", status: "", from: "", to: "" });
 
-  const [payForm, setPayForm] = useState({
+  const [payForm, setPayForm] = useState<{
+    amount: string;
+    paid_on: string;
+    method: string;
+    reference: string;
+    notes: string;
+    file: File | null;
+  }>({
     amount: "",
     paid_on: new Date().toISOString().slice(0, 10),
     method: "",
     reference: "",
     notes: "",
+    file: null,
+  });
+
+  const [editPayForm, setEditPayForm] = useState<{
+    paid_on: string;
+    file: File | null;
+    current_receipt_url: string | null;
+  }>({
+    paid_on: "",
+    file: null,
+    current_receipt_url: null,
   });
 
   const [newForm, setNewForm] = useState({
@@ -205,6 +228,7 @@ export function CuentasPorCobrarPage() {
       method: "",
       reference: "",
       notes: "",
+      file: null,
     });
     setErr(null);
     setPayModal(true);
@@ -231,6 +255,16 @@ export function CuentasPorCobrarPage() {
     setEditModal(true);
   };
 
+  const openEditPayment = (p: PaymentRow) => {
+    setEditPayTarget(p);
+    setEditPayForm({
+      paid_on: p.paid_on ? String(p.paid_on).slice(0, 10) : new Date().toISOString().slice(0, 10),
+      file: null,
+      current_receipt_url: p.receipt_url ?? null,
+    });
+    setEditPayModal(true);
+  };
+
   const updateCollectedOn = async (r: AccountRow, value: string) => {
     try {
       await putJson(`/api/accounts-receivable/${r.id}`, { collected_on: value || null });
@@ -246,19 +280,47 @@ export function CuentasPorCobrarPage() {
       return;
     }
     try {
-      await postJson(`/api/accounts-receivable/${activeAccount.id}/payments`, {
-        amount: Number(payForm.amount),
-        paid_on: payForm.paid_on,
-        method: payForm.method || null,
-        reference: payForm.reference || null,
-        notes: payForm.notes || null,
-      });
+      const fd = new FormData();
+      fd.append("amount", String(payForm.amount));
+      fd.append("paid_on", payForm.paid_on);
+      if (payForm.method) fd.append("method", payForm.method);
+      if (payForm.reference) fd.append("reference", payForm.reference);
+      if (payForm.notes) fd.append("notes", payForm.notes);
+      if (payForm.file) fd.append("receipt", payForm.file);
+
+      await postFormData(`/api/accounts-receivable/${activeAccount.id}/payments`, fd);
       setPayModal(false);
       setActiveAccount(null);
       load();
-      setNotice({ variant: "success", title: "Cobro registrado", message: "Se actualizó el saldo y se generó el ingreso en finanzas." });
+      setNotice({ variant: "success", title: "Cobro registrado", message: "Se actualizó el saldo y se guardó la foto/comprobante de pago." });
     } catch {
-      setErr("No se pudo registrar el pago. Verifique el saldo pendiente.");
+      setErr("No se pudo registrar el pago. Verifique el saldo pendiente y el archivo.");
+    }
+  };
+
+  const saveEditPayment = async () => {
+    if (!activeAccount || !editPayTarget) return;
+    if (!editPayForm.paid_on) {
+      setNotice({ variant: "error", title: "Formulario", message: "La fecha de pago es obligatoria." });
+      return;
+    }
+    try {
+      const fd = new FormData();
+      fd.append("paid_on", editPayForm.paid_on);
+      if (editPayForm.file) {
+        fd.append("receipt", editPayForm.file);
+      }
+      const updatedAccount = await postFormData<AccountRow>(
+        `/api/accounts-receivable/${activeAccount.id}/payments/${editPayTarget.id}`,
+        fd
+      );
+      setEditPayModal(false);
+      setEditPayTarget(null);
+      setActiveAccount(updatedAccount);
+      load();
+      setNotice({ variant: "success", title: "Pago actualizado", message: "Se actualizaron la fecha de pago y el comprobante de forma limpia." });
+    } catch {
+      setNotice({ variant: "error", title: "Error", message: "No se pudo actualizar el pago." });
     }
   };
 
@@ -306,19 +368,6 @@ export function CuentasPorCobrarPage() {
     }
   };
 
-  const confirmRevertPayment = async () => {
-    if (!activeAccount || !revertPaymentTarget) return;
-    try {
-      await deleteJson(`/api/accounts-receivable/${activeAccount.id}/payments/${revertPaymentTarget.id}`);
-      setRevertPaymentTarget(null);
-      setHistoryModal(false);
-      setActiveAccount(null);
-      load();
-      setNotice({ variant: "success", title: "Abono revertido", message: "El pago fue eliminado y el saldo devuelto a la cuenta por cobrar." });
-    } catch {
-      setNotice({ variant: "error", title: "Error", message: "No se pudo revertir el abono." });
-    }
-  };
 
   const confirmDeleteAccount = async () => {
     if (!deleteTarget) return;
@@ -553,16 +602,7 @@ export function CuentasPorCobrarPage() {
         onCancel={() => setDeleteTarget(null)}
       />
 
-      <ConfirmModal
-        open={revertPaymentTarget !== null}
-        title="Revertir y eliminar abono"
-        message={revertPaymentTarget ? `¿Confirma revertir el abono de S/. ${fmt(revertPaymentTarget.amount)} del ${revertPaymentTarget.paid_on}? Se eliminará el ingreso en finanzas y se devolverá el saldo pendiente.` : ""}
-        confirmText="Revertir pago"
-        danger
-        isLight={isLight}
-        onConfirm={() => void confirmRevertPayment()}
-        onCancel={() => setRevertPaymentTarget(null)}
-      />
+
 
       {/* Modal: Registrar Pago / Abono */}
       <FormModal
@@ -629,6 +669,15 @@ export function CuentasPorCobrarPage() {
             />
           </LabField>
 
+          <LabField label="Foto / Comprobante de pago (Opcional)" isLight={isLight} className="sm:col-span-2">
+            <input
+              type="file"
+              accept="image/*,.pdf"
+              className={labInputClass(isLight)}
+              onChange={(e) => setPayForm({ ...payForm, file: e.target.files?.[0] ?? null })}
+            />
+          </LabField>
+
           <LabField label="Notas de cobro" isLight={isLight} className="sm:col-span-2">
             <textarea
               rows={2}
@@ -643,7 +692,7 @@ export function CuentasPorCobrarPage() {
         </div>
       </FormModal>
 
-      {/* Modal: Historial y Reversión de Pagos */}
+      {/* Modal: Historial de Pagos */}
       <FormModal
         open={historyModal}
         title="Historial de abonos registrados"
@@ -677,6 +726,7 @@ export function CuentasPorCobrarPage() {
                     <th className="pb-2 text-right">Monto</th>
                     <th className="pb-2">Método</th>
                     <th className="pb-2">Referencia</th>
+                    <th className="pb-2">Comprobante / Foto</th>
                     <th className="pb-2">Registrado por</th>
                     <th className="pb-2 text-right">Acción</th>
                   </tr>
@@ -688,14 +738,28 @@ export function CuentasPorCobrarPage() {
                       <td className="py-2.5 text-right font-bold text-emerald-600 dark:text-emerald-400">S/. {fmt(p.amount)}</td>
                       <td className="py-2.5">{p.method ?? "—"}</td>
                       <td className="py-2.5">{p.reference ?? "—"}</td>
+                      <td className="py-2.5">
+                        {p.receipt_url ? (
+                          <a
+                            href={p.receipt_url}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="inline-flex items-center gap-1 font-semibold text-indigo-600 dark:text-indigo-400 hover:underline"
+                          >
+                            <FileImage className="h-3.5 w-3.5" /> Ver foto
+                          </a>
+                        ) : (
+                          <span className="text-zinc-400 font-normal">Sin foto</span>
+                        )}
+                      </td>
                       <td className="py-2.5">{p.registered_by?.name ?? "Sistema"}</td>
                       <td className="py-2.5 text-right">
                         <button
                           type="button"
-                          className="inline-flex items-center gap-1 rounded px-2 py-1 text-xs font-semibold text-red-600 bg-red-50 hover:bg-red-100 dark:bg-red-950/30 dark:text-red-400"
-                          onClick={() => setRevertPaymentTarget(p)}
+                          className="inline-flex items-center gap-1 rounded px-2.5 py-1 text-xs font-semibold text-indigo-700 bg-indigo-50 hover:bg-indigo-100 dark:bg-indigo-950/40 dark:text-indigo-300 dark:hover:bg-indigo-900/50"
+                          onClick={() => openEditPayment(p)}
                         >
-                          <RotateCcw className="h-3 w-3" /> Revertir
+                          <Pencil className="h-3 w-3" /> Editar
                         </button>
                       </td>
                     </tr>
@@ -706,6 +770,58 @@ export function CuentasPorCobrarPage() {
           )}
         </div>
       </FormModal>
+
+      {/* Modal: Editar Pago (Fecha y Foto únicamente) */}
+      <FormModal
+        open={editPayModal}
+        title="Editar Pago (Fecha y Comprobante)"
+        isLight={isLight}
+        onClose={() => setEditPayModal(false)}
+        footer={
+          <div className="flex justify-end gap-2">
+            <button type="button" className={labGhostBtn(isLight)} onClick={() => setEditPayModal(false)}>
+              Cancelar
+            </button>
+            <button type="button" className={labPrimaryBtn(isLight)} onClick={() => void saveEditPayment()}>
+              Guardar Cambios
+            </button>
+          </div>
+        }
+      >
+        <div className="space-y-4 text-xs">
+          <div className={`rounded-lg p-3 border ${isLight ? "bg-amber-50/50 border-amber-200 text-amber-900" : "bg-amber-950/20 border-amber-800/30 text-amber-200"}`}>
+            <p className="font-semibold">Modificación del cobro de S/. {fmt(editPayTarget?.amount ?? 0)}</p>
+            <p className="opacity-80">Por seguridad, solo está permitida la edición de la fecha de pago y la foto del comprobante.</p>
+          </div>
+
+          <LabField label="Fecha de Pago Real *" isLight={isLight}>
+            <input
+              type="date"
+              className={labInputClass(isLight)}
+              value={editPayForm.paid_on}
+              onChange={(e) => setEditPayForm({ ...editPayForm, paid_on: e.target.value })}
+            />
+          </LabField>
+
+          <LabField label="Foto / Comprobante de Pago" isLight={isLight}>
+            {editPayForm.current_receipt_url ? (
+              <div className="mb-2 flex items-center gap-2">
+                <a href={editPayForm.current_receipt_url} target="_blank" rel="noopener noreferrer" className="font-medium text-indigo-600 dark:text-indigo-400 underline flex items-center gap-1">
+                  <FileImage className="h-3.5 w-3.5" /> Ver foto actual del comprobante
+                </a>
+              </div>
+            ) : null}
+            <input
+              type="file"
+              accept="image/*,.pdf"
+              className={labInputClass(isLight)}
+              onChange={(e) => setEditPayForm({ ...editPayForm, file: e.target.files?.[0] ?? null })}
+            />
+            <p className="mt-1 text-[11px] text-zinc-400">Seleccione un archivo si desea subir o reemplazar el comprobante.</p>
+          </LabField>
+        </div>
+      </FormModal>
+
 
       {/* Modal: Nueva Cuenta por Cobrar Manual */}
       <FormModal

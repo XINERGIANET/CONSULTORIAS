@@ -17,8 +17,24 @@ class AccountReceivablePayment extends Model
         'method',
         'reference',
         'notes',
+        'receipt_path',
         'registered_by',
     ];
+
+    protected $appends = ['receipt_url'];
+
+    public function getReceiptUrlAttribute(): ?string
+    {
+        if (! $this->receipt_path) {
+            return null;
+        }
+        if (str_starts_with($this->receipt_path, 'http://') || str_starts_with($this->receipt_path, 'https://')) {
+            return $this->receipt_path;
+        }
+
+        return asset('storage/'.ltrim($this->receipt_path, '/'));
+    }
+
 
     protected function casts(): array
     {

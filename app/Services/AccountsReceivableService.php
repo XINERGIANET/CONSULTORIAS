@@ -39,6 +39,7 @@ class AccountsReceivableService
                 'recorded_on' => $data['paid_on'],
                 'payment_status' => 'paid',
                 'description' => $desc,
+                'receipt_path' => $data['receipt_path'] ?? null,
             ]);
 
             $payment = AccountReceivablePayment::query()->create([
@@ -49,6 +50,7 @@ class AccountsReceivableService
                 'method' => $data['method'] ?? null,
                 'reference' => $data['reference'] ?? null,
                 'notes' => $data['notes'] ?? null,
+                'receipt_path' => $data['receipt_path'] ?? null,
                 'registered_by' => $userId,
             ]);
 
@@ -57,6 +59,42 @@ class AccountsReceivableService
             return $payment;
         });
     }
+
+    public function updatePayment(AccountReceivable $account, AccountReceivablePayment $payment, array $data): AccountReceivablePayment
+    {
+        return DB::transaction(function () use ($account, $payment, $data): AccountReceivablePayment {
+            $updateData = [];
+
+            if (isset($data['paid_on'])) {
+                $updateData['paid_on'] = $data['paid_on'];
+            }
+            if (isset($data['receipt_path'])) {
+                $updateData['receipt_path'] = $data['receipt_path'];
+            }
+
+            if ($updateData !== []) {
+                $payment->update($updateData);
+            }
+
+            if ($payment->income_id !== null) {
+                $incomeUpdates = [];
+                if (isset($data['paid_on'])) {
+                    $incomeUpdates['recorded_on'] = $data['paid_on'];
+                }
+                if (isset($data['receipt_path'])) {
+                    $incomeUpdates['receipt_path'] = $data['receipt_path'];
+                }
+                if ($incomeUpdates !== []) {
+                    Income::query()->where('id', $payment->income_id)->update($incomeUpdates);
+                }
+            }
+
+            $this->recalculate($account);
+
+            return $payment->fresh();
+        });
+    }
+
 
     public function revertPayment(AccountReceivable $account, AccountReceivablePayment $payment): AccountReceivable
     {

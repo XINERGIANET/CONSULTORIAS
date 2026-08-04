@@ -8,7 +8,9 @@ use App\Http\Controllers\Api\CollaboratorsController;
 use App\Http\Controllers\Api\CargoController;
 use App\Http\Controllers\Api\ClientContactController;
 use App\Http\Controllers\Api\ClientController;
+use App\Http\Controllers\Api\ContractController;
 use App\Http\Controllers\Api\CrmActivityController;
+
 use App\Http\Controllers\Api\CurrencyController;
 use App\Http\Controllers\Api\DocumentController;
 use App\Http\Controllers\Api\ExpenseController;
@@ -142,6 +144,13 @@ Route::middleware('auth')->group(function (): void {
         Route::put('projects/{project}', [ProjectController::class, 'update']);
         Route::delete('projects/{project}', [ProjectController::class, 'destroy']);
 
+        Route::get('contracts', [ContractController::class, 'index']);
+        Route::post('contracts', [ContractController::class, 'store']);
+        Route::get('contracts/{contract}', [ContractController::class, 'show']);
+        Route::get('contracts/{contract}/pdf', [ContractController::class, 'generatePdf']);
+        Route::post('contracts/{contract}/renew', [ContractController::class, 'renew']);
+
+
         Route::get('tasks', [TaskController::class, 'index']);
         Route::post('tasks', [TaskController::class, 'store']);
         Route::get('tasks/{task}', [TaskController::class, 'show']);
@@ -172,7 +181,9 @@ Route::middleware('auth')->group(function (): void {
         Route::get('accounts-receivable/{accountReceivable}', [AccountReceivableController::class, 'show'])->middleware('permission:view_finances');
         Route::put('accounts-receivable/{accountReceivable}', [AccountReceivableController::class, 'update'])->middleware('permission:register_payments');
         Route::post('accounts-receivable/{accountReceivable}/payments', [AccountReceivableController::class, 'registerPayment'])->middleware('permission:register_payments');
+        Route::post('accounts-receivable/{accountReceivable}/payments/{payment}', [AccountReceivableController::class, 'updatePayment'])->middleware('permission:register_payments');
         Route::delete('accounts-receivable/{accountReceivable}/payments/{payment}', [AccountReceivableController::class, 'revertPayment'])->middleware('permission:register_payments');
+
         Route::delete('accounts-receivable/{accountReceivable}', [AccountReceivableController::class, 'destroy'])->middleware('permission:register_payments');
 
         Route::get('accounts-payable', [AccountPayableController::class, 'index'])->middleware('permission:view_finances');

@@ -96,5 +96,12 @@ class Project extends Model
     {
         return $this->hasMany(AccountReceivable::class);
     }
+
+    /** @return HasMany<ClientContract, Project> */
+    public function contracts(): HasMany
+    {
+        return $this->hasMany(ClientContract::class);
+    }
 }
+
 

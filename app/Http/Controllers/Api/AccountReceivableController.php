@@ -159,9 +159,36 @@ class AccountReceivableController extends Controller
             'method' => ['nullable', 'string', 'max:64'],
             'reference' => ['nullable', 'string', 'max:255'],
             'notes' => ['nullable', 'string'],
+            'receipt' => ['nullable', 'file', 'mimes:jpeg,png,jpg,pdf,webp', 'max:10240'],
         ]);
 
+        if ($request->hasFile('receipt')) {
+            $data['receipt_path'] = $request->file('receipt')->store('vouchers', 'public');
+        }
+
         $service->registerPayment($accountReceivable, $data, (int) $request->user()->id);
+
+        return response()->json($accountReceivable->fresh()->load(['client', 'document', 'project', 'area', 'payments.income', 'payments.registeredBy:id,name']));
+    }
+
+    public function updatePayment(Request $request, AccountReceivable $accountReceivable, \App\Models\AccountReceivablePayment $payment, AccountsReceivableService $service): JsonResponse
+    {
+        $this->assertAccount($request, $accountReceivable);
+
+        if ((int) $payment->account_receivable_id !== (int) $accountReceivable->id) {
+            abort(404);
+        }
+
+        $data = $request->validate([
+            'paid_on' => ['required', 'date'],
+            'receipt' => ['nullable', 'file', 'mimes:jpeg,png,jpg,pdf,webp', 'max:10240'],
+        ]);
+
+        if ($request->hasFile('receipt')) {
+            $data['receipt_path'] = $request->file('receipt')->store('vouchers', 'public');
+        }
+
+        $service->updatePayment($accountReceivable, $payment, $data);
 
         return response()->json($accountReceivable->fresh()->load(['client', 'document', 'project', 'area', 'payments.income', 'payments.registeredBy:id,name']));
     }
@@ -178,6 +205,7 @@ class AccountReceivableController extends Controller
 
         return response()->json($accountReceivable->fresh()->load(['client', 'document', 'project', 'area', 'payments.income', 'payments.registeredBy:id,name']));
     }
+
 
     public function destroy(Request $request, AccountReceivable $accountReceivable): JsonResponse
     {

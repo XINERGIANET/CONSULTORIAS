@@ -54,9 +54,16 @@ class ClientContract extends Model
         return $this->belongsTo(Area::class);
     }
 
+    /** @return BelongsTo<Project, ClientContract> */
+    public function project(): BelongsTo
+    {
+        return $this->belongsTo(Project::class);
+    }
+
     /** @return HasMany<AccountReceivable, ClientContract> */
     public function receivables(): HasMany
     {
         return $this->hasMany(AccountReceivable::class);
     }
 }
+

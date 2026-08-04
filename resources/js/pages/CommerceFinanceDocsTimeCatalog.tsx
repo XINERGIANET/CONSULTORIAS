@@ -60,7 +60,13 @@ function fmtMoney(v: number): string {
 
 function formatDatePE(v?: string | null): string {
   if (!v) return "—";
-  const d = new Date(v);
+  const raw = String(v);
+  const calendarDate = /^(\d{4})-(\d{2})-(\d{2})/.exec(raw);
+  if (calendarDate) {
+    return `${calendarDate[3]}/${calendarDate[2]}/${calendarDate[1]}`;
+  }
+
+  const d = new Date(raw);
   return Number.isNaN(d.getTime()) ? String(v).slice(0, 10) : d.toLocaleDateString("es-PE");
 }
 
@@ -98,7 +104,7 @@ function getIncomeOrigin(r: Record<string, unknown>) {
     return {
       isDirect: false,
       cxcId: p.account_receivable_id,
-      label: `Pago de Cliente (CxC #${p.account_receivable_id})`,
+      label: "Pago de cliente",
     };
   }
   return { isDirect: true, label: "Directo (Finanzas)" };

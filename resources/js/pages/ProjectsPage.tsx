@@ -1,4 +1,5 @@
-import { Calendar, ExternalLink, FolderKanban, Plus, RefreshCw, Search, Trash2, UserPlus } from "lucide-react";
+import { Calendar, ExternalLink, FolderKanban, Plus, RefreshCw, ScrollText, Search, Trash2, UserPlus } from "lucide-react";
+
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import { ConfirmModal } from "../components/ConfirmModal";
@@ -816,6 +817,19 @@ export function ProjectsPage() {
                     <td className="py-2.5 text-right align-middle">
                       <div className="flex justify-end gap-2">
                         <LabCircleIconAction variant="edit" tooltip="Editar" ariaLabel={`Editar ${p.name}`} onClick={() => void openEdit(p.id)} />
+                        <span className="group relative inline-flex">
+                          <Link
+                            title="Contratos del proyecto"
+                            to={`/contratos?project_id=${p.id}`}
+                            className={[circleRowActionClass("link"), "inline-flex items-center justify-center bg-indigo-600 hover:bg-indigo-700"].join(" ")}
+                          >
+                            <ScrollText className="h-3.5 w-3.5 text-white" strokeWidth={2.25} aria-hidden />
+                            <span className="sr-only">Contratos</span>
+                          </Link>
+                          <span className="pointer-events-none absolute bottom-[calc(100%+6px)] left-1/2 z-40 hidden -translate-x-1/2 whitespace-nowrap rounded-md bg-neutral-900 px-2 py-1 text-[11px] font-medium leading-tight text-white shadow-lg ring-1 ring-black/40 group-hover:block">
+                            Contratos
+                          </span>
+                        </span>
                         {typeof p.client_id === "number" ? (
                           <span className="group relative inline-flex">
                             <Link
@@ -832,6 +846,7 @@ export function ProjectsPage() {
                           </span>
                         ) : null}
                         <LabCircleIconAction variant="cancel" tooltip="Cancelar proyecto" ariaLabel={`Cancelar ${p.name}`} onClick={() => setPendingCancel(p)} />
+
                       </div>
                     </td>
                   </tr>
