@@ -35,6 +35,17 @@ use App\Http\Controllers\Api\UserManagementController;
 use App\Http\Controllers\DashboardController;
 use Illuminate\Support\Facades\Route;
 
+Route::get('/storage/{path}', function (string $path) {
+    $fullPath = storage_path('app/public/' . $path);
+    if (! file_exists($fullPath)) {
+        $fullPath = storage_path('app/' . $path);
+    }
+    if (! file_exists($fullPath)) {
+        abort(404);
+    }
+    return response()->file($fullPath);
+})->where('path', '.*');
+
 Route::middleware('guest')->group(function (): void {
     Route::get('/login', DashboardController::class)->name('login');
     Route::get('/api/auth/login', fn () => redirect('/login'));
