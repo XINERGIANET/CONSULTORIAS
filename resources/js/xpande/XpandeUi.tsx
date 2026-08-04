@@ -202,8 +202,9 @@ export const SPANISH_STATUS_MAP: Record<string, string> = {
   partial: "Pago parcial",
   paid: "Pagado",
   overdue: "Vencido",
-  cancelled: "Anulado",
+  cancelled: "Inactivo",
   registered: "Registrado",
+
 
   // Projects
   active: "Activo",

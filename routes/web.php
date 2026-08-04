@@ -151,6 +151,8 @@ Route::middleware('auth')->group(function (): void {
         Route::get('contracts/{contract}', [ContractController::class, 'show']);
         Route::get('contracts/{contract}/pdf', [ContractController::class, 'generatePdf']);
         Route::post('contracts/{contract}/renew', [ContractController::class, 'renew']);
+        Route::delete('contracts/{contract}', [ContractController::class, 'destroy']);
+
 
 
         Route::get('tasks', [TaskController::class, 'index']);

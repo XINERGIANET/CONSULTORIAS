@@ -9,12 +9,14 @@ import {
 } from "lucide-react";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
+import { ConfirmModal } from "../components/ConfirmModal";
 import { SmartSelect } from "../components/SmartSelect";
 import { useApexTheme } from "../context/ThemeContext";
 import { FormModal } from "../xpande/FormModal";
-import { LabNoticeModal } from "../xpande/LabTableKit";
-import { getJson, postJson, type LaravelPaginated } from "../xpande/http";
+import { LabCircleIconAction, LabNoticeModal } from "../xpande/LabTableKit";
+import { deleteJson, getJson, postJson, type LaravelPaginated } from "../xpande/http";
 import { apiErrorMessage } from "../xpande/apiError";
+
 import {
   LabBreadcrumbs,
   LabField,
@@ -144,6 +146,29 @@ export function ContratosPage() {
 
   const [detailModalOpen, setDetailModalOpen] = useState(false);
   const [activeDetail, setActiveDetail] = useState<ContractRow | null>(null);
+  const [pendingDelete, setPendingDelete] = useState<ContractRow | null>(null);
+
+  const execDeleteContract = async () => {
+    if (!pendingDelete) return;
+    const contract = pendingDelete;
+    setPendingDelete(null);
+    try {
+      await deleteJson(`/api/contracts/${contract.id}`);
+      await fetchContracts();
+      setNotice({
+        variant: "success",
+        title: "Contrato eliminado",
+        message: `El contrato #${contract.id} «${contract.title}» fue eliminado correctamente.`,
+      });
+    } catch (e) {
+      setNotice({
+        variant: "error",
+        title: "Error",
+        message: apiErrorMessage(e, "No se pudo eliminar el contrato."),
+      });
+    }
+  };
+
 
   const fetchContracts = useCallback(async () => {
     setLoading(true);

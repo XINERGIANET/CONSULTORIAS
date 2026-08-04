@@ -276,26 +276,27 @@ export function QuotationsPage() {
                             <a href={`/api/quotations/${Number(q.id)}/pdf`} target="_blank" rel="noreferrer" className={[circleRowActionClass("pdf"), "inline-flex items-center justify-center"].join(" ")} title="PDF" aria-label="Descargar PDF">
                               <FileText className="h-3.5 w-3.5 text-white" strokeWidth={2.25} aria-hidden />
                             </a>
-                            <span className="pointer-events-none absolute bottom-[calc(100%+6px)] left-1/2 z-40 hidden -translate-x-1/2 whitespace-nowrap rounded-md bg-neutral-900 px-2 py-1 text-[11px] font-medium leading-tight text-white shadow-lg ring-1 ring-black/40 group-hover:block">PDF</span>
+                            <span className="pointer-events-none absolute bottom-[calc(100%+6px)] right-0 z-50 hidden whitespace-nowrap rounded-md bg-neutral-900 px-2 py-1 text-[11px] font-medium leading-tight text-white shadow-lg ring-1 ring-black/40 group-hover:block">PDF</span>
                           </span>
                           <span className="group relative inline-flex">
                             <a href={`/api/quotations/${Number(q.id)}/excel`} target="_blank" rel="noreferrer" className={[circleRowActionClass("print"), "inline-flex items-center justify-center"].join(" ")} title="Excel" aria-label="Descargar Excel">
                               <FileSpreadsheet className="h-3.5 w-3.5 text-white" strokeWidth={2.25} aria-hidden />
                             </a>
-                            <span className="pointer-events-none absolute bottom-[calc(100%+6px)] left-1/2 z-40 hidden -translate-x-1/2 whitespace-nowrap rounded-md bg-neutral-900 px-2 py-1 text-[11px] font-medium leading-tight text-white shadow-lg ring-1 ring-black/40 group-hover:block">Excel</span>
+                            <span className="pointer-events-none absolute bottom-[calc(100%+6px)] right-0 z-50 hidden whitespace-nowrap rounded-md bg-neutral-900 px-2 py-1 text-[11px] font-medium leading-tight text-white shadow-lg ring-1 ring-black/40 group-hover:block">Excel</span>
                           </span>
                           <span className="group relative inline-flex">
                             <button type="button" className={circleRowActionClass("link")} onClick={() => void sendWhatsapp(Number(q.id))} title="WhatsApp" aria-label="Enviar WhatsApp">
                               <MessageCircle className="h-3.5 w-3.5 text-white" strokeWidth={2.25} aria-hidden />
                             </button>
-                            <span className="pointer-events-none absolute bottom-[calc(100%+6px)] left-1/2 z-40 hidden -translate-x-1/2 whitespace-nowrap rounded-md bg-neutral-900 px-2 py-1 text-[11px] font-medium leading-tight text-white shadow-lg ring-1 ring-black/40 group-hover:block">WhatsApp</span>
+                            <span className="pointer-events-none absolute bottom-[calc(100%+6px)] right-0 z-50 hidden whitespace-nowrap rounded-md bg-neutral-900 px-2 py-1 text-[11px] font-medium leading-tight text-white shadow-lg ring-1 ring-black/40 group-hover:block">WhatsApp</span>
                           </span>
                           <span className="group relative inline-flex">
                             <button type="button" className={circleRowActionClass("details")} onClick={() => void sendEmail(Number(q.id))} title="Enviar correo" aria-label="Enviar correo">
                               <Mail className="h-3.5 w-3.5 text-white" strokeWidth={2.25} aria-hidden />
                             </button>
-                            <span className="pointer-events-none absolute bottom-[calc(100%+6px)] left-1/2 z-40 hidden -translate-x-1/2 whitespace-nowrap rounded-md bg-neutral-900 px-2 py-1 text-[11px] font-medium leading-tight text-white shadow-lg ring-1 ring-black/40 group-hover:block">Correo</span>
+                            <span className="pointer-events-none absolute bottom-[calc(100%+6px)] right-0 z-50 hidden whitespace-nowrap rounded-md bg-neutral-900 px-2 py-1 text-[11px] font-medium leading-tight text-white shadow-lg ring-1 ring-black/40 group-hover:block">Correo</span>
                           </span>
+
                           {st !== "accepted" && st !== "rejected" ? (
                             <>
                               <LabCircleIconAction

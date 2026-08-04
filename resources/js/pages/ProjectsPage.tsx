@@ -80,8 +80,9 @@ const PROJECT_STATUS_LABELS: Record<string, string> = {
   active: "Activo",
   on_hold: "En espera",
   completed: "Completado",
-  cancelled: "Cancelado",
+  cancelled: "Inactivo",
 };
+
 
 const normalizeDateInput = (value?: string | null) => (value ? String(value).slice(0, 10) : "");
 
@@ -568,11 +569,11 @@ export function ProjectsPage() {
       await fetchProjects(page);
       setNotice({
         variant: "success",
-        title: "Proyecto cancelado",
-        message: res.message ?? `«${title}» se canceló y sus cuentas por cobrar/pagar pendientes se anularon.`,
+        title: "Proyecto inactivado",
+        message: res.message ?? `«${title}» se inactivó y sus cuentas por cobrar/pagar pendientes se anularon.`,
       });
     } catch (e: unknown) {
-      setNotice({ variant: "error", title: "Error", message: apiErrorMessage(e, "No se pudo cancelar el proyecto.") });
+      setNotice({ variant: "error", title: "Error", message: apiErrorMessage(e, "No se pudo inactivar el proyecto.") });
     }
   };
 
@@ -603,12 +604,13 @@ export function ProjectsPage() {
       setNotice({
         variant: "success",
         title: "Proyecto restaurado",
-        message: `«${row.name}» fue restaurado a estado Anulado.`,
+        message: `«${row.name}» fue restaurado a estado Inactivo.`,
       });
     } catch (e: unknown) {
       setNotice({ variant: "error", title: "Error", message: apiErrorMessage(e, "No se pudo restaurar el proyecto.") });
     }
   };
+
 
 
   const total = data?.total ?? 0;
@@ -905,7 +907,7 @@ export function ProjectsPage() {
                             <ScrollText className="h-3.5 w-3.5 text-white" strokeWidth={2.25} aria-hidden />
                             <span className="sr-only">Contratos</span>
                           </Link>
-                          <span className="pointer-events-none absolute bottom-[calc(100%+6px)] left-1/2 z-40 hidden -translate-x-1/2 whitespace-nowrap rounded-md bg-neutral-900 px-2 py-1 text-[11px] font-medium leading-tight text-white shadow-lg ring-1 ring-black/40 group-hover:block">
+                          <span className="pointer-events-none absolute bottom-[calc(100%+6px)] right-0 z-50 hidden whitespace-nowrap rounded-md bg-neutral-900 px-2 py-1 text-[11px] font-medium leading-tight text-white shadow-lg ring-1 ring-black/40 group-hover:block">
                             Contratos
                           </span>
                         </span>
@@ -919,15 +921,16 @@ export function ProjectsPage() {
                               <ExternalLink className="h-3.5 w-3.5 text-white" strokeWidth={2.25} aria-hidden />
                               <span className="sr-only">Cliente CRM</span>
                             </Link>
-                            <span className="pointer-events-none absolute bottom-[calc(100%+6px)] left-1/2 z-40 hidden -translate-x-1/2 whitespace-nowrap rounded-md bg-neutral-900 px-2 py-1 text-[11px] font-medium leading-tight text-white shadow-lg ring-1 ring-black/40 group-hover:block">
+                            <span className="pointer-events-none absolute bottom-[calc(100%+6px)] right-0 z-50 hidden whitespace-nowrap rounded-md bg-neutral-900 px-2 py-1 text-[11px] font-medium leading-tight text-white shadow-lg ring-1 ring-black/40 group-hover:block">
                               Cliente CRM
                             </span>
                           </span>
                         ) : null}
+
                         {p.status === "cancelled" ? (
                           <LabCircleIconAction
                             variant="delete"
-                            tooltip="Eliminar proyecto anulado"
+                            tooltip="Eliminar proyecto inactivo"
                             ariaLabel={`Eliminar ${p.name}`}
                             onClick={() => setPendingDelete(p)}
                           />
@@ -943,8 +946,8 @@ export function ProjectsPage() {
                         ) : (
                           <LabCircleIconAction
                             variant="cancel"
-                            tooltip="Cancelar proyecto"
-                            ariaLabel={`Cancelar ${p.name}`}
+                            tooltip="Inactivar proyecto"
+                            ariaLabel={`Inactivar ${p.name}`}
                             onClick={() => setPendingCancel(p)}
                           />
                         )}
@@ -986,13 +989,13 @@ export function ProjectsPage() {
 
       <ConfirmModal
         open={pendingCancel !== null}
-        title="Cancelar proyecto"
+        title="Inactivar proyecto"
         message={
           pendingCancel
-            ? `¿Confirma cancelar «${pendingCancel.name}»? El proyecto no se borra del sistema, queda marcado como "Cancelado" y sus cuentas por cobrar/pagar pendientes se anulan (lo ya cobrado/pagado se conserva).`
+            ? `¿Confirma inactivar «${pendingCancel.name}»? El proyecto no se borra del sistema, queda marcado como "Inactivo" y sus cuentas por cobrar/pagar pendientes se anulan (lo ya cobrado/pagado se conserva).`
             : ""
         }
-        confirmText="Cancelar proyecto"
+        confirmText="Inactivar proyecto"
         danger
         isLight={isLight}
         onConfirm={() => void execCancelProj()}
@@ -1001,10 +1004,10 @@ export function ProjectsPage() {
 
       <ConfirmModal
         open={pendingDelete !== null}
-        title="Eliminar proyecto anulado"
+        title="Eliminar proyecto inactivo"
         message={
           pendingDelete
-            ? `¿Confirma eliminar definitivamente el proyecto anulado «${pendingDelete.name}»? Podrás volver a verlo o restaurarlo en la sección "Ver eliminados".`
+            ? `¿Confirma eliminar definitivamente el proyecto inactivo «${pendingDelete.name}»? Podrás volver a verlo o restaurarlo en la sección "Ver eliminados".`
             : ""
         }
         confirmText="Eliminar proyecto"
@@ -1019,7 +1022,7 @@ export function ProjectsPage() {
         title="Restaurar proyecto"
         message={
           pendingRestore
-            ? `¿Confirma restaurar el proyecto «${pendingRestore.name}»? Volverá a la lista en estado Anulado.`
+            ? `¿Confirma restaurar el proyecto «${pendingRestore.name}»? Volverá a la lista en estado Inactivo.`
             : ""
         }
         confirmText="Restaurar proyecto"
@@ -1027,6 +1030,7 @@ export function ProjectsPage() {
         onConfirm={() => void execRestoreProj()}
         onCancel={() => setPendingRestore(null)}
       />
+
 
 
       <FormModal
@@ -1128,7 +1132,8 @@ export function ProjectsPage() {
                 { value: "in_progress", label: "En proceso" },
                 { value: "paused", label: "Pausado" },
                 { value: "finished", label: "Finalizado" },
-                { value: "cancelled", label: "Cancelado" },
+                { value: "cancelled", label: "Inactivo" },
+
               ]}
             />
           </LabField>

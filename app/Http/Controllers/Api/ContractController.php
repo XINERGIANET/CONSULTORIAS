@@ -13,6 +13,8 @@ use Carbon\Carbon;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\Response;
+use Illuminate\Support\Facades\DB;
+
 
 class ContractController extends Controller
 {
@@ -208,6 +210,31 @@ class ContractController extends Controller
             'new_contract' => $newContract->load(['client', 'project', 'area', 'receivables']),
         ]);
     }
+
+    public function destroy(Request $request, ClientContract $contract): JsonResponse
+    {
+        $this->assertContractVisible($request, $contract);
+
+        DB::transaction(function () use ($contract): void {
+            $contract->receivables()->get()->each(function ($ar): void {
+                if ((float) $ar->paid_amount <= 0) {
+                    $ar->delete();
+                } else {
+                    $ar->update([
+                        'status' => 'cancelled',
+                        'balance_amount' => 0,
+                    ]);
+                }
+            });
+
+            $contract->delete();
+        });
+
+        return response()->json([
+            'message' => 'El contrato fue eliminado correctamente.',
+        ]);
+    }
+
 
     private function assertContractVisible(Request $request, ClientContract $contract): void
     {

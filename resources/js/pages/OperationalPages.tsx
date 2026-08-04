@@ -453,7 +453,7 @@ export function ClientsPage() {
                           >
                             <Target className="h-3.5 w-3.5 text-white" strokeWidth={2.25} aria-hidden />
                           </Link>
-                          <span className="pointer-events-none absolute bottom-[calc(100%+6px)] left-1/2 z-40 hidden -translate-x-1/2 whitespace-nowrap rounded-md bg-neutral-900 px-2 py-1 text-[11px] font-medium leading-tight text-white shadow-lg ring-1 ring-black/40 group-hover:block">
+                          <span className="pointer-events-none absolute bottom-[calc(100%+6px)] right-0 z-50 hidden whitespace-nowrap rounded-md bg-neutral-900 px-2 py-1 text-[11px] font-medium leading-tight text-white shadow-lg ring-1 ring-black/40 group-hover:block">
                             Oportunidades
                           </span>
                         </span>
@@ -466,10 +466,11 @@ export function ClientsPage() {
                           >
                             <ExternalLink className="h-3.5 w-3.5 text-white" strokeWidth={2.25} aria-hidden />
                           </Link>
-                          <span className="pointer-events-none absolute bottom-[calc(100%+6px)] left-1/2 z-40 hidden -translate-x-1/2 whitespace-nowrap rounded-md bg-neutral-900 px-2 py-1 text-[11px] font-medium leading-tight text-white shadow-lg ring-1 ring-black/40 group-hover:block">
+                          <span className="pointer-events-none absolute bottom-[calc(100%+6px)] right-0 z-50 hidden whitespace-nowrap rounded-md bg-neutral-900 px-2 py-1 text-[11px] font-medium leading-tight text-white shadow-lg ring-1 ring-black/40 group-hover:block">
                             CRM
                           </span>
                         </span>
+
                         <LabCircleIconAction variant="cancel" tooltip="Dar de baja" ariaLabel={`Dar de baja ${c.legal_name}`} onClick={() => openDeactivateClient(c)} />
                       </div>
                     </td>
