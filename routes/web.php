@@ -36,15 +36,31 @@ use App\Http\Controllers\DashboardController;
 use Illuminate\Support\Facades\Route;
 
 Route::get('/storage/{path}', function (string $path) {
-    $fullPath = storage_path('app/public/' . $path);
-    if (! file_exists($fullPath)) {
-        $fullPath = storage_path('app/' . $path);
+    $filename = basename($path);
+    $candidates = [
+        storage_path('app/public/' . $path),
+        storage_path('app/public/vouchers/' . $filename),
+        storage_path('app/' . $path),
+        '/var/www/CONSULTORIAS/storage/app/public/' . $path,
+        '/var/www/CONSULTORIAS/storage/app/public/vouchers/' . $filename,
+    ];
+
+    foreach ($candidates as $file) {
+        if (file_exists($file) && ! is_dir($file)) {
+            return response()->file($file);
+        }
     }
-    if (! file_exists($fullPath)) {
-        abort(404);
-    }
-    return response()->file($fullPath);
+
+    abort(404);
 })->where('path', '.*');
+
+Route::get('/vouchers/{filename}', function (string $filename) {
+    return redirect('/storage/vouchers/' . basename($filename));
+});
+
+Route::get('/api/vouchers/{filename}', function (string $filename) {
+    return redirect('/storage/vouchers/' . basename($filename));
+});
 
 Route::middleware('guest')->group(function (): void {
     Route::get('/login', DashboardController::class)->name('login');

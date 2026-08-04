@@ -20,6 +20,27 @@ class Income extends Model
         'description',
     ];
 
+    protected $appends = ['receipt_url'];
+
+    public function getReceiptUrlAttribute(): ?string
+    {
+        if (! $this->receipt_path) {
+            return null;
+        }
+        if (str_starts_with($this->receipt_path, 'http://') || str_starts_with($this->receipt_path, 'https://')) {
+            return $this->receipt_path;
+        }
+
+        $cleanPath = $this->receipt_path;
+        if (str_contains($cleanPath, 'vouchers/')) {
+            $cleanPath = 'vouchers/' . basename($cleanPath);
+        } else {
+            $cleanPath = ltrim(preg_replace('#^.*storage/(app/public/)?#', '', $cleanPath), '/');
+        }
+
+        return asset('storage/' . $cleanPath);
+    }
+
     protected function casts(): array
     {
         return [

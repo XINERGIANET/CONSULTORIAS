@@ -32,7 +32,14 @@ class AccountReceivablePayment extends Model
             return $this->receipt_path;
         }
 
-        return asset('storage/'.ltrim($this->receipt_path, '/'));
+        $cleanPath = $this->receipt_path;
+        if (str_contains($cleanPath, 'vouchers/')) {
+            $cleanPath = 'vouchers/' . basename($cleanPath);
+        } else {
+            $cleanPath = ltrim(preg_replace('#^.*storage/(app/public/)?#', '', $cleanPath), '/');
+        }
+
+        return asset('storage/' . $cleanPath);
     }
 
 
