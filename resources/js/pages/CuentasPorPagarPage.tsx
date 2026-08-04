@@ -5,7 +5,7 @@ import { SmartSelect } from "../components/SmartSelect";
 import { useAuth } from "../context/AuthContext";
 import { useApexTheme } from "../context/ThemeContext";
 import { FormModal } from "../xpande/FormModal";
-import { LabCircleIconAction, LabNoticeModal } from "../xpande/LabTableKit";
+import { LabCircleIconAction, LabNoticeModal, LabTooltip } from "../xpande/LabTableKit";
 import { deleteJson, getJson, postJson, putJson, type LaravelPaginated } from "../xpande/http";
 import {
   LabBreadcrumbs,
@@ -532,16 +532,17 @@ export function CuentasPorPagarPage() {
                         ) : null}
 
                         {r.payments && r.payments.length > 0 ? (
-                          <button
-                            type="button"
-                            className={`inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-xs font-semibold border ${
-                              isLight ? "border-slate-300 bg-slate-100 text-slate-700 hover:bg-slate-200" : "border-white/10 bg-white/5 text-zinc-300 hover:bg-white/10"
-                            }`}
-                            onClick={() => openHistory(r)}
-                            title="Ver historial de pagos"
-                          >
-                            <History className="h-3.5 w-3.5" />
-                          </button>
+                          <LabTooltip text="Ver historial de pagos">
+                            <button
+                              type="button"
+                              className={`inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-xs font-semibold border ${
+                                isLight ? "border-slate-300 bg-slate-100 text-[#374151] hover:bg-slate-200" : "border-white/10 bg-white/5 text-zinc-300 hover:bg-white/10"
+                              }`}
+                              onClick={() => openHistory(r)}
+                            >
+                              <History className="h-3.5 w-3.5" />
+                            </button>
+                          </LabTooltip>
                         ) : null}
 
                         <LabCircleIconAction variant="edit" tooltip="Editar obligación" ariaLabel="Editar cuenta por pagar" onClick={() => openEdit(r)} />
@@ -646,19 +647,31 @@ export function CuentasPorPagarPage() {
       >
         <div className="space-y-4">
           {activeRow ? (
-            <div className="text-xs text-zinc-500">
-              <p><strong>Obligación:</strong> {activeRow.description}</p>
-              <p>Total: S/. {fmt(activeRow.total_amount)} | Pagado: S/. {fmt(activeRow.paid_amount)} | Saldo pendiente: S/. {fmt(activeRow.balance_amount)}</p>
+            <div className={`rounded-xl border p-3.5 text-xs shadow-sm ${
+              isLight
+                ? "bg-slate-50 border-slate-200 text-slate-800"
+                : "bg-white/5 border-white/10 text-zinc-200"
+            }`}>
+              <p className={`font-bold text-sm mb-1.5 ${isLight ? "text-slate-900" : "text-white"}`}>
+                Obligación: {activeRow.description ?? "—"}
+              </p>
+              <div className="flex flex-wrap items-center gap-x-4 gap-y-1 font-medium">
+                <span>Total: <strong className={isLight ? "text-slate-900 font-semibold" : "text-white font-semibold"}>S/. {fmt(activeRow.total_amount)}</strong></span>
+                <span className="text-zinc-300 dark:text-zinc-700">|</span>
+                <span>Pagado: <strong className="text-emerald-600 dark:text-emerald-400 font-semibold">S/. {fmt(activeRow.paid_amount)}</strong></span>
+                <span className="text-zinc-300 dark:text-zinc-700">|</span>
+                <span>Saldo pendiente: <strong className={Number(activeRow.balance_amount) > 0 ? "text-red-600 dark:text-red-400 font-bold" : "text-zinc-500 font-semibold"}>S/. {fmt(activeRow.balance_amount)}</strong></span>
+              </div>
             </div>
           ) : null}
 
           {!activeRow?.payments || activeRow.payments.length === 0 ? (
-            <p className="py-4 text-center text-sm text-zinc-500">No hay pagos registrados para esta obligación.</p>
+            <p className={`py-6 text-center text-sm ${isLight ? "text-slate-500" : "text-zinc-400"}`}>No hay pagos registrados para esta obligación.</p>
           ) : (
             <div className="overflow-x-auto">
               <table className="w-full text-left text-xs">
                 <thead>
-                  <tr className={isLight ? "text-slate-500 border-b" : "text-zinc-400 border-b border-white/10"}>
+                  <tr className={isLight ? "text-slate-700 border-b border-slate-200 font-bold" : "text-zinc-300 border-b border-white/10 font-bold"}>
                     <th className="pb-2">Fecha</th>
                     <th className="pb-2 text-right">Monto</th>
                     <th className="pb-2">Método</th>
@@ -669,16 +682,16 @@ export function CuentasPorPagarPage() {
                 </thead>
                 <tbody>
                   {activeRow.payments.map((p) => (
-                    <tr key={p.id} className={isLight ? "border-b border-slate-100" : "border-b border-white/5"}>
-                      <td className="py-2.5">{p.paid_on ? String(p.paid_on).slice(0, 10) : "—"}</td>
+                    <tr key={p.id} className={isLight ? "border-b border-slate-100 text-slate-800 hover:bg-slate-50/80" : "border-b border-white/5 text-zinc-200 hover:bg-white/[0.02]"}>
+                      <td className={`py-2.5 font-medium ${isLight ? "text-slate-900" : "text-zinc-100"}`}>{p.paid_on ? String(p.paid_on).slice(0, 10) : "—"}</td>
                       <td className="py-2.5 text-right font-bold text-amber-600 dark:text-amber-400">S/. {fmt(p.amount)}</td>
-                      <td className="py-2.5">{p.method ?? "—"}</td>
-                      <td className="py-2.5">{p.reference ?? "—"}</td>
-                      <td className="py-2.5">{p.registered_by?.name ?? "Sistema"}</td>
+                      <td className={`py-2.5 ${isLight ? "text-slate-800" : "text-zinc-200"}`}>{p.method ?? "—"}</td>
+                      <td className={`py-2.5 ${isLight ? "text-slate-800" : "text-zinc-200"}`}>{p.reference ?? "—"}</td>
+                      <td className={`py-2.5 ${isLight ? "text-slate-700" : "text-zinc-300"}`}>{p.registered_by?.name ?? "Sistema"}</td>
                       <td className="py-2.5 text-right">
                         <button
                           type="button"
-                          className="inline-flex items-center gap-1 rounded px-2 py-1 text-xs font-semibold text-red-600 bg-red-50 hover:bg-red-100 dark:bg-red-950/30 dark:text-red-400"
+                          className="inline-flex items-center gap-1 rounded-md px-2.5 py-1 text-xs font-semibold text-red-700 bg-red-50 hover:bg-red-100 dark:bg-red-950/40 dark:text-red-400 dark:hover:bg-red-900/60 transition-colors"
                           onClick={() => setRevertPaymentTarget(p)}
                         >
                           <RotateCcw className="h-3 w-3" /> Revertir

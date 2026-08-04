@@ -94,7 +94,6 @@ export function LabCircleIconAction({
       <button
         type={type}
         aria-label={label}
-        title={tooltip}
         disabled={disabled}
         onClick={onClick}
         className={meta.className}
@@ -106,6 +105,35 @@ export function LabCircleIconAction({
         className={`pointer-events-none absolute bottom-[calc(100%+6px)] z-[50] hidden ${posClass} whitespace-nowrap rounded-md bg-neutral-900 px-2 py-1 text-[11px] font-medium leading-tight text-white shadow-lg ring-1 ring-black/40 group-hover:block`}
       >
         {tooltip}
+      </span>
+    </span>
+  );
+}
+
+export function LabTooltip({
+  text,
+  children,
+  align = "right",
+}: {
+  text: string;
+  children: ReactNode;
+  align?: "center" | "right" | "left";
+}) {
+  const posClass =
+    align === "center"
+      ? "left-1/2 -translate-x-1/2"
+      : align === "left"
+      ? "left-0 translate-x-0"
+      : "right-0 translate-x-0";
+
+  return (
+    <span className="group relative inline-flex">
+      {children}
+      <span
+        role="tooltip"
+        className={`pointer-events-none absolute bottom-[calc(100%+6px)] z-[50] hidden ${posClass} whitespace-nowrap rounded-md bg-neutral-900 px-2.5 py-1 text-[11px] font-medium leading-tight text-white shadow-lg ring-1 ring-black/40 group-hover:block`}
+      >
+        {text}
       </span>
     </span>
   );

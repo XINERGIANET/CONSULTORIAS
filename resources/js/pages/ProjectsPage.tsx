@@ -15,6 +15,7 @@ import {
   LabDataPager,
   LabNoticeModal,
   LabSortableTh,
+  LabTooltip,
   circleRowActionClass,
 } from "../xpande/LabTableKit";
 import {
@@ -900,7 +901,6 @@ export function ProjectsPage() {
                         <LabCircleIconAction variant="edit" tooltip="Editar" ariaLabel={`Editar ${p.name}`} onClick={() => void openEdit(p.id)} />
                         <span className="group relative inline-flex">
                           <Link
-                            title="Contratos del proyecto"
                             to={`/contratos?project_id=${p.id}`}
                             className={[circleRowActionClass("link"), "inline-flex items-center justify-center bg-indigo-600 hover:bg-indigo-700"].join(" ")}
                           >
@@ -914,7 +914,6 @@ export function ProjectsPage() {
                         {typeof p.client_id === "number" ? (
                           <span className="group relative inline-flex">
                             <Link
-                              title="Cliente CRM"
                               to={`/clientes/${p.client_id}`}
                               className={[circleRowActionClass("link"), "inline-flex items-center justify-center"].join(" ")}
                             >
@@ -935,14 +934,15 @@ export function ProjectsPage() {
                             onClick={() => setPendingDelete(p)}
                           />
                         ) : p.status === "deleted" ? (
-                          <button
-                            type="button"
-                            onClick={() => setPendingRestore(p)}
-                            className="inline-flex items-center gap-1 rounded-md bg-blue-600 px-2 py-1 text-xs font-semibold text-white hover:bg-blue-700 transition shadow-sm"
-                            title="Restaurar proyecto"
-                          >
-                            <RotateCcw className="h-3.5 w-3.5" /> Restaurar
-                          </button>
+                          <LabTooltip text="Restaurar proyecto">
+                            <button
+                              type="button"
+                              onClick={() => setPendingRestore(p)}
+                              className="inline-flex items-center gap-1 rounded-md bg-blue-600 px-2 py-1 text-xs font-semibold text-white hover:bg-blue-700 transition shadow-sm"
+                            >
+                              <RotateCcw className="h-3.5 w-3.5" /> Restaurar
+                            </button>
+                          </LabTooltip>
                         ) : (
                           <LabCircleIconAction
                             variant="cancel"

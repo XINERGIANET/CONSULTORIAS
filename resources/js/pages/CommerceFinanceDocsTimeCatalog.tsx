@@ -1,6 +1,6 @@
 import { AlertTriangle, ChevronRight, Clock, CreditCard, Database, ExternalLink, Eye, FileText, HandCoins, Landmark, PiggyBank, Receipt, Trash2, TrendingUp, Wallet } from "lucide-react";
 import { Link } from "react-router-dom";
-import { LabCircleIconAction } from "../xpande/LabTableKit";
+import { LabCircleIconAction, LabTooltip } from "../xpande/LabTableKit";
 import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { ConfirmModal } from "../components/ConfirmModal";
 import { SmartSelect } from "../components/SmartSelect";
@@ -853,31 +853,35 @@ export function FinanzasHubPage() {
                         {projName ? <span className="block text-[11px] text-zinc-400">{projName}</span> : null}
                       </td>
                       <td className="py-2.5 pr-3 text-zinc-400">{catName ?? "—"}</td>
-                      <td className="py-2.5 pr-3 max-w-[180px] truncate" title={String(r.description ?? "")}>{String(r.description ?? "—")}</td>
+                      <td className="py-2.5 pr-3 max-w-[180px] truncate">
+                        <LabTooltip text={String(r.description ?? "")}>{String(r.description ?? "—")}</LabTooltip>
+                      </td>
                       <td className="py-2.5 text-right font-extrabold text-emerald-600 dark:text-emerald-400">S/. {fmtMoney(Number(r.amount))}</td>
                       <td className="py-2.5 text-right align-middle">
                         <div className="flex justify-end gap-1.5">
-                          <button
-                            type="button"
-                            className={`inline-flex h-8 w-8 items-center justify-center rounded-full border transition-colors ${
-                              isLight ? "border-slate-300 bg-slate-100 text-slate-700 hover:bg-slate-200" : "border-white/10 bg-white/5 text-zinc-300 hover:bg-white/10"
-                            }`}
-                            title="Ver detalles"
-                            onClick={() => setDetailItem({ type: "income", data: r })}
-                          >
-                            <Eye className="h-3.5 w-3.5" />
-                          </button>
+                          <LabTooltip text="Ver detalles">
+                            <button
+                              type="button"
+                              className={`inline-flex h-8 w-8 items-center justify-center rounded-full border transition-colors ${
+                                isLight ? "border-slate-300 bg-slate-100 text-slate-700 hover:bg-slate-200" : "border-white/10 bg-white/5 text-zinc-300 hover:bg-white/10"
+                              }`}
+                              onClick={() => setDetailItem({ type: "income", data: r })}
+                            >
+                              <Eye className="h-3.5 w-3.5" />
+                            </button>
+                          </LabTooltip>
 
                           {!orig.isDirect ? (
-                            <Link
-                              to="/cuentas-por-cobrar"
-                              className={`inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-xs font-semibold border ${
-                                isLight ? "border-blue-300 bg-blue-50 text-blue-700 hover:bg-blue-100" : "border-blue-500/30 bg-blue-950/40 text-blue-300 hover:bg-blue-900/60"
-                              }`}
-                              title="Ver Cuenta por Cobrar de origen"
-                            >
-                              <ExternalLink className="h-3 w-3" /> Ver CxC
-                            </Link>
+                            <LabTooltip text="Ver Cuenta por Cobrar de origen">
+                              <Link
+                                to="/cuentas-por-cobrar"
+                                className={`inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-xs font-semibold border ${
+                                  isLight ? "border-blue-300 bg-blue-50 text-blue-700 hover:bg-blue-100" : "border-blue-500/30 bg-blue-950/40 text-blue-300 hover:bg-blue-900/60"
+                                }`}
+                              >
+                                <ExternalLink className="h-3 w-3" /> Ver CxC
+                              </Link>
+                            </LabTooltip>
                           ) : (
                             <>
                               <LabCircleIconAction variant="edit" tooltip="Editar registro directo" ariaLabel="Editar ingreso" onClick={() => void fillInEdit(Number(r.id))} />

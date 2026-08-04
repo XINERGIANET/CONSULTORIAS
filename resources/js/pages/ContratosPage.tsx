@@ -14,7 +14,7 @@ import { ConfirmModal } from "../components/ConfirmModal";
 import { SmartSelect } from "../components/SmartSelect";
 import { useApexTheme } from "../context/ThemeContext";
 import { FormModal } from "../xpande/FormModal";
-import { LabNoticeModal } from "../xpande/LabTableKit";
+import { LabNoticeModal, LabTooltip } from "../xpande/LabTableKit";
 import { deleteJson, getJson, postJson, type LaravelPaginated } from "../xpande/http";
 import { apiErrorMessage } from "../xpande/apiError";
 
@@ -306,11 +306,15 @@ export function ContratosPage() {
 
       {/* Filtered Banner notification if pre-filtered by Project */}
       {filters.project_id && selectedProjectObj ? (
-        <div className="mb-4 flex items-center justify-between rounded-xl border border-indigo-500/30 bg-indigo-50/40 dark:bg-indigo-950/30 p-3.5 text-xs text-indigo-900 dark:text-indigo-200 shadow-sm">
+        <div className={`mb-4 flex items-center justify-between rounded-xl border p-3.5 text-xs shadow-sm ${
+          isLight
+            ? "border-indigo-200 bg-indigo-50/90 text-indigo-950"
+            : "border-indigo-500/30 bg-indigo-950/40 text-indigo-200"
+        }`}>
           <div className="flex items-center gap-2">
-            <FileCheck className="h-4 w-4 text-indigo-500" />
+            <FileCheck className={`h-4 w-4 ${isLight ? "text-indigo-600" : "text-indigo-400"}`} />
             <span>
-              Filtrando contratos del proyecto: <strong>{selectedProjectObj.name}</strong>
+              Filtrando contratos del proyecto: <strong className={isLight ? "text-indigo-950 font-bold" : "text-white font-bold"}>{selectedProjectObj.name}</strong>
             </span>
           </div>
           <button
@@ -319,7 +323,9 @@ export function ContratosPage() {
               setFilters((f) => ({ ...f, project_id: "" }));
               navigate("/contratos", { replace: true });
             }}
-            className="font-semibold text-indigo-600 underline hover:text-indigo-800 dark:text-indigo-400"
+            className={`font-semibold underline transition-colors ${
+              isLight ? "text-indigo-700 hover:text-indigo-900" : "text-indigo-300 hover:text-indigo-100"
+            }`}
           >
             Ver todos los proyectos
           </button>
@@ -465,49 +471,53 @@ export function ContratosPage() {
                     <td className="py-3 px-3">{statusPill(c.status, c.dias_restantes)}</td>
                     <td className="py-3 px-3 text-right">
                       <div className="flex items-center justify-end gap-2">
-                        <button
-                          type="button"
-                          onClick={() => downloadPdf(c.id)}
-                          className="inline-flex items-center gap-1 rounded-md bg-indigo-50 px-2.5 py-1 text-[11px] font-medium text-indigo-700 hover:bg-indigo-100 dark:bg-indigo-950/50 dark:text-indigo-300 dark:hover:bg-indigo-900/60 transition-colors"
-                          title="Descargar PDF del contrato"
-                        >
-                          <Download className="h-3.5 w-3.5" />
-                          <span>PDF</span>
-                        </button>
-
-                        <button
-                          type="button"
-                          onClick={() => {
-                            setActiveDetail(c);
-                            setDetailModalOpen(true);
-                          }}
-                          className="inline-flex items-center gap-1 rounded-md bg-zinc-100 px-2 py-1 text-[11px] font-medium text-zinc-700 hover:bg-zinc-200 dark:bg-white/10 dark:text-zinc-300 dark:hover:bg-white/20 transition-colors"
-                          title="Ver cuotas y cuentas por cobrar"
-                        >
-                          <FileText className="h-3.5 w-3.5" />
-                          <span>Cuotas</span>
-                        </button>
-
-                        {(c.status === "active" || c.status === "expired") ? (
+                        <LabTooltip text="Descargar PDF del contrato">
                           <button
                             type="button"
-                            onClick={() => openRenewModal(c)}
-                            className="inline-flex items-center gap-1 rounded-md bg-emerald-600 px-2.5 py-1 text-[11px] font-medium text-white hover:bg-emerald-700 transition-colors shadow-sm"
-                            title="Renovar contrato"
+                            onClick={() => downloadPdf(c.id)}
+                            className="inline-flex items-center gap-1 rounded-md bg-indigo-50 px-2.5 py-1 text-[11px] font-medium text-indigo-700 hover:bg-indigo-100 dark:bg-indigo-950/50 dark:text-indigo-300 dark:hover:bg-indigo-900/60 transition-colors"
                           >
-                            <RotateCcw className="h-3.5 w-3.5" />
-                            <span>Renovar</span>
+                            <Download className="h-3.5 w-3.5" />
+                            <span>PDF</span>
                           </button>
+                        </LabTooltip>
+
+                        <LabTooltip text="Ver cuotas y cuentas por cobrar">
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setActiveDetail(c);
+                              setDetailModalOpen(true);
+                            }}
+                            className="inline-flex items-center gap-1 rounded-md bg-zinc-100 px-2 py-1 text-[11px] font-medium text-zinc-700 hover:bg-zinc-200 dark:bg-white/10 dark:text-zinc-300 dark:hover:bg-white/20 transition-colors"
+                          >
+                            <FileText className="h-3.5 w-3.5" />
+                            <span>Cuotas</span>
+                          </button>
+                        </LabTooltip>
+
+                        {(c.status === "active" || c.status === "expired") ? (
+                          <LabTooltip text="Renovar contrato">
+                            <button
+                              type="button"
+                              onClick={() => openRenewModal(c)}
+                              className="inline-flex items-center gap-1 rounded-md bg-emerald-600 px-2.5 py-1 text-[11px] font-medium text-white hover:bg-emerald-700 transition-colors shadow-sm"
+                            >
+                              <RotateCcw className="h-3.5 w-3.5" />
+                              <span>Renovar</span>
+                            </button>
+                          </LabTooltip>
                         ) : null}
 
-                        <button
-                          type="button"
-                          onClick={() => setPendingDelete(c)}
-                          className="inline-flex items-center gap-1 rounded-md bg-red-50 px-2 py-1 text-[11px] font-medium text-red-600 hover:bg-red-100 dark:bg-red-950/40 dark:text-red-400 dark:hover:bg-red-900/60 transition-colors"
-                          title="Eliminar contrato"
-                        >
-                          <Trash2 className="h-3.5 w-3.5" />
-                        </button>
+                        <LabTooltip text="Eliminar contrato">
+                          <button
+                            type="button"
+                            onClick={() => setPendingDelete(c)}
+                            className="inline-flex items-center gap-1 rounded-md bg-red-50 px-2 py-1 text-[11px] font-medium text-red-600 hover:bg-red-100 dark:bg-red-950/40 dark:text-red-400 dark:hover:bg-red-900/60 transition-colors"
+                          >
+                            <Trash2 className="h-3.5 w-3.5" />
+                          </button>
+                        </LabTooltip>
                       </div>
                     </td>
                   </tr>
@@ -620,18 +630,22 @@ export function ContratosPage() {
         }
       >
         <div className="space-y-4 text-xs">
-          <div className="grid gap-2 sm:grid-cols-2 rounded-lg border p-3 bg-zinc-50 dark:bg-white/5 border-zinc-200 dark:border-white/10">
+          <div className={`grid gap-2 sm:grid-cols-2 rounded-lg border p-3 ${
+            isLight
+              ? "bg-slate-50 border-slate-200 text-slate-900"
+              : "bg-white/5 border-white/10 text-zinc-100"
+          }`}>
             <div>
-              <span className="text-zinc-500">Cliente:</span> <strong>{activeDetail?.client?.legal_name}</strong>
+              <span className={isLight ? "text-slate-600 font-medium" : "text-zinc-400"}>Cliente:</span> <strong className={isLight ? "text-slate-900" : "text-white"}>{activeDetail?.client?.legal_name}</strong>
             </div>
             <div>
-              <span className="text-zinc-500">Proyecto:</span> <strong>{activeDetail?.project?.name ?? "—"}</strong>
+              <span className={isLight ? "text-slate-600 font-medium" : "text-zinc-400"}>Proyecto:</span> <strong className={isLight ? "text-slate-900" : "text-white"}>{activeDetail?.project?.name ?? "—"}</strong>
             </div>
             <div>
-              <span className="text-zinc-500">Monto Total:</span> <strong className="font-mono">S/ {fmtSoles(activeDetail?.total_amount ?? 0)}</strong>
+              <span className={isLight ? "text-slate-600 font-medium" : "text-zinc-400"}>Monto Total:</span> <strong className="font-mono text-emerald-600 dark:text-emerald-400">S/ {fmtSoles(activeDetail?.total_amount ?? 0)}</strong>
             </div>
             <div>
-              <span className="text-zinc-500">Vigencia:</span> <strong>{activeDetail?.start_date ? String(activeDetail.start_date).slice(0, 10) : "—"} al {activeDetail?.end_date ? String(activeDetail.end_date).slice(0, 10) : "—"}</strong>
+              <span className={isLight ? "text-slate-600 font-medium" : "text-zinc-400"}>Vigencia:</span> <strong className={isLight ? "text-slate-900" : "text-white"}>{activeDetail?.start_date ? String(activeDetail.start_date).slice(0, 10) : "—"} al {activeDetail?.end_date ? String(activeDetail.end_date).slice(0, 10) : "—"}</strong>
             </div>
           </div>
 

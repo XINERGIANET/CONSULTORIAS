@@ -6,7 +6,7 @@ import { SmartSelect } from "../components/SmartSelect";
 import { useAuth } from "../context/AuthContext";
 import { useApexTheme } from "../context/ThemeContext";
 import { FormModal } from "../xpande/FormModal";
-import { LabCircleIconAction, LabNoticeModal } from "../xpande/LabTableKit";
+import { LabCircleIconAction, LabNoticeModal, LabTooltip } from "../xpande/LabTableKit";
 import { deleteJson, getJson, postFormData, postJson, putJson, type LaravelPaginated } from "../xpande/http";
 import {
   LabBreadcrumbs,
@@ -550,27 +550,29 @@ export function CuentasPorCobrarPage() {
                     <td className="py-2.5 text-right align-middle">
                       <div className="flex justify-end gap-1.5">
                         {r.status !== "paid" && r.status !== "cancelled" ? (
-                          <button
-                            type="button"
-                            className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-[#16A34A] text-white shadow-md transition hover:bg-[#15803D]"
-                            onClick={() => openPayment(r)}
-                            title="Registrar cobro"
-                          >
-                            <HandCoins className="h-3.5 w-3.5" strokeWidth={2.25} />
-                          </button>
+                          <LabTooltip text="Registrar cobro">
+                            <button
+                              type="button"
+                              className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-[#16A34A] text-white shadow-md transition hover:bg-[#15803D]"
+                              onClick={() => openPayment(r)}
+                            >
+                              <HandCoins className="h-3.5 w-3.5" strokeWidth={2.25} />
+                            </button>
+                          </LabTooltip>
                         ) : null}
 
                         {r.payments && r.payments.length > 0 ? (
-                          <button
-                            type="button"
-                            className={`inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-xs font-semibold border ${
-                              isLight ? "border-slate-300 bg-slate-100 text-slate-700 hover:bg-slate-200" : "border-white/10 bg-white/5 text-zinc-300 hover:bg-white/10"
-                            }`}
-                            onClick={() => openHistory(r)}
-                            title="Ver historial de abonos"
-                          >
-                            <History className="h-3.5 w-3.5" />
-                          </button>
+                          <LabTooltip text="Ver historial de abonos">
+                            <button
+                              type="button"
+                              className={`inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-xs font-semibold border ${
+                                isLight ? "border-slate-300 bg-slate-100 text-slate-700 hover:bg-slate-200" : "border-white/10 bg-white/5 text-zinc-300 hover:bg-white/10"
+                              }`}
+                              onClick={() => openHistory(r)}
+                            >
+                              <History className="h-3.5 w-3.5" />
+                            </button>
+                          </LabTooltip>
                         ) : null}
 
                         <LabCircleIconAction variant="edit" tooltip="Editar fechas / notas" ariaLabel="Editar cuenta" onClick={() => openEdit(r)} />
@@ -709,19 +711,31 @@ export function CuentasPorCobrarPage() {
       >
         <div className="space-y-4">
           {activeAccount ? (
-            <div className="text-xs text-zinc-500">
-              <p><strong>Cliente:</strong> {activeAccount.client?.legal_name}</p>
-              <p>Total facturado: S/. {fmt(activeAccount.total_amount)} | Pagado: S/. {fmt(activeAccount.paid_amount)} | Saldo: S/. {fmt(activeAccount.balance_amount)}</p>
+            <div className={`rounded-xl border p-3.5 text-xs shadow-sm ${
+              isLight
+                ? "bg-slate-50 border-slate-200 text-slate-800"
+                : "bg-white/5 border-white/10 text-zinc-200"
+            }`}>
+              <p className={`font-bold text-sm mb-1.5 ${isLight ? "text-slate-900" : "text-white"}`}>
+                Cliente: {activeAccount.client?.legal_name ?? "—"}
+              </p>
+              <div className="flex flex-wrap items-center gap-x-4 gap-y-1 font-medium">
+                <span>Total facturado: <strong className={isLight ? "text-slate-900 font-semibold" : "text-white font-semibold"}>S/. {fmt(activeAccount.total_amount)}</strong></span>
+                <span className="text-zinc-300 dark:text-zinc-700">|</span>
+                <span>Pagado: <strong className="text-emerald-600 dark:text-emerald-400 font-semibold">S/. {fmt(activeAccount.paid_amount)}</strong></span>
+                <span className="text-zinc-300 dark:text-zinc-700">|</span>
+                <span>Saldo pendiente: <strong className={Number(activeAccount.balance_amount) > 0 ? "text-red-600 dark:text-red-400 font-bold" : "text-zinc-500 font-semibold"}>S/. {fmt(activeAccount.balance_amount)}</strong></span>
+              </div>
             </div>
           ) : null}
 
           {!activeAccount?.payments || activeAccount.payments.length === 0 ? (
-            <p className="py-4 text-center text-sm text-zinc-500">No hay abonos registrados para esta cuenta.</p>
+            <p className={`py-6 text-center text-sm ${isLight ? "text-slate-500" : "text-zinc-400"}`}>No hay abonos registrados para esta cuenta.</p>
           ) : (
             <div className="overflow-x-auto">
               <table className="w-full text-left text-xs">
                 <thead>
-                  <tr className={isLight ? "text-slate-500 border-b" : "text-zinc-400 border-b border-white/10"}>
+                  <tr className={isLight ? "text-slate-700 border-b border-slate-200 font-bold" : "text-zinc-300 border-b border-white/10 font-bold"}>
                     <th className="pb-2">Fecha</th>
                     <th className="pb-2 text-right">Monto</th>
                     <th className="pb-2">Método</th>
@@ -733,11 +747,11 @@ export function CuentasPorCobrarPage() {
                 </thead>
                 <tbody>
                   {activeAccount.payments.map((p) => (
-                    <tr key={p.id} className={isLight ? "border-b border-slate-100" : "border-b border-white/5"}>
-                      <td className="py-2.5">{p.paid_on ? String(p.paid_on).slice(0, 10) : "—"}</td>
+                    <tr key={p.id} className={isLight ? "border-b border-slate-100 text-slate-800 hover:bg-slate-50/80" : "border-b border-white/5 text-zinc-200 hover:bg-white/[0.02]"}>
+                      <td className={`py-2.5 font-medium ${isLight ? "text-slate-900" : "text-zinc-100"}`}>{p.paid_on ? String(p.paid_on).slice(0, 10) : "—"}</td>
                       <td className="py-2.5 text-right font-bold text-emerald-600 dark:text-emerald-400">S/. {fmt(p.amount)}</td>
-                      <td className="py-2.5">{p.method ?? "—"}</td>
-                      <td className="py-2.5">{p.reference ?? "—"}</td>
+                      <td className={`py-2.5 ${isLight ? "text-slate-800" : "text-zinc-200"}`}>{p.method ?? "—"}</td>
+                      <td className={`py-2.5 ${isLight ? "text-slate-800" : "text-zinc-200"}`}>{p.reference ?? "—"}</td>
                       <td className="py-2.5">
                         {p.receipt_url ? (
                           <a
@@ -749,14 +763,14 @@ export function CuentasPorCobrarPage() {
                             <FileImage className="h-3.5 w-3.5" /> Ver foto
                           </a>
                         ) : (
-                          <span className="text-zinc-400 font-normal">Sin foto</span>
+                          <span className={isLight ? "text-slate-400" : "text-zinc-500"}>Sin foto</span>
                         )}
                       </td>
-                      <td className="py-2.5">{p.registered_by?.name ?? "Sistema"}</td>
+                      <td className={`py-2.5 ${isLight ? "text-slate-700" : "text-zinc-300"}`}>{p.registered_by?.name ?? "Sistema"}</td>
                       <td className="py-2.5 text-right">
                         <button
                           type="button"
-                          className="inline-flex items-center gap-1 rounded px-2.5 py-1 text-xs font-semibold text-indigo-700 bg-indigo-50 hover:bg-indigo-100 dark:bg-indigo-950/40 dark:text-indigo-300 dark:hover:bg-indigo-900/50"
+                          className="inline-flex items-center gap-1 rounded-md px-2.5 py-1 text-xs font-semibold text-indigo-700 bg-indigo-50 hover:bg-indigo-100 dark:bg-indigo-950/50 dark:text-indigo-300 dark:hover:bg-indigo-900/60 transition-colors"
                           onClick={() => openEditPayment(p)}
                         >
                           <Pencil className="h-3 w-3" /> Editar
